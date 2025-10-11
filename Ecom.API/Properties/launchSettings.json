@@ -1,0 +1,33 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+
+      "applicationUrl": "http://localhost:5055",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+
+      "applicationUrl": "https://localhost:7130;http://localhost:5055",
+      "environmentVariables": {
+        "R2_KEY": "989417c748e285d5db39610eccf8387b",
+        "R2_SECRET": "6485cea9842396e812ecceae37effb3b7d1dd48906ab41760d8689342b0fd889",
+        "R2_ACCOUNT_ID": "a59b26bc6f4cd061679191efc0aaf5b4",
+        "R2_BUCKET_NAME": "images",
+        "R2_PUBLIC_DOMAIN": "https://pub-5e0d94703a8542879fc9e11780a08bb7.r2.dev",
+
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
