@@ -19,11 +19,11 @@ namespace Ecom.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories([FromQuery] bool includeSubCategories = false)
         {
-            var categories = includeSubCategories
+            IEnumerable<CategoryDto>? categories = includeSubCategories
                 ? await _categoryService.GetCategoriesWithSubCategoriesAsync()
                 : await _categoryService.GetAllCategoriesAsync();
 
-            return Ok(categories);
+            return Ok(categories.ToList());
         }
 
         [HttpGet("{id}")]

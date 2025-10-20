@@ -16,9 +16,10 @@ namespace Ecom.Infrastructure.UnitOfWork
         private ISubCategoryRepository? _subCategories;
         private IBaseRepository<Domain.Entity.OrderItem>? _orderItems;
         private IBaseRepository<Domain.Entity.ShippingAddress>? _shippingAddresses;
-        private IBaseRepository<Domain.Entity.Transaction>? _transactions;
+        private ITransactionRepository? _transactions;
         private IBaseRepository<Domain.Entity.Rating>? _ratings;
         private IBaseRepository<Domain.Entity.ProductDetails>? _productDetails;
+        private ICouponRepository? _coupons;
 
         public UnitOfWork(EcomDbContext context)
         {
@@ -43,14 +44,17 @@ namespace Ecom.Infrastructure.UnitOfWork
         public IBaseRepository<Domain.Entity.ShippingAddress> ShippingAddresses =>
             _shippingAddresses ??= new BaseRepository<Domain.Entity.ShippingAddress>(_context);
 
-        public IBaseRepository<Domain.Entity.Transaction> Transactions =>
-            _transactions ??= new BaseRepository<Domain.Entity.Transaction>(_context);
+        public ITransactionRepository Transactions =>
+            _transactions ??= new TransactionRepository(_context);
 
         public IBaseRepository<Domain.Entity.Rating> Ratings =>
             _ratings ??= new BaseRepository<Domain.Entity.Rating>(_context);
 
         public IBaseRepository<Domain.Entity.ProductDetails> ProductDetails =>
             _productDetails ??= new BaseRepository<Domain.Entity.ProductDetails>(_context);
+
+        public ICouponRepository Coupons =>
+            _coupons ??= new CouponRepository(_context);
 
         public async Task<int> SaveChangesAsync()
         {

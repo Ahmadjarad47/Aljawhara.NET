@@ -15,6 +15,12 @@ namespace Ecom.Application.DTOs.Order
         public PaymentMethod PaymentMethod { get; set; }
         public string? AppUserId { get; set; }
         public string CustomerName { get; set; } = string.Empty;
+        
+        // Coupon information
+        public int? CouponId { get; set; }
+        public string? CouponCode { get; set; }
+        public decimal? CouponDiscountAmount { get; set; }
+        
         public List<OrderItemDto> Items { get; set; } = new();
         public ShippingAddressDto ShippingAddress { get; set; } = new();
     }
@@ -25,6 +31,7 @@ namespace Ecom.Application.DTOs.Order
         public ShippingAddressCreateDto ShippingAddress { get; set; } = new();
         public int PaymentMethod { get; set; }
         public decimal? Discount { get; set; }
+        public string? CouponCode { get; set; }
     }
 
     public class OrderUpdateStatusDto

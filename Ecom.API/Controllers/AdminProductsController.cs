@@ -8,7 +8,7 @@ namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/[controller]")]
-    //[Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     public class AdminProductsController : ControllerBase
     {
         private readonly IProductService _productService;
@@ -258,5 +258,221 @@ namespace Ecom.API.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+        // Stock management endpoints for admin
+        [HttpGet("in-stock")]
+        public async Task<ActionResult<PagedResult<ProductSummaryDto>>> GetInStockProducts(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            var allProducts = await _productService.GetInStockProductsAsync();
+            var productsList = allProducts.ToList();
+            var totalCount = productsList.Count;
+
+            var pagedProducts = productsList
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var result = new PagedResult<ProductSummaryDto>(pagedProducts, totalCount, pageNumber, pageSize);
+            return Ok(result);
+        }
+
+        [HttpGet("out-of-stock")]
+        public async Task<ActionResult<PagedResult<ProductSummaryDto>>> GetOutOfStockProducts(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            var allProducts = await _productService.GetOutOfStockProductsAsync();
+            var productsList = allProducts.ToList();
+            var totalCount = productsList.Count;
+
+            var pagedProducts = productsList
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var result = new PagedResult<ProductSummaryDto>(pagedProducts, totalCount, pageNumber, pageSize);
+            return Ok(result);
+        }
+
+        [HttpGet("low-stock")]
+        public async Task<ActionResult<PagedResult<ProductSummaryDto>>> GetLowStockProducts(
+            [FromQuery] int threshold = 10,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            var allProducts = await _productService.GetLowStockProductsAsync(threshold);
+            var productsList = allProducts.ToList();
+            var totalCount = productsList.Count;
+
+            var pagedProducts = productsList
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var result = new PagedResult<ProductSummaryDto>(pagedProducts, totalCount, pageNumber, pageSize);
+            return Ok(result);
+        }
+
+        [HttpPut("{id}/stock")]
+        public async Task<ActionResult<object>> UpdateProductStock(int id, [FromBody] UpdateStockRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var success = await _productService.UpdateProductStockAsync(id, request.NewStockQuantity);
+                if (!success)
+                {
+                    return NotFound($"Product with ID {id} not found.");
+                }
+
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product == null)
+                {
+                    return NotFound($"Product with ID {id} not found.");
+                }
+
+                return Ok(new
+                {
+                    ProductId = id,
+                    IsInStock = product.IsInStock,
+                    TotalInStock = product.TotalInStock,
+                    Message = "Stock updated successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{id}/stock/increase")]
+        public async Task<ActionResult<object>> IncreaseProductStock(int id, [FromBody] StockQuantityRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var success = await _productService.IncreaseProductStockAsync(id, request.Quantity);
+                if (!success)
+                {
+                    return NotFound($"Product with ID {id} not found.");
+                }
+
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product == null)
+                {
+                    return NotFound($"Product with ID {id} not found.");
+                }
+
+                return Ok(new
+                {
+                    ProductId = id,
+                    IsInStock = product.IsInStock,
+                    TotalInStock = product.TotalInStock,
+                    Message = $"Stock increased by {request.Quantity}"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{id}/stock/reduce")]
+        public async Task<ActionResult<object>> ReduceProductStock(int id, [FromBody] StockQuantityRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var success = await _productService.ReduceProductStockAsync(id, request.Quantity);
+                if (!success)
+                {
+                    return BadRequest($"Product with ID {id} not found or insufficient stock.");
+                }
+
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product == null)
+                {
+                    return NotFound($"Product with ID {id} not found.");
+                }
+
+                return Ok(new
+                {
+                    ProductId = id,
+                    IsInStock = product.IsInStock,
+                    TotalInStock = product.TotalInStock,
+                    Message = $"Stock reduced by {request.Quantity}"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{id}/stock/status")]
+        public async Task<ActionResult<object>> SetProductStockStatus(int id, [FromBody] StockStatusRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var success = await _productService.SetProductInStockStatusAsync(id, request.IsInStock);
+                if (!success)
+                {
+                    return NotFound($"Product with ID {id} not found.");
+                }
+
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product == null)
+                {
+                    return NotFound($"Product with ID {id} not found.");
+                }
+
+                return Ok(new
+                {
+                    ProductId = id,
+                    IsInStock = product.IsInStock,
+                    TotalInStock = product.TotalInStock,
+                    Message = $"Stock status updated to {(request.IsInStock ? "In Stock" : "Out of Stock")}"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+    }
+
+    // Request DTOs for stock management
+    public class UpdateStockRequest
+    {
+        public int NewStockQuantity { get; set; }
+    }
+
+    public class StockQuantityRequest
+    {
+        public int Quantity { get; set; }
+    }
+
+    public class StockStatusRequest
+    {
+        public bool IsInStock { get; set; }
     }
 }

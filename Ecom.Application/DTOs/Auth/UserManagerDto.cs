@@ -67,4 +67,46 @@ namespace Ecom.Application.DTOs.Auth
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
     }
+
+    public class SendOtpDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class VerifyOtpDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+        
+        [Required]
+        [StringLength(6, MinimumLength = 6)]
+        public string Otp { get; set; } = string.Empty;
+    }
+
+    public class ChangePasswordDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+        
+        [Required]
+        [StringLength(6, MinimumLength = 6)]
+        public string Otp { get; set; } = string.Empty;
+        
+        [Required]
+        [StringLength(100, MinimumLength = 6)]
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    public class ConfirmEmailDto
+    {
+        [Required]
+        public string UserId { get; set; } = string.Empty;
+        
+        [Required]
+        public string Token { get; set; } = string.Empty;
+    }
 }

@@ -114,6 +114,45 @@ namespace Ecom.API.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+        // Stock management endpoints
+        [HttpGet("in-stock")]
+        public async Task<ActionResult<IEnumerable<ProductSummaryDto>>> GetInStockProducts()
+        {
+            var products = await _productService.GetInStockProductsAsync();
+            return Ok(products);
+        }
+
+        [HttpGet("out-of-stock")]
+        public async Task<ActionResult<IEnumerable<ProductSummaryDto>>> GetOutOfStockProducts()
+        {
+            var products = await _productService.GetOutOfStockProductsAsync();
+            return Ok(products);
+        }
+
+        [HttpGet("low-stock")]
+        public async Task<ActionResult<IEnumerable<ProductSummaryDto>>> GetLowStockProducts([FromQuery] int threshold = 10)
+        {
+            var products = await _productService.GetLowStockProductsAsync(threshold);
+            return Ok(products);
+        }
+
+        [HttpGet("{id}/stock")]
+        public async Task<ActionResult<object>> GetProductStock(int id)
+        {
+            var product = await _productService.GetProductByIdAsync(id);
+            if (product == null)
+            {
+                return NotFound($"Product with ID {id} not found.");
+            }
+
+            return Ok(new
+            {
+                ProductId = id,
+                IsInStock = product.IsInStock,
+                TotalInStock = product.TotalInStock
+            });
+        }
     }
 }
 

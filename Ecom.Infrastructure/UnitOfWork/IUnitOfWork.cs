@@ -10,9 +10,10 @@ namespace Ecom.Infrastructure.UnitOfWork
         ISubCategoryRepository SubCategories { get; }
         IBaseRepository<Domain.Entity.OrderItem> OrderItems { get; }
         IBaseRepository<Domain.Entity.ShippingAddress> ShippingAddresses { get; }
-        IBaseRepository<Domain.Entity.Transaction> Transactions { get; }
+        ITransactionRepository Transactions { get; }
         IBaseRepository<Domain.Entity.Rating> Ratings { get; }
         IBaseRepository<Domain.Entity.ProductDetails> ProductDetails { get; }
+        ICouponRepository Coupons { get; }
 
         Task<int> SaveChangesAsync();
         Task BeginTransactionAsync();

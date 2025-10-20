@@ -7,7 +7,7 @@ namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/user-manager")]
-    //[Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     public class AdminUserManagerController : ControllerBase
     {
         private readonly IUserManagerService _userManagerService;

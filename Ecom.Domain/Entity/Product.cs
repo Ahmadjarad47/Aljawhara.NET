@@ -11,6 +11,8 @@ namespace Ecom.Domain.Entity
         public string Description { get; set; } = string.Empty;
         public decimal oldPrice { get; set; }
         public decimal newPrice { get; set; }
+        public bool IsInStock { get; set; } = true;
+        public int TotalInStock { get; set; } = 0;
 
         public string[] Images { get; set; } = Array.Empty<string>();
         public List<ProductDetails> productDetails { get; set; } = new List<ProductDetails>();

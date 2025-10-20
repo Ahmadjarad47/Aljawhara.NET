@@ -1,10 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using Ecom.Application.DTOs.Auth;
-using Ecom.Application.DTOs.Order;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Ecom.API.Controllers
@@ -13,17 +11,13 @@ namespace Ecom.API.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly UserManager<AppUsers> _userManager;
-        private readonly SignInManager<AppUsers> _signInManager;
-        private readonly IAddressService _addressService;
+        private readonly IUserManagerService _userManagerService;
         private readonly IJwtService _jwtService;
         private readonly IConfiguration _configuration;
 
-        public AuthController(UserManager<AppUsers> userManager, SignInManager<AppUsers> signInManager, IAddressService addressService, IJwtService jwtService, IConfiguration configuration)
+        public AuthController(IUserManagerService userManagerService, IJwtService jwtService, IConfiguration configuration)
         {
-            _userManager = userManager;
-            _signInManager = signInManager;
-            _addressService = addressService;
+            _userManagerService = userManagerService;
             _jwtService = jwtService;
             _configuration = configuration;
         }
@@ -31,9 +25,10 @@ namespace Ecom.API.Controllers
         [HttpGet("isAuth")]
         public IActionResult isAuth() => User.Identity!.IsAuthenticated ? Ok() : Unauthorized();
         [HttpGet("isAdmin")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Get()
         {
-            return User.Identity!.IsAuthenticated ? Ok(new { isAdmin = true }) : Unauthorized();
+            return User.IsInRole("Admin") ? Ok(new { isAdmin = true }) : Unauthorized();
         }
 
 
@@ -45,27 +40,21 @@ namespace Ecom.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            var user = new AppUsers
+            try
             {
-                UserName = registerDto.Username,
-                Email = registerDto.Email,
-                PhoneNumber = registerDto.PhoneNumber,
-                EmailConfirmed = true // For demo purposes
-            };
+                var result = await _userManagerService.CreateUserAsync(registerDto);
+                
+                if (result.Success)
+                {
+                    return Ok(new { Message = result.Message, UserId = result.UserId });
+                }
 
-            var result = await _userManager.CreateAsync(user, registerDto.Password);
-
-            if (result.Succeeded)
-            {
-                return Ok(new { Message = "User registered successfully", UserId = user.Id });
+                return BadRequest(result.Message);
             }
-
-            foreach (var error in result.Errors)
+            catch (Exception ex)
             {
-                ModelState.AddModelError(string.Empty, error.Description);
+                return StatusCode(500, new { Message = "An error occurred while registering the user", Error = ex.Message });
             }
-
-            return BadRequest(ModelState);
         }
 
         [HttpPost("login")]
@@ -76,25 +65,126 @@ namespace Ecom.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            var user = await _userManager.FindByEmailAsync(loginDto.Email);
-            if (user == null)
+            try
             {
-                return BadRequest("Invalid email or password");
+                var result = await _userManagerService.ValidateLoginAsync(loginDto);
+
+                if (result.Success && result.User != null)
+                {
+                    var token = _jwtService.GenerateToken(result.User);
+                    var refreshToken = _jwtService.GenerateRefreshToken();
+                    var expiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60");
+                    var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
+
+                    var response = new LoginResponseDto
+                    {
+                        Token = token,
+                        RefreshToken = refreshToken,
+                        ExpiresAt = expiresAt,
+                        User = new UserResponseDto
+                        {
+                            Id = result.User.Id,
+                            Username = result.User.UserName ?? string.Empty,
+                            Email = result.User.Email ?? string.Empty,
+                            PhoneNumber = result.User.PhoneNumber ?? string.Empty,
+                            EmailConfirmed = result.User.EmailConfirmed
+                        }
+                    };
+
+                    return Ok(response);
+                }
+
+                return BadRequest(result.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "An error occurred while logging in", Error = ex.Message });
+            }
+        }
+
+        [HttpPost("confirm-email")]
+        public async Task<ActionResult> ConfirmEmail([FromBody] ConfirmEmailDto confirmEmailDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
             }
 
-            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, lockoutOnFailure: false);
-
-            if (result.Succeeded)
+            try
             {
+                var result = await _userManagerService.ConfirmUserEmailAsync(confirmEmailDto.UserId, confirmEmailDto.Token);
+                if (result)
+                {
+                    return Ok(new { Message = "Email confirmed successfully. You can now log in." });
+                }
+                return BadRequest("Invalid or expired confirmation token");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "An error occurred while confirming email", Error = ex.Message });
+            }
+        }
+
+        [HttpPost("logout")]
+        [Authorize]
+        public IActionResult Logout()
+        {
+            // With JWT, logout is typically handled client-side by removing the token
+            // Server-side logout would require token blacklisting which is more complex
+            return Ok(new { Message = "Logout successful" });
+        }
+
+        [HttpPost("refresh-token")]
+        [Authorize]
+        public async Task<ActionResult<LoginResponseDto>> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                // In a real application, you would validate the refresh token against a database
+                // For now, we'll generate a new token (this is a simplified implementation)
+                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("Invalid refresh token");
+                }
+
+                // Get user from UserManagerService
+                var userDto = await _userManagerService.GetUserByIdAsync(userId);
+                if (userDto == null)
+                {
+                    return Unauthorized("User not found");
+                }
+
+                // Check if user is still active
+                if (userDto.IsBlocked)
+                {
+                    return Unauthorized("Account is blocked");
+                }
+
+                // Create a temporary user object for token generation
+                var user = new AppUsers
+                {
+                    Id = userDto.Id,
+                    UserName = userDto.Username,
+                    Email = userDto.Email,
+                    PhoneNumber = userDto.PhoneNumber,
+                    EmailConfirmed = userDto.EmailConfirmed
+                };
+
                 var token = _jwtService.GenerateToken(user);
-                var refreshToken = _jwtService.GenerateRefreshToken();
+                var newRefreshToken = _jwtService.GenerateRefreshToken();
                 var expiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60");
                 var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
 
                 var response = new LoginResponseDto
                 {
                     Token = token,
-                    RefreshToken = refreshToken,
+                    RefreshToken = newRefreshToken,
                     ExpiresAt = expiresAt,
                     User = new UserResponseDto
                     {
@@ -108,219 +198,140 @@ namespace Ecom.API.Controllers
 
                 return Ok(response);
             }
-
-            return BadRequest("Invalid email or password");
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "An error occurred while refreshing token", Error = ex.Message });
+            }
         }
 
-        [HttpPost("logout")]
-        [Authorize]
-        public async Task<ActionResult> Logout()
-        {
-            // With JWT, logout is typically handled client-side by removing the token
-            // Server-side logout would require token blacklisting which is more complex
-            return Ok(new { Message = "Logout successful" });
-        }
-
-        [HttpPost("refresh-token")]
-        public async Task<ActionResult<LoginResponseDto>> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+        [HttpPost("send-otp")]
+        public async Task<ActionResult> SendOtp([FromBody] SendOtpDto sendOtpDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            // In a real application, you would validate the refresh token against a database
-            // For now, we'll generate a new token (this is a simplified implementation)
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            // Basic email validation
+            if (string.IsNullOrWhiteSpace(sendOtpDto.Email) || !sendOtpDto.Email.Contains("@"))
             {
-                return Unauthorized("Invalid refresh token");
+                return BadRequest("Please provide a valid email address");
             }
 
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-            {
-                return Unauthorized("User not found");
-            }
-
-            var token = _jwtService.GenerateToken(user);
-            var newRefreshToken = _jwtService.GenerateRefreshToken();
-            var expiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60");
-            var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
-
-            var response = new LoginResponseDto
-            {
-                Token = token,
-                RefreshToken = newRefreshToken,
-                ExpiresAt = expiresAt,
-                User = new UserResponseDto
-                {
-                    Id = user.Id,
-                    Username = user.UserName ?? string.Empty,
-                    Email = user.Email ?? string.Empty,
-                    PhoneNumber = user.PhoneNumber ?? string.Empty,
-                    EmailConfirmed = user.EmailConfirmed
-                }
-            };
-
-            return Ok(response);
-        }
-
-        // User's own address management endpoints
-        [HttpGet("my-addresses")]
-        [Authorize]
-        public async Task<ActionResult<IEnumerable<ShippingAddressDto>>> GetMyAddresses()
-        {
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
+                var result = await _userManagerService.SendOtpAsync(sendOtpDto);
+                if (result)
                 {
-                    return Unauthorized();
+                    return Ok(new { Message = "OTP sent successfully to your email" });
                 }
-
-                var addresses = await _addressService.GetUserAddressesAsync(userId);
-                return Ok(addresses);
+                return BadRequest("Failed to send OTP. Please check your email address.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = "An error occurred while retrieving addresses", Error = ex.Message });
+                return StatusCode(500, new { Message = "An error occurred while sending OTP", Error = ex.Message });
             }
         }
 
-        [HttpGet("my-addresses/{addressId}")]
-        [Authorize]
-        public async Task<ActionResult<ShippingAddressDto>> GetMyAddress(int addressId)
-        {
-            try
-            {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                var address = await _addressService.GetAddressByIdAsync(addressId, userId);
-                if (address == null)
-                {
-                    return NotFound("Address not found");
-                }
-                return Ok(address);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "An error occurred while retrieving the address", Error = ex.Message });
-            }
-        }
-
-        [HttpPost("my-addresses")]
-        [Authorize]
-        public async Task<ActionResult<ShippingAddressDto>> CreateMyAddress([FromBody] ShippingAddressCreateDto addressDto)
+        [HttpPost("verify-otp")]
+        public async Task<ActionResult> VerifyOtp([FromBody] VerifyOtpDto verifyOtpDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
+            // Basic validation
+            if (string.IsNullOrWhiteSpace(verifyOtpDto.Email) || !verifyOtpDto.Email.Contains("@"))
+            {
+                return BadRequest("Please provide a valid email address");
+            }
+
+            if (string.IsNullOrWhiteSpace(verifyOtpDto.Otp) || verifyOtpDto.Otp.Length != 6)
+            {
+                return BadRequest("Please provide a valid 6-digit OTP");
+            }
+
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
+                var result = await _userManagerService.VerifyOtpAsync(verifyOtpDto);
+                if (result)
                 {
-                    return Unauthorized();
+                    return Ok(new { Message = "OTP verified successfully" });
                 }
-
-                var address = await _addressService.CreateAddressAsync(addressDto, userId);
-                return CreatedAtAction(nameof(GetMyAddress), new { addressId = address.Id }, address);
+                return BadRequest("Invalid OTP or OTP has expired");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = "An error occurred while creating the address", Error = ex.Message });
+                return StatusCode(500, new { Message = "An error occurred while verifying OTP", Error = ex.Message });
             }
         }
 
-        [HttpPut("my-addresses/{addressId}")]
-        [Authorize]
-        public async Task<ActionResult<ShippingAddressDto>> UpdateMyAddress(int addressId, [FromBody] ShippingAddressUpdateDto addressDto)
+        [HttpPost("resend-otp")]
+        public async Task<ActionResult> ResendOtp([FromBody] SendOtpDto sendOtpDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (addressId != addressDto.Id)
+            // Basic email validation
+            if (string.IsNullOrWhiteSpace(sendOtpDto.Email) || !sendOtpDto.Email.Contains("@"))
             {
-                return BadRequest("Address ID mismatch");
+                return BadRequest("Please provide a valid email address");
             }
 
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
+                var result = await _userManagerService.SendOtpAsync(sendOtpDto);
+                if (result)
                 {
-                    return Unauthorized();
+                    return Ok(new { Message = "OTP resent successfully to your email" });
                 }
-
-                var address = await _addressService.UpdateAddressAsync(addressDto, userId);
-                return Ok(address);
-            }
-            catch (ArgumentException ex)
-            {
-                return NotFound(ex.Message);
+                return BadRequest("Failed to resend OTP. Please check your email address.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = "An error occurred while updating the address", Error = ex.Message });
+                return StatusCode(500, new { Message = "An error occurred while resending OTP", Error = ex.Message });
             }
         }
 
-        [HttpDelete("my-addresses/{addressId}")]
-        [Authorize]
-        public async Task<ActionResult> DeleteMyAddress(int addressId)
+        [HttpPost("change-password")]
+        public async Task<ActionResult> ChangePassword([FromBody] ChangePasswordDto changePasswordDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Basic validation
+            if (string.IsNullOrWhiteSpace(changePasswordDto.Email) || !changePasswordDto.Email.Contains("@"))
+            {
+                return BadRequest("Please provide a valid email address");
+            }
+
+            if (string.IsNullOrWhiteSpace(changePasswordDto.Otp) || changePasswordDto.Otp.Length != 6)
+            {
+                return BadRequest("Please provide a valid 6-digit OTP");
+            }
+
+            if (string.IsNullOrWhiteSpace(changePasswordDto.NewPassword) || changePasswordDto.NewPassword.Length < 6)
+            {
+                return BadRequest("Password must be at least 6 characters long");
+            }
+
             try
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
+                var result = await _userManagerService.ChangePasswordWithOtpAsync(changePasswordDto);
+                if (result)
                 {
-                    return Unauthorized();
+                    return Ok(new { Message = "Password changed successfully" });
                 }
-
-                var result = await _addressService.DeleteAddressAsync(addressId, userId);
-                if (!result)
-                {
-                    return NotFound("Address not found");
-                }
-                return NoContent();
+                return BadRequest("Failed to change password. Please verify your OTP and try again.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = "An error occurred while deleting the address", Error = ex.Message });
-            }
-        }
-
-        [HttpPost("my-addresses/{addressId}/set-default")]
-        [Authorize]
-        public async Task<ActionResult> SetMyDefaultAddress(int addressId)
-        {
-            try
-            {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                var result = await _addressService.SetDefaultAddressAsync(addressId, userId);
-                if (!result)
-                {
-                    return NotFound("Address not found");
-                }
-                return Ok(new { Message = "Default address set successfully" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "An error occurred while setting the default address", Error = ex.Message });
+                return StatusCode(500, new { Message = "An error occurred while changing password", Error = ex.Message });
             }
         }
     }

@@ -9,6 +9,8 @@ namespace Ecom.Application.DTOs.Product
         public string Description { get; set; } = string.Empty;
         public decimal OldPrice { get; set; }
         public decimal NewPrice { get; set; }
+        public bool IsInStock { get; set; }
+        public int TotalInStock { get; set; }
         public string[] Images { get; set; } = Array.Empty<string>();
         public int SubCategoryId { get; set; }
         public string SubCategoryName { get; set; } = string.Empty;
@@ -25,6 +27,8 @@ namespace Ecom.Application.DTOs.Product
         public string Description { get; set; } = string.Empty;
         public decimal OldPrice { get; set; }
         public decimal NewPrice { get; set; }
+        public bool IsInStock { get; set; } = true;
+        public int TotalInStock { get; set; } = 0;
         public int SubCategoryId { get; set; }
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
     }
@@ -36,6 +40,8 @@ namespace Ecom.Application.DTOs.Product
         public string Description { get; set; } = string.Empty;
         public decimal OldPrice { get; set; }
         public decimal NewPrice { get; set; }
+        public bool IsInStock { get; set; }
+        public int TotalInStock { get; set; }
         public string[] Images { get; set; } = Array.Empty<string>();
         public int SubCategoryId { get; set; }
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
@@ -47,6 +53,8 @@ namespace Ecom.Application.DTOs.Product
         public string Title { get; set; } = string.Empty;
         public decimal OldPrice { get; set; }
         public decimal NewPrice { get; set; }
+        public bool IsInStock { get; set; }
+        public int TotalInStock { get; set; }
         public string MainImage { get; set; } = string.Empty;
         public string SubCategoryName { get; set; } = string.Empty;
         public double AverageRating { get; set; }
@@ -59,6 +67,8 @@ namespace Ecom.Application.DTOs.Product
         public string Description { get; set; } = string.Empty;
         public decimal OldPrice { get; set; }
         public decimal NewPrice { get; set; }
+        public bool IsInStock { get; set; } = true;
+        public int TotalInStock { get; set; } = 0;
         public int SubCategoryId { get; set; }
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
         public IFormFileCollection? Images { get; set; }
@@ -71,6 +81,8 @@ namespace Ecom.Application.DTOs.Product
         public string Description { get; set; } = string.Empty;
         public decimal OldPrice { get; set; }
         public decimal NewPrice { get; set; }
+        public bool IsInStock { get; set; }
+        public int TotalInStock { get; set; }
         public int SubCategoryId { get; set; }
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
         public IFormFileCollection? Images { get; set; }

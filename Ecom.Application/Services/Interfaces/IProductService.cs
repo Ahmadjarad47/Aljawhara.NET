@@ -44,6 +44,15 @@ namespace Ecom.Application.Services.Interfaces
 
         Task<RatingDto> AddProductRatingAsync(RatingCreateDto ratingDto);
         Task<IEnumerable<RatingDto>> GetProductRatingsAsync(int productId);
+
+        // Stock management methods
+        Task<bool> UpdateProductStockAsync(int productId, int newStockQuantity);
+        Task<bool> ReduceProductStockAsync(int productId, int quantity);
+        Task<bool> IncreaseProductStockAsync(int productId, int quantity);
+        Task<bool> SetProductInStockStatusAsync(int productId, bool isInStock);
+        Task<IEnumerable<ProductSummaryDto>> GetInStockProductsAsync();
+        Task<IEnumerable<ProductSummaryDto>> GetOutOfStockProductsAsync();
+        Task<IEnumerable<ProductSummaryDto>> GetLowStockProductsAsync(int threshold = 10);
     }
 }
 

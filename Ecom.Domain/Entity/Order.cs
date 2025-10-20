@@ -17,6 +17,11 @@ namespace Ecom.Domain.Entity
         public decimal Total { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
 
+        // Coupon relationship
+        public int? CouponId { get; set; }
+        public Coupon? Coupon { get; set; }
+        public decimal? CouponDiscountAmount { get; set; }
+
         public List<OrderItem> Items { get; set; } = new List<OrderItem>();
         // Foreign key to ShippingAddress
         public int ShippingAddressId { get; set; }

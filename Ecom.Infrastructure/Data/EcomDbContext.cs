@@ -19,6 +19,7 @@ namespace Ecom.Infrastructure.Data
         public DbSet<ShippingAddress> ShippingAddresses { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<Rating> Ratings { get; set; }
+        public DbSet<Coupon> Coupons { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -92,6 +93,11 @@ namespace Ecom.Infrastructure.Data
                       .WithMany()
                       .HasForeignKey(e => e.ShippingAddressId)
                       .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Coupon)
+                      .WithMany(e => e.Orders)
+                      .HasForeignKey(e => e.CouponId)
+                      .OnDelete(DeleteBehavior.SetNull);
+                entity.Property(e => e.CouponDiscountAmount).HasColumnType("decimal(18,2)");
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
@@ -125,8 +131,8 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.PostalCode).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.Country).IsRequired().HasMaxLength(100);
                 entity.HasOne(e => e.AppUser)
-                      .WithMany(e => e.ShippingAddresses)
-                      .HasForeignKey(e => e.AppUserId)
+                      .WithOne()
+                      .HasForeignKey<ShippingAddress>(e => e.AppUserId)
                       .OnDelete(DeleteBehavior.SetNull);
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
@@ -161,6 +167,24 @@ namespace Ecom.Infrastructure.Data
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
+            // Configure Coupon
+            modelBuilder.Entity<Coupon>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Description).HasMaxLength(500);
+                entity.Property(e => e.Value).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.MinimumOrderAmount).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.MaximumDiscountAmount).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.StartDate).IsRequired();
+                entity.Property(e => e.EndDate).IsRequired();
+                entity.HasOne(e => e.AppUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.AppUserId)
+                      .OnDelete(DeleteBehavior.SetNull);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
             // Add indexes for performance
             modelBuilder.Entity<Product>()
                 .HasIndex(p => p.SubCategoryId);
@@ -171,6 +195,19 @@ namespace Ecom.Infrastructure.Data
             modelBuilder.Entity<Order>()
                 .HasIndex(o => o.OrderNumber)
                 .IsUnique();
+
+            modelBuilder.Entity<Coupon>()
+                .HasIndex(c => c.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<Coupon>()
+                .HasIndex(c => c.AppUserId);
+
+            modelBuilder.Entity<Coupon>()
+                .HasIndex(c => c.StartDate);
+
+            modelBuilder.Entity<Coupon>()
+                .HasIndex(c => c.EndDate);
         }
 
         public override int SaveChanges()

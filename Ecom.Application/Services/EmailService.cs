@@ -2,8 +2,9 @@ using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Entity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace Ecom.Application.Services
 {
@@ -162,6 +163,60 @@ namespace Ecom.Application.Services
             }
         }
 
+        public async Task<bool> SendOtpEmailAsync(AppUsers user, string otp)
+        {
+            try
+            {
+                var subject = "رمز التحقق - المتجر الجوهرة";
+                var body = $@"
+                    <html dir='rtl'>
+                    <body style='font-family: Arial, sans-serif; text-align: right;'>
+                        <h2>رمز التحقق</h2>
+                        <p>عزيزي/عزيزتي {user.UserName},</p>
+                        <p>رمز التحقق الخاص بك هو:</p>
+                        <div style='background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;'>
+                            <h1 style='color: #007bff; font-size: 32px; margin: 0; letter-spacing: 5px;'>{otp}</h1>
+                        </div>
+                        <p>هذا الرمز صالح لمدة ساعة واحدة فقط.</p>
+                        <p>إذا لم تطلب هذا الرمز، يرجى تجاهل هذه الرسالة.</p>
+                        <p>مع أطيب التحيات،<br>فريق المتجر الجوهرة</p>
+                    </body>
+                    </html>";
+
+                return await SendEmailAsync(user.Email!, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending OTP email to user {UserId}", user.Id);
+                return false;
+            }
+        }
+
+        public async Task<bool> SendPasswordChangeConfirmationAsync(AppUsers user)
+        {
+            try
+            {
+                var subject = "تأكيد تغيير كلمة المرور - المتجر الجوهرة";
+                var body = $@"
+                    <html dir='rtl'>
+                    <body style='font-family: Arial, sans-serif; text-align: right;'>
+                        <h2>تم تغيير كلمة المرور بنجاح</h2>
+                        <p>عزيزي/عزيزتي {user.UserName},</p>
+                        <p>تم تغيير كلمة المرور الخاصة بحسابك بنجاح.</p>
+                        <p>إذا لم تقم بتغيير كلمة المرور، يرجى الاتصال بنا فوراً.</p>
+                        <p>مع أطيب التحيات،<br>فريق المتجر الجوهرة</p>
+                    </body>
+                    </html>";
+
+                return await SendEmailAsync(user.Email!, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending password change confirmation to user {UserId}", user.Id);
+                return false;
+            }
+        }
+
         private async Task<bool> SendEmailAsync(string toEmail, string subject, string body)
         {
             try
@@ -172,20 +227,25 @@ namespace Ecom.Application.Services
                 var smtpUsername = smtpSettings["Username"];
                 var smtpPassword = smtpSettings["Password"];
                 var fromEmail = smtpSettings["FromEmail"];
-                var fromName = smtpSettings["FromName"] ?? "Ecom Taani";
+                var fromName = smtpSettings["FromName"] ?? "المتجر الجوهرة";
 
-                using var client = new SmtpClient(smtpHost, smtpPort);
-                client.Credentials = new NetworkCredential(smtpUsername, smtpPassword);
-                client.EnableSsl = true;
-
-                using var message = new MailMessage();
-                message.From = new MailAddress(fromEmail!, fromName);
-                message.To.Add(toEmail);
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress(fromName, fromEmail));
+                message.To.Add(new MailboxAddress("", toEmail));
                 message.Subject = subject;
-                message.Body = body;
-                message.IsBodyHtml = true;
 
-                await client.SendMailAsync(message);
+                var bodyBuilder = new BodyBuilder
+                {
+                    HtmlBody = body
+                };
+                message.Body = bodyBuilder.ToMessageBody();
+
+                using var client = new SmtpClient();
+                await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+                await client.AuthenticateAsync(smtpUsername, smtpPassword);
+                await client.SendAsync(message);
+                await client.DisconnectAsync(true);
+
                 return true;
             }
             catch (Exception ex)

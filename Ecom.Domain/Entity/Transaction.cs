@@ -20,6 +20,14 @@ namespace Ecom.Domain.Entity
         public PaymentMethod PaymentMethod { get; set; }  // e.g., CreditCard, PayPal
         public string Status { get; set; } = string.Empty;               // e.g., Pending, Completed, Failed
         public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
+        public DateTime? ProcessedDate { get; set; }
+        public string? TransactionReference { get; set; }
+        public string? PaymentGatewayResponse { get; set; }
+        public string? Notes { get; set; }
+        public bool IsRefunded { get; set; } = false;
+        public decimal? RefundAmount { get; set; }
+        public DateTime? RefundDate { get; set; }
+        public string? RefundReason { get; set; }
 
     }
 }

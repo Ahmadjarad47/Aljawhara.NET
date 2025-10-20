@@ -152,7 +152,10 @@ namespace Ecom.Application.Services
             existingProduct.oldPrice = productDto.OldPrice;
             existingProduct.newPrice = productDto.NewPrice;
             existingProduct.SubCategoryId = productDto.SubCategoryId;
-
+            existingProduct.TotalInStock = productDto.TotalInStock;
+            existingProduct.IsInStock = productDto.IsInStock;
+            existingProduct.Title = productDto.Title;
+            
             // Handle ProductDetails update - clear existing and add new ones
             existingProduct.productDetails.Clear();
             if (productDto.ProductDetails != null && productDto.ProductDetails.Count > 0)
@@ -306,6 +309,80 @@ namespace Ecom.Application.Services
         {
             var products = await _unitOfWork.Products.GetRelatedProductsAsync(productId, count);
             return _mapper.Map<IEnumerable<ProductDto>>(products);
+        }
+
+        // Stock management methods
+        public async Task<bool> UpdateProductStockAsync(int productId, int newStockQuantity)
+        {
+            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            if (product == null)
+                return false;
+
+            product.TotalInStock = newStockQuantity;
+            product.IsInStock = newStockQuantity > 0;
+
+            _unitOfWork.Products.Update(product);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ReduceProductStockAsync(int productId, int quantity)
+        {
+            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            if (product == null || product.TotalInStock < quantity)
+                return false;
+
+            product.TotalInStock -= quantity;
+            product.IsInStock = product.TotalInStock > 0;
+
+            _unitOfWork.Products.Update(product);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> IncreaseProductStockAsync(int productId, int quantity)
+        {
+            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            if (product == null)
+                return false;
+
+            product.TotalInStock += quantity;
+            product.IsInStock = true; // If we're adding stock, it's definitely in stock
+
+            _unitOfWork.Products.Update(product);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> SetProductInStockStatusAsync(int productId, bool isInStock)
+        {
+            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            if (product == null)
+                return false;
+
+            product.IsInStock = isInStock;
+
+            _unitOfWork.Products.Update(product);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<IEnumerable<ProductSummaryDto>> GetInStockProductsAsync()
+        {
+            var products = await _unitOfWork.Products.FindAsync(p => p.IsInStock && p.TotalInStock > 0);
+            return _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
+        }
+
+        public async Task<IEnumerable<ProductSummaryDto>> GetOutOfStockProductsAsync()
+        {
+            var products = await _unitOfWork.Products.FindAsync(p => !p.IsInStock || p.TotalInStock <= 0);
+            return _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
+        }
+
+        public async Task<IEnumerable<ProductSummaryDto>> GetLowStockProductsAsync(int threshold = 10)
+        {
+            var products = await _unitOfWork.Products.FindAsync(p => p.IsInStock && p.TotalInStock > 0 && p.TotalInStock <= threshold);
+            return _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
         }
     }
 }

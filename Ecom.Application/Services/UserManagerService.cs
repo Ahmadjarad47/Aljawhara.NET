@@ -5,6 +5,7 @@ using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace Ecom.Application.Services
 {
@@ -12,15 +13,18 @@ namespace Ecom.Application.Services
     {
         private readonly UserManager<AppUsers> _userManager;
         private readonly IEmailService _emailService;
+        private readonly IOtpService _otpService;
         private readonly ILogger<UserManagerService> _logger;
 
         public UserManagerService(
             UserManager<AppUsers> userManager,
             IEmailService emailService,
+            IOtpService otpService,
             ILogger<UserManagerService> logger)
         {
             _userManager = userManager;
             _emailService = emailService;
+            _otpService = otpService;
             _logger = logger;
         }
 
@@ -315,6 +319,184 @@ namespace Ecom.Application.Services
             {
                 _logger.LogError(ex, "Error resetting password for user: {UserId}", userId);
                 return false;
+            }
+        }
+
+        public async Task<bool> SendOtpAsync(SendOtpDto sendOtpDto)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(sendOtpDto.Email);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for email: {Email}", sendOtpDto.Email);
+                    return false;
+                }
+
+                var otp = await _otpService.GenerateOtpAsync(sendOtpDto.Email);
+                var emailSent = await _emailService.SendOtpEmailAsync(user, otp);
+                
+                if (emailSent)
+                {
+                    _logger.LogInformation("OTP sent successfully to email: {Email}", sendOtpDto.Email);
+                }
+
+                return emailSent;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending OTP to email: {Email}", sendOtpDto.Email);
+                return false;
+            }
+        }
+
+        public async Task<bool> VerifyOtpAsync(VerifyOtpDto verifyOtpDto)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(verifyOtpDto.Email);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for email: {Email}", verifyOtpDto.Email);
+                    return false;
+                }
+
+                var isValid = await _otpService.VerifyOtpAsync(verifyOtpDto.Email, verifyOtpDto.Otp);
+                
+                if (isValid)
+                {
+                    _logger.LogInformation("OTP verified successfully for email: {Email}", verifyOtpDto.Email);
+                }
+
+                return isValid;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying OTP for email: {Email}", verifyOtpDto.Email);
+                return false;
+            }
+        }
+
+        public async Task<bool> ChangePasswordWithOtpAsync(ChangePasswordDto changePasswordDto)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(changePasswordDto.Email);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for email: {Email}", changePasswordDto.Email);
+                    return false;
+                }
+
+                // Verify OTP first
+                var isOtpValid = await _otpService.VerifyOtpAsync(changePasswordDto.Email, changePasswordDto.Otp);
+                if (!isOtpValid)
+                {
+                    _logger.LogWarning("Invalid OTP for email: {Email}", changePasswordDto.Email);
+                    return false;
+                }
+
+                // Remove current password
+                var removePasswordResult = await _userManager.RemovePasswordAsync(user);
+                if (!removePasswordResult.Succeeded)
+                {
+                    _logger.LogError("Failed to remove current password for user: {UserId}", user.Id);
+                    return false;
+                }
+
+                // Add new password
+                var addPasswordResult = await _userManager.AddPasswordAsync(user, changePasswordDto.NewPassword);
+                
+                if (addPasswordResult.Succeeded)
+                {
+                    // Send confirmation email
+                    await _emailService.SendPasswordChangeConfirmationAsync(user);
+                    _logger.LogInformation("Password changed successfully for user: {UserId}", user.Id);
+                }
+
+                return addPasswordResult.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password for email: {Email}", changePasswordDto.Email);
+                return false;
+            }
+        }
+
+        public async Task<(bool Success, string UserId, string Message)> CreateUserAsync(RegisterDto registerDto)
+        {
+            try
+            {
+                var user = new AppUsers
+                {
+                    UserName = registerDto.Username,
+                    Email = registerDto.Email,
+                    PhoneNumber = registerDto.PhoneNumber,
+                    EmailConfirmed = false
+                };
+
+                var result = await _userManager.CreateAsync(user, registerDto.Password);
+
+                if (result.Succeeded)
+                {
+                    // Send email verification
+                    var emailSent = await SendEmailConfirmationAsync(new SendEmailConfirmationDto { UserId = user.Id });
+                    
+                    if (emailSent)
+                    {
+                        return (true, user.Id, "User registered successfully. Please check your email to verify your account.");
+                    }
+                    else
+                    {
+                        return (true, user.Id, "User registered successfully, but failed to send verification email. Please contact support.");
+                    }
+                }
+
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                return (false, string.Empty, errors);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating user with email: {Email}", registerDto.Email);
+                return (false, string.Empty, "An error occurred while creating the user.");
+            }
+        }
+
+        public async Task<(bool Success, AppUsers? User, string Message)> ValidateLoginAsync(LoginDto loginDto)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(loginDto.Email);
+                if (user == null)
+                {
+                    return (false, null, "Invalid email or password");
+                }
+
+                var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
+                if (!result)
+                {
+                    return (false, null, "Invalid email or password");
+                }
+
+                // Check if email is verified
+                if (!user.EmailConfirmed)
+                {
+                    // Send verification email
+                    var emailSent = await SendEmailConfirmationAsync(new SendEmailConfirmationDto { UserId = user.Id });
+                    
+                    var message = emailSent 
+                        ? "Please verify your email address before logging in. A verification email has been sent to your email."
+                        : "Please verify your email address before logging in. Failed to send verification email, please contact support.";
+                    
+                    return (false, null, message);
+                }
+
+                return (true, user, "Login successful");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating login for email: {Email}", loginDto.Email);
+                return (false, null, "An error occurred while validating login.");
             }
         }
     }

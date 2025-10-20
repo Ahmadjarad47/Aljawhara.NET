@@ -9,5 +9,7 @@ namespace Ecom.Application.Services.Interfaces
         Task<bool> SendEmailChangeConfirmationAsync(AppUsers user, string newEmail, string confirmationToken);
         Task<bool> SendUserBlockedNotificationAsync(AppUsers user, string reason, DateTime? blockUntil);
         Task<bool> SendUserUnblockedNotificationAsync(AppUsers user);
+        Task<bool> SendOtpEmailAsync(AppUsers user, string otp);
+        Task<bool> SendPasswordChangeConfirmationAsync(AppUsers user);
     }
 }
