@@ -6,6 +6,7 @@ namespace Ecom.Application.Services.Interfaces
 {
     public interface IUserManagerService
     {
+        // Admin user management methods
         Task<PagedResult<UserManagerDto>> GetUsersAsync(UserSearchDto searchDto);
         Task<UserManagerDto?> GetUserByIdAsync(string userId);
         Task<bool> BlockUserAsync(BlockUserDto blockUserDto);
@@ -17,7 +18,19 @@ namespace Ecom.Application.Services.Interfaces
         Task<bool> ResetUserPasswordAsync(string userId, string newPassword);
         Task<bool> SendOtpAsync(SendOtpDto sendOtpDto);
         Task<bool> VerifyOtpAsync(VerifyOtpDto verifyOtpDto);
-        Task<bool> ChangePasswordWithOtpAsync(ChangePasswordDto changePasswordDto);
+        Task<bool> ChangePasswordWithOtpAsync(ChangePasswordWithOtpDto changePasswordDto);
+        
+        // Authentication methods
+        Task<(bool Success, string UserId, string Message)> RegisterAsync(RegisterDto registerDto);
+        Task<(bool Success, AppUsers? User, string Message)> LoginAsync(LoginDto loginDto);
+        Task<(bool Success, string Message)> VerifyAccountAsync(VerifyAccountDto verifyDto);
+        Task<(bool Success, string Message)> ResendVerificationAsync(ResendVerificationDto resendDto);
+        Task<(bool Success, string Message)> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto);
+        Task<(bool Success, string Message)> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
+        Task<(bool Success, string Message)> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
+        Task<(bool Success, string Message)> LogoutAsync(string userId);
+        
+        // Legacy methods for backward compatibility
         Task<(bool Success, string UserId, string Message)> CreateUserAsync(RegisterDto registerDto);
         Task<(bool Success, AppUsers? User, string Message)> ValidateLoginAsync(LoginDto loginDto);
     }

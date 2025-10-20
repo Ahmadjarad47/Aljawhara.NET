@@ -1,4 +1,5 @@
 using AutoMapper;
+using Ecom.Application.DTOs.Auth;
 using Ecom.Application.DTOs.Category;
 using Ecom.Application.DTOs.Coupon;
 using Ecom.Application.DTOs.Order;
@@ -111,6 +112,11 @@ namespace Ecom.Application.Mappings
             CreateMap<ShippingAddress, ShippingAddressDto>();
             CreateMap<ShippingAddressCreateDto, ShippingAddress>();
             CreateMap<ShippingAddressUpdateDto, ShippingAddress>();
+            
+            // User Address Mappings
+            CreateMap<ShippingAddress, UserAddressDto>();
+            CreateMap<CreateAddressDto, ShippingAddress>();
+            CreateMap<UpdateAddressDto, ShippingAddress>();
 
             CreateMap<Transaction, TransactionDto>();
             CreateMap<TransactionCreateDto, Transaction>();

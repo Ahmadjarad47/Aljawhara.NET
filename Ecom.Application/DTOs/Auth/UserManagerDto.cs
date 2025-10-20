@@ -86,7 +86,17 @@ namespace Ecom.Application.DTOs.Auth
         public string Otp { get; set; } = string.Empty;
     }
 
-    public class ChangePasswordDto
+
+    public class ConfirmEmailDto
+    {
+        [Required]
+        public string UserId { get; set; } = string.Empty;
+        
+        [Required]
+        public string Otp { get; set; } = string.Empty;
+    }
+
+    public class ChangePasswordWithOtpDto
     {
         [Required]
         [EmailAddress]
@@ -99,14 +109,5 @@ namespace Ecom.Application.DTOs.Auth
         [Required]
         [StringLength(100, MinimumLength = 6)]
         public string NewPassword { get; set; } = string.Empty;
-    }
-
-    public class ConfirmEmailDto
-    {
-        [Required]
-        public string UserId { get; set; } = string.Empty;
-        
-        [Required]
-        public string Token { get; set; } = string.Empty;
     }
 }
