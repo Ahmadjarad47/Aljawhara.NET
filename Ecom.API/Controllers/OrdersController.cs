@@ -1,3 +1,4 @@
+using Ecom.API.Controllers.Extensions;
 using Ecom.Application.DTOs.Order;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.constant;
@@ -22,6 +23,15 @@ namespace Ecom.API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<OrderDto>> GetOrder(int id)
         {
+            var orderDto = await _orderService.GetOrderByIdAsync(id);
+            if (orderDto != null)
+            {
+                var userid = User.GetUserId();
+                if (userid.ToString()!= orderDto.AppUserId)
+                {
+                    return Unauthorized();
+                }
+            }
             var order = await _orderService.GetOrderByIdAsync(id);
             if (order == null)
             {
@@ -93,7 +103,14 @@ namespace Ecom.API.Controllers
         {
             try
             {
-                // In a real application, verify the user owns this order or is admin
+                var order = await _orderService.GetOrderByIdAsync(id);
+                if (order!=null)
+                {
+                    if (!User.GetUserId().Equals(order.AppUserId))
+                    {
+                        return Unauthorized();
+                    }
+                }
                 var result = await _orderService.CancelOrderAsync(id);
                 if (!result)
                 {

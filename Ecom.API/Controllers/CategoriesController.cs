@@ -17,7 +17,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories([FromQuery] bool includeSubCategories = false)
+        public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories([FromQuery] bool includeSubCategories = true)
         {
             IEnumerable<CategoryDto>? categories = includeSubCategories
                 ? await _categoryService.GetCategoriesWithSubCategoriesAsync()

@@ -14,6 +14,8 @@ namespace Ecom.Infrastructure.UnitOfWork
         IBaseRepository<Domain.Entity.Rating> Ratings { get; }
         IBaseRepository<Domain.Entity.ProductDetails> ProductDetails { get; }
         ICouponRepository Coupons { get; }
+        IVisitorRepository Visitors { get; }
+        IHealthPingRepository HealthPings { get; }
 
         Task<int> SaveChangesAsync();
         Task BeginTransactionAsync();

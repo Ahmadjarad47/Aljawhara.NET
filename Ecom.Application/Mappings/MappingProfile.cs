@@ -5,6 +5,7 @@ using Ecom.Application.DTOs.Coupon;
 using Ecom.Application.DTOs.Order;
 using Ecom.Application.DTOs.Product;
 using Ecom.Domain.Entity;
+using Ecom.Domain.comman;
 
 namespace Ecom.Application.Mappings
 {
@@ -16,6 +17,7 @@ namespace Ecom.Application.Mappings
             CreateCategoryMappings();
             CreateOrderMappings();
             CreateCouponMappings();
+            CreateAuthMappings();
         }
 
         private void CreateProductMappings()
@@ -26,7 +28,9 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.IsInStock, opt => opt.MapFrom(src => src.IsInStock))
                 .ForMember(dest => dest.TotalInStock, opt => opt.MapFrom(src => src.TotalInStock))
                 .ForMember(dest => dest.SubCategoryName, opt => opt.MapFrom(src => src.subCategory.Name))
+                .ForMember(dest => dest.SubCategoryNameAr, opt => opt.MapFrom(src => src.subCategory.NameAr))
                 .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.subCategory.Category.Name))
+                .ForMember(dest => dest.CategoryNameAr, opt => opt.MapFrom(src => src.subCategory.Category.NameAr))
                 .ForMember(dest => dest.ProductDetails, opt => opt.MapFrom(src => src.productDetails))
                 .ForMember(dest => dest.AverageRating, opt => opt.MapFrom(src => src.Ratings.Any() ? src.Ratings.Average(r => r.RatingNumber) : 0))
                 .ForMember(dest => dest.TotalReviews, opt => opt.MapFrom(src => src.Ratings.Count));
@@ -38,6 +42,7 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.TotalInStock, opt => opt.MapFrom(src => src.TotalInStock))
                 .ForMember(dest => dest.MainImage, opt => opt.MapFrom(src => src.Images.FirstOrDefault() ?? string.Empty))
                 .ForMember(dest => dest.SubCategoryName, opt => opt.MapFrom(src => src.subCategory.Name))
+                .ForMember(dest => dest.SubCategoryNameAr, opt => opt.MapFrom(src => src.subCategory.NameAr))
                 .ForMember(dest => dest.AverageRating, opt => opt.MapFrom(src => src.Ratings.Any() ? src.Ratings.Average(r => r.RatingNumber) : 0))
                 .ForMember(dest => dest.TotalReviews, opt => opt.MapFrom(src => src.Ratings.Count));
 
@@ -65,7 +70,8 @@ namespace Ecom.Application.Mappings
             CreateMap<ProductDetailCreateDto, ProductDetails>();
 
             CreateMap<Rating, RatingDto>()
-                .ForMember(dest => dest.ProductTitle, opt => opt.MapFrom(src => src.Product.Title));
+                .ForMember(dest => dest.ProductTitle, opt => opt.MapFrom(src => src.Product != null ? src.Product.Title : string.Empty))
+                .ForMember(dest => dest.RatingName, opt => opt.Ignore());
             CreateMap<RatingCreateDto, Rating>();
             CreateMap<RatingUpdateDto, Rating>();
         }
@@ -80,6 +86,7 @@ namespace Ecom.Application.Mappings
 
             CreateMap<SubCategory, SubCategoryDto>()
                 .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category.Name))
+                .ForMember(dest => dest.CategoryNameAr, opt => opt.MapFrom(src => src.Category.NameAr))
                 .ForMember(dest => dest.ProductCount, opt => opt.MapFrom(src => src.Products.Count));
 
             CreateMap<SubCategoryCreateDto, SubCategory>();
@@ -168,6 +175,34 @@ namespace Ecom.Application.Mappings
 
             CreateMap<CouponCreateDto, Coupon>();
             CreateMap<CouponUpdateDto, Coupon>();
+        }
+
+        private void CreateAuthMappings()
+        {
+            // AppUser to UserResponseDto mapping
+            CreateMap<AppUsers, UserResponseDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.UserName))
+                .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
+                .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber))
+                .ForMember(dest => dest.EmailConfirmed, opt => opt.MapFrom(src => src.EmailConfirmed))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
+
+            // AppUser to UserManagerDto mapping
+            CreateMap<AppUsers, UserManagerDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.UserName))
+                .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
+                .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber))
+                .ForMember(dest => dest.EmailConfirmed, opt => opt.MapFrom(src => src.EmailConfirmed))
+                .ForMember(dest => dest.IsBlocked, opt => opt.MapFrom(src => src.LockoutEnd.HasValue && src.LockoutEnd > DateTime.UtcNow))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
+                .ForMember(dest => dest.LockoutEnd, opt => opt.MapFrom(src => src.LockoutEnd))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+                .ForMember(dest => dest.LastLoginAt, opt => opt.Ignore()) // This would need to be tracked separately
+                .ForMember(dest => dest.AccessFailedCount, opt => opt.MapFrom(src => src.AccessFailedCount))
+                .ForMember(dest => dest.TwoFactorEnabled, opt => opt.MapFrom(src => src.TwoFactorEnabled));
         }
     }
 

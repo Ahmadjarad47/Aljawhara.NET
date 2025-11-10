@@ -16,7 +16,7 @@ namespace Ecom.Application.DTOs.Coupon
         public DateTime EndDate { get; set; }
         public int? UsageLimit { get; set; }
         public int UsedCount { get; set; }
-        public bool IsActive { get; set; }
+        public new bool IsActive { get; set; }
         public bool IsSingleUse { get; set; }
         public string? AppUserId { get; set; }
         public string? UserName { get; set; }
@@ -137,5 +137,6 @@ namespace Ecom.Application.DTOs.Coupon
         public int? UsageLimit { get; set; }
         public bool IsExpired { get; set; }
         public bool IsFullyUsed { get; set; }
+        public bool IsDeleted { get; set; }
     }
 }

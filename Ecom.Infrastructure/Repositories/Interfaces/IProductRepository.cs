@@ -15,6 +15,12 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
             decimal? minPrice = null,
             decimal? maxPrice = null,
             string? searchTerm = null,
+            bool? isActive = null,
+            string? sortBy = null,
+            bool? inStock = null,
+            bool? onSale = null,
+            bool? newArrival = null,
+            bool? bestDiscount = null,
             int pageNumber = 1,
             int pageSize = 20);
         Task<Product?> GetProductWithDetailsAsync(int productId);

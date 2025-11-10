@@ -24,6 +24,7 @@ namespace Ecom.Application.DTOs.Order
         public decimal? RefundAmount { get; set; }
         public DateTime? RefundDate { get; set; }
         public string? RefundReason { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public class TransactionCreateAdvancedDto
@@ -129,6 +130,7 @@ namespace Ecom.Application.DTOs.Order
         public string Status { get; set; } = string.Empty;
         public DateTime TransactionDate { get; set; }
         public bool IsRefunded { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public class PaymentProcessingDto

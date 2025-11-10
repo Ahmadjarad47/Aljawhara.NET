@@ -3,12 +3,13 @@ using Ecom.Domain.constant;
 using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Ecom.Infrastructure.Repositories
 {
     public class TransactionRepository : BaseRepository<Transaction>, ITransactionRepository
     {
-        public TransactionRepository(EcomDbContext context) : base(context)
+        public TransactionRepository(EcomDbContext context, IMemoryCache cache) : base(context, cache)
         {
         }
 

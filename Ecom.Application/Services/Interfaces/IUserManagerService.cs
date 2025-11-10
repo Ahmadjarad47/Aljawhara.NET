@@ -29,9 +29,14 @@ namespace Ecom.Application.Services.Interfaces
         Task<(bool Success, string Message)> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
         Task<(bool Success, string Message)> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
         Task<(bool Success, string Message)> LogoutAsync(string userId);
+        Task<UserResponseDto?> GetUserDetailsAsync(string userId);
+        Task<(bool Success, string Message)> UpdateUsernameAsync(string userId, string newUsername);
+        Task<(bool Success, string Message)> UpdatePhoneNumberAsync(string userId, string newPhoneNumber);
         
         // Legacy methods for backward compatibility
         Task<(bool Success, string UserId, string Message)> CreateUserAsync(RegisterDto registerDto);
         Task<(bool Success, AppUsers? User, string Message)> ValidateLoginAsync(LoginDto loginDto);
+        Task<string?> GetUserByRefreshTokenAsync(string refreshToken);
+        Task<bool> SetRefreshTokenAsync(string userId, string refreshToken, DateTime expiresAtUtc);
     }
 }

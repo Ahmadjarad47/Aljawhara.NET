@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Ecom.API.Controllers
 {
     [ApiController]
-    [Route("api/admin/[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Route("api/admin/coupons")]
+    [Authorize]
     public class AdminCouponsController : ControllerBase
     {
         private readonly ICouponService _couponService;

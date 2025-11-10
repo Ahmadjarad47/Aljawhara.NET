@@ -8,7 +8,9 @@ namespace Ecom.Domain.Entity
     public class Product : BaseEntity
     {
         public string Title { get; set; } = string.Empty;
+        public string TitleAr { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public string DescriptionAr { get; set; } = string.Empty;
         public decimal oldPrice { get; set; }
         public decimal newPrice { get; set; }
         public bool IsInStock { get; set; } = true;

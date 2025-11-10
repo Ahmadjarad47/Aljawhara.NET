@@ -5,6 +5,7 @@ using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using System.Diagnostics;
 
 namespace Ecom.API.Controllers
 {
@@ -56,7 +57,7 @@ namespace Ecom.API.Controllers
             
             if (!result.Success)
             {
-                return BadRequest(new ApiResponseDto
+                    return BadRequest(new ApiResponseDto
                 {
                     Success = false,
                     Message = result.Message
@@ -98,6 +99,10 @@ namespace Ecom.API.Controllers
             var token = await _jwtService.GenerateTokenAsync(result.User);
             var refreshToken = _jwtService.GenerateRefreshToken();
             var expiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60"));
+            var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenDays"] ?? "7"));
+
+            // Persist refresh token to user
+            await _userManagerService.SetRefreshTokenAsync(result.User.Id, refreshToken, refreshTokenExpiresAt);
 
             var userResponse = new UserResponseDto
             {
@@ -305,8 +310,41 @@ namespace Ecom.API.Controllers
             });
         }
 
-        [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "User not authenticated"
+                });
+            }
+
+            var user = await _userManagerService.GetUserDetailsAsync(userId);
+            if (user == null)
+            {
+                return NotFound(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "User not found"
+                });
+            }
+
+            return Ok(new ApiResponseDto<UserResponseDto>
+            {
+                Success = true,
+                Message = "User details retrieved successfully",
+                Data = user
+            });
+        }
+
+        [HttpPut("me/username")]
+        [Authorize]
+        public async Task<IActionResult> UpdateUsername([FromBody] UpdateUsernameDto dto)
         {
             if (!ModelState.IsValid)
             {
@@ -318,12 +356,158 @@ namespace Ecom.API.Controllers
                 });
             }
 
-            // In a real application, you would validate the refresh token here
-            // For now, we'll return an error as this requires additional implementation
-            return BadRequest(new ApiResponseDto
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
             {
-                Success = false,
-                Message = "Refresh token functionality not implemented yet"
+                return Unauthorized(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "User not authenticated"
+                });
+            }
+
+            var result = await _userManagerService.UpdateUsernameAsync(userId, dto.Username);
+            if (!result.Success)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = result.Message
+                });
+            }
+
+            return Ok(new ApiResponseDto
+            {
+                Success = true,
+                Message = result.Message
+            });
+        }
+
+        [HttpPut("me/phone")]
+        [Authorize]
+        public async Task<IActionResult> UpdatePhoneNumber([FromBody] UpdatePhoneNumberDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid input data",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                });
+            }
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "User not authenticated"
+                });
+            }
+
+            var result = await _userManagerService.UpdatePhoneNumberAsync(userId, dto.PhoneNumber);
+            if (!result.Success)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = result.Message
+                });
+            }
+
+            return Ok(new ApiResponseDto
+            {
+                Success = true,
+                Message = result.Message
+            });
+        }
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+        {
+           
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid input data",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                });
+            }
+
+            // Validate refresh token format early
+            if (!_jwtService.ValidateRefreshTokenFormat(refreshTokenDto.RefreshToken))
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid refresh token format"
+                });
+            }
+
+            // Lookup user by valid refresh token
+            var userId = await _userManagerService.GetUserByRefreshTokenAsync(refreshTokenDto.RefreshToken);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "User not authenticated"
+                });
+            }
+
+            // Optionally validate format of refresh token (basic sanity check)
+            if (string.IsNullOrWhiteSpace(refreshTokenDto.RefreshToken))
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Refresh token is required"
+                });
+            }
+
+            var newAccessToken = await _jwtService.GenerateTokenForUserIdAsync(userId);
+            if (string.IsNullOrEmpty(newAccessToken))
+            {
+                return Unauthorized(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "User not found"
+                });
+            }
+
+            var newRefreshToken = _jwtService.GenerateRefreshToken();
+            var expiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60"));
+            var newRefreshTokenExpiresAt = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenDays"] ?? "7"));
+
+            // Rotate and persist new refresh token
+            await _userManagerService.SetRefreshTokenAsync(userId, newRefreshToken, newRefreshTokenExpiresAt);
+
+            var user = await _userManagerService.GetUserDetailsAsync(userId);
+            if (user == null)
+            {
+                return Unauthorized(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "User not found"
+                });
+            }
+
+            var response = new LoginResponseDto
+            {
+                Token = newAccessToken,
+                RefreshToken = newRefreshToken,
+                ExpiresAt = expiresAt,
+                User = user
+            };
+
+            return Ok(new ApiResponseDto<LoginResponseDto>
+            {
+                Success = true,
+                Message = "Token refreshed successfully",
+                Data = response
             });
         }
 
@@ -548,58 +732,58 @@ namespace Ecom.API.Controllers
             }
         }
 
-        [HttpPost("addresses/set-default")]
-        [Authorize]
-        public async Task<IActionResult> SetDefaultAddress([FromBody] SetDefaultAddressDto setDefaultDto)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new ApiResponseDto
-                {
-                    Success = false,
-                    Message = "Invalid input data",
-                    Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
-                });
-            }
+        //[HttpPost("addresses/set-default")]
+        //[Authorize]
+        //public async Task<IActionResult> SetDefaultAddress([FromBody] SetDefaultAddressDto setDefaultDto)
+        //{
+        //    if (!ModelState.IsValid)
+        //    {
+        //        return BadRequest(new ApiResponseDto
+        //        {
+        //            Success = false,
+        //            Message = "Invalid input data",
+        //            Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+        //        });
+        //    }
 
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized(new ApiResponseDto
-                {
-                    Success = false,
-                    Message = "User not authenticated"
-                });
-            }
+        //    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        //    if (string.IsNullOrEmpty(userId))
+        //    {
+        //        return Unauthorized(new ApiResponseDto
+        //        {
+        //            Success = false,
+        //            Message = "User not authenticated"
+        //        });
+        //    }
 
-            try
-            {
-                var result = await _addressService.SetDefaultAddressAsync(setDefaultDto.AddressId, userId);
-                if (!result)
-                {
-                    return NotFound(new ApiResponseDto
-                    {
-                        Success = false,
-                        Message = "Address not found"
-                    });
-                }
+        //    try
+        //    {
+        //        var result = await _addressService.SetDefaultAddressAsync(setDefaultDto.AddressId, userId);
+        //        if (!result)
+        //        {
+        //            return NotFound(new ApiResponseDto
+        //            {
+        //                Success = false,
+        //                Message = "Address not found"
+        //            });
+        //        }
 
-                return Ok(new ApiResponseDto
-                {
-                    Success = true,
-                    Message = "Default address set successfully"
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new ApiResponseDto
-                {
-                    Success = false,
-                    Message = "Error setting default address",
-                    Errors = new List<string> { ex.Message }
-                });
-            }
-        }
+        //        return Ok(new ApiResponseDto
+        //        {
+        //            Success = true,
+        //            Message = "Default address set successfully"
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return BadRequest(new ApiResponseDto
+        //        {
+        //            Success = false,
+        //            Message = "Error setting default address",
+        //            Errors = new List<string> { ex.Message }
+        //        });
+        //    }
+        //}
     }
 }
 

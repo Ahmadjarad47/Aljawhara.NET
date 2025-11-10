@@ -16,6 +16,12 @@ namespace Ecom.Application.Services.Interfaces
             decimal? minPrice = null,
             decimal? maxPrice = null,
             string? searchTerm = null,
+            bool? isActive = null,
+            string? sortBy = null,
+            bool? inStock = null,
+            bool? onSale = null,
+            bool? newArrival = null,
+            bool? bestDiscount = null,
             int pageNumber = 1,
             int pageSize = 20);
         Task<IEnumerable<ProductSummaryDto>> GetRelatedProductsAsync(int productId, int count = 5);
@@ -32,6 +38,12 @@ namespace Ecom.Application.Services.Interfaces
             decimal? minPrice = null,
             decimal? maxPrice = null,
             string? searchTerm = null,
+            bool? isActive = null,
+            string? sortBy = null,
+            bool? inStock = null,
+            bool? onSale = null,
+            bool? newArrival = null,
+            bool? bestDiscount = null,
             int pageNumber = 1,
             int pageSize = 20);
         Task<IEnumerable<ProductDto>> GetRelatedProductsWithDetailsAsync(int productId, int count = 5);
@@ -53,6 +65,11 @@ namespace Ecom.Application.Services.Interfaces
         Task<IEnumerable<ProductSummaryDto>> GetInStockProductsAsync();
         Task<IEnumerable<ProductSummaryDto>> GetOutOfStockProductsAsync();
         Task<IEnumerable<ProductSummaryDto>> GetLowStockProductsAsync(int threshold = 10);
+
+        // IsActive management methods
+        Task<bool> ActivateProductAsync(int productId);
+        Task<bool> DeactivateProductAsync(int productId);
+        Task<IEnumerable<ProductSummaryDto>> GetAllProductsIncludingInactiveAsync();
     }
 }
 

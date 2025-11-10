@@ -13,6 +13,7 @@ namespace Ecom.Application.DTOs.Order
         public string PaymentMethod { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public DateTime TransactionDate { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public class TransactionCreateDto

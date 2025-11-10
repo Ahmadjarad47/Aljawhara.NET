@@ -96,6 +96,21 @@ namespace Ecom.Application.DTOs.Auth
         public string ConfirmNewPassword { get; set; } = string.Empty;
     }
 
+    public class UpdateUsernameDto
+    {
+        [Required]
+        [StringLength(50, MinimumLength = 3)]
+        public string Username { get; set; } = string.Empty;
+    }
+
+    public class UpdatePhoneNumberDto
+    {
+        [Required]
+        [Phone]
+        [StringLength(20, MinimumLength = 10)]
+        public string PhoneNumber { get; set; } = string.Empty;
+    }
+
     public class UserResponseDto
     {
         public string Id { get; set; } = string.Empty;
@@ -103,6 +118,7 @@ namespace Ecom.Application.DTOs.Auth
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public bool EmailConfirmed { get; set; }
+        public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 

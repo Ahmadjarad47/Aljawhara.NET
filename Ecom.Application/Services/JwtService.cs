@@ -55,7 +55,7 @@ namespace Ecom.Application.Services
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+                expires: DateTime.UtcNow.AddMinutes(120),
                 signingCredentials: credentials
             );
 
@@ -66,6 +66,22 @@ namespace Ecom.Application.Services
         {
             // For backward compatibility, call the async method synchronously
             return GenerateTokenAsync(user).GetAwaiter().GetResult();
+        }
+
+        public async Task<string?> GenerateTokenForUserIdAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return null;
+            }
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return null;
+            }
+
+            return await GenerateTokenAsync(user);
         }
 
         public string GenerateRefreshToken()
@@ -100,6 +116,56 @@ namespace Ecom.Application.Services
                     ClockSkew = TimeSpan.Zero
                 }, out SecurityToken validatedToken);
 
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public bool ValidateRefreshTokenFormat(string refreshToken)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return false;
+            }
+
+            // Guard very long inputs to avoid DoS/alloc issues
+            if (refreshToken.Length > 512)
+            {
+                return false;
+            }
+
+            // Must be valid Base64 and decode to 32 bytes
+            try
+            {
+                if (!Convert.TryFromBase64String(refreshToken, new Span<byte>(new byte[32]), out var bytesWritten))
+                {
+                    // TryFromBase64String requires exact span size; fall back to decode then length check
+                    var bytes = Convert.FromBase64String(refreshToken);
+                    return bytes.Length == 32;
+                }
+
+                return bytesWritten == 32;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public bool TryDecodeRefreshToken(string refreshToken, out byte[] tokenBytes)
+        {
+            tokenBytes = Array.Empty<byte>();
+            try
+            {
+                var bytes = Convert.FromBase64String(refreshToken);
+                if (bytes.Length != 32)
+                {
+                    return false;
+                }
+                tokenBytes = bytes;
                 return true;
             }
             catch

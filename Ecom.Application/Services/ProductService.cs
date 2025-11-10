@@ -4,6 +4,8 @@ using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Interfaces;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.UnitOfWork;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Ecom.Application.Services
 {
@@ -12,23 +14,28 @@ namespace Ecom.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IFileService _fileService;
+        private readonly UserManager<AppUsers> _userManager;
 
-        public ProductService(IUnitOfWork unitOfWork, IMapper mapper, IFileService fileService)
+        public ProductService(IUnitOfWork unitOfWork, IMapper mapper, IFileService fileService, UserManager<AppUsers> userManager)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _fileService = fileService;
+            _userManager = userManager;
         }
 
         public async Task<ProductDto?> GetProductByIdAsync(int id)
         {
-            var product = await _unitOfWork.Products.GetProductWithDetailsAsync(id);
-            return product != null ? _mapper.Map<ProductDto>(product) : null;
+            var product = await _unitOfWork.Products.GetActiveByIdAsync(id);
+            if (product == null) return null;
+            
+            var productWithDetails = await _unitOfWork.Products.GetProductWithDetailsAsync(id);
+            return productWithDetails != null ? _mapper.Map<ProductDto>(productWithDetails) : null;
         }
 
         public async Task<IEnumerable<ProductSummaryDto>> GetAllProductsAsync()
         {
-            var products = await _unitOfWork.Products.GetAllAsync();
+            var products = await _unitOfWork.Products.GetAllActiveAsync();
             return _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
         }
 
@@ -62,11 +69,29 @@ namespace Ecom.Application.Services
             decimal? minPrice = null,
             decimal? maxPrice = null,
             string? searchTerm = null,
+            bool? isActive = null,
+            string? sortBy = null,
+            bool? inStock = null,
+            bool? onSale = null,
+            bool? newArrival = null,
+            bool? bestDiscount = null,
             int pageNumber = 1,
             int pageSize = 20)
         {
             var (products, totalCount) = await _unitOfWork.Products.GetProductsWithFiltersAsync(
-                categoryId, subCategoryId, minPrice, maxPrice, searchTerm, pageNumber, pageSize);
+                categoryId: categoryId,
+                subCategoryId: subCategoryId,
+                minPrice: minPrice,
+                maxPrice: maxPrice,
+                searchTerm: searchTerm,
+                isActive: isActive,
+                sortBy: sortBy,
+                inStock: inStock,
+                onSale: onSale,
+                newArrival: newArrival,
+                bestDiscount: bestDiscount,
+                pageNumber: pageNumber,
+                pageSize: pageSize);
 
             var productDtos = _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
             return (productDtos, totalCount);
@@ -249,13 +274,66 @@ namespace Ecom.Application.Services
             await _unitOfWork.Ratings.AddAsync(rating);
             await _unitOfWork.SaveChangesAsync();
 
-            return _mapper.Map<RatingDto>(rating);
+            var result = _mapper.Map<RatingDto>(rating);
+            
+            // Populate RatingName from user
+            if (!string.IsNullOrEmpty(rating.CreatedBy))
+            {
+                var user = await _userManager.FindByIdAsync(rating.CreatedBy);
+                if (user != null)
+                {
+                    result.RatingName = user.UserName ?? string.Empty;
+                }
+            }
+            
+            return result;
         }
 
         public async Task<IEnumerable<RatingDto>> GetProductRatingsAsync(int productId)
         {
             var ratings = await _unitOfWork.Ratings.FindAsync(r => r.ProductId == productId);
-            return _mapper.Map<IEnumerable<RatingDto>>(ratings);
+            var ratingsList = ratings.ToList();
+            
+            // Manually map to ensure Product is loaded for ProductTitle
+            var ratingDtos = new List<RatingDto>();
+            foreach (var rating in ratingsList)
+            {
+                var ratingDto = _mapper.Map<RatingDto>(rating);
+                ratingDtos.Add(ratingDto);
+            }
+            
+            // Get unique user IDs from ratings
+            var userIds = ratingDtos
+                .Where(r => !string.IsNullOrEmpty(r.CreatedBy))
+                .Select(r => r.CreatedBy)
+                .Distinct()
+                .ToList();
+            
+            // Fetch all users in a single query to avoid DbContext concurrency issues
+            var usersDict = new Dictionary<string, string>();
+            if (userIds.Any())
+            {
+                var userList = await _userManager.Users
+                    .Where(u => userIds.Contains(u.Id))
+                    .Select(u => new { u.Id, u.UserName })
+                    .ToListAsync();
+                
+                foreach (var user in userList)
+                {
+                    usersDict[user.Id] = user.UserName ?? string.Empty;
+                }
+            }
+            
+            // Populate RatingName for each rating
+            foreach (var ratingDto in ratingDtos)
+            {
+                if (!string.IsNullOrEmpty(ratingDto.CreatedBy) && usersDict.TryGetValue(ratingDto.CreatedBy, out var userName))
+                {
+                    ratingDto.RatingName = userName;
+                }
+            }
+            
+            return ratingDtos;
         }
 
         // New methods that return ProductDto with full details
@@ -295,11 +373,29 @@ namespace Ecom.Application.Services
             decimal? minPrice = null,
             decimal? maxPrice = null,
             string? searchTerm = null,
+            bool? isActive = null,
+            string? sortBy = null,
+            bool? inStock = null,
+            bool? onSale = null,
+            bool? newArrival = null,
+            bool? bestDiscount = null,
             int pageNumber = 1,
             int pageSize = 20)
         {
             var (products, totalCount) = await _unitOfWork.Products.GetProductsWithFiltersAsync(
-                categoryId, subCategoryId, minPrice, maxPrice, searchTerm, pageNumber, pageSize);
+                categoryId: categoryId,
+                subCategoryId: subCategoryId,
+                minPrice: minPrice,
+                maxPrice: maxPrice,
+                searchTerm: searchTerm,
+                isActive: isActive,
+                sortBy: sortBy,
+                inStock: inStock,
+                onSale: onSale,
+                newArrival: newArrival,
+                bestDiscount: bestDiscount,
+                pageNumber: pageNumber,
+                pageSize: pageSize);
 
             var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
             return (productDtos, totalCount);
@@ -382,6 +478,34 @@ namespace Ecom.Application.Services
         public async Task<IEnumerable<ProductSummaryDto>> GetLowStockProductsAsync(int threshold = 10)
         {
             var products = await _unitOfWork.Products.FindAsync(p => p.IsInStock && p.TotalInStock > 0 && p.TotalInStock <= threshold);
+            return _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
+        }
+
+        public async Task<bool> ActivateProductAsync(int productId)
+        {
+            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            if (product == null)
+                return false;
+
+            _unitOfWork.Products.Activate(product);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DeactivateProductAsync(int productId)
+        {
+            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            if (product == null)
+                return false;
+
+            _unitOfWork.Products.Deactivate(product);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<IEnumerable<ProductSummaryDto>> GetAllProductsIncludingInactiveAsync()
+        {
+            var products = await _unitOfWork.Products.GetAllAsync();
             return _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
         }
     }

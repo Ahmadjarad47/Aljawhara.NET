@@ -127,7 +127,7 @@ namespace Ecom.Application.Services
                 // 5️⃣ Calculate shipping, tax, and total
                 order.Shipping = CalculateShipping(subtotal, orderDto.CouponCode);
                 order.Tax = CalculateTax(subtotal);
-                order.Total = order.Subtotal + order.Shipping + order.Tax - (order.Discount ?? 0) - couponDiscountAmount;
+                order.Total = order.Subtotal + order.Shipping + order.Tax - couponDiscountAmount;
 
                 // 6️⃣ Save order
                 await _unitOfWork.Orders.AddAsync(order);

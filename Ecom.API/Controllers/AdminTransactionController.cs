@@ -9,8 +9,8 @@ using System.ComponentModel.DataAnnotations;
 namespace Ecom.API.Controllers
 {
     [ApiController]
-    [Route("api/admin/[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Route("api/admin/transaction")]
+    [Authorize]
     public class AdminTransactionController : ControllerBase
     {
         private readonly ITransactionService _transactionService;

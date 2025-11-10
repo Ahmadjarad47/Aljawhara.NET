@@ -20,9 +20,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Add Entity Framework
-builder.Services.AddDbContext<EcomDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Add HttpContextAccessor
+builder.Services.AddHttpContextAccessor();
+
+// Add Entity Framework with factory to inject IServiceProvider
+builder.Services.AddDbContext<EcomDbContext>((serviceProvider, options) =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+}, ServiceLifetime.Scoped);
+
+// Override the DbContext registration to inject IServiceProvider for audit fields
+builder.Services.AddScoped(serviceProvider =>
+{
+    var options = serviceProvider.GetRequiredService<DbContextOptions<EcomDbContext>>();
+    return new EcomDbContext(options, serviceProvider);
+});
 
 // Add Identity
 builder.Services.AddIdentity<AppUsers, IdentityRole>(options =>
@@ -90,6 +102,8 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserManagerService, UserManagerService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+builder.Services.AddScoped<IHealthService, HealthService>();
 
 // Add Memory Cache for OTP storage
 builder.Services.AddMemoryCache();
@@ -141,6 +155,8 @@ builder.Services.AddCors(options =>
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<EcomDbContext>(name: "database");
 
 var app = builder.Build();
 
@@ -158,6 +174,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 // Ensure database is created and seed data
 using (var scope = app.Services.CreateScope())

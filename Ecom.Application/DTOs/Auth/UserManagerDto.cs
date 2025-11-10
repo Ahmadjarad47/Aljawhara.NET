@@ -10,6 +10,7 @@ namespace Ecom.Application.DTOs.Auth
         public string PhoneNumber { get; set; } = string.Empty;
         public bool EmailConfirmed { get; set; }
         public bool IsBlocked { get; set; }
+        public bool IsActive { get; set; }
         public DateTime? LockoutEnd { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? LastLoginAt { get; set; }
@@ -64,6 +65,7 @@ namespace Ecom.Application.DTOs.Auth
         public string? SearchTerm { get; set; }
         public bool? IsBlocked { get; set; }
         public bool? EmailConfirmed { get; set; }
+        public bool? IsActive { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
     }

@@ -2,12 +2,13 @@ using Ecom.Domain.Entity;
 using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Ecom.Infrastructure.Repositories
 {
     public class CouponRepository : BaseRepository<Coupon>, ICouponRepository
     {
-        public CouponRepository(EcomDbContext context) : base(context)
+        public CouponRepository(EcomDbContext context, IMemoryCache cache) : base(context, cache)
         {
         }
 

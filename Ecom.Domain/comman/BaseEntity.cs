@@ -12,5 +12,6 @@ namespace Ecom.Domain.comman
         public string CreatedBy { get; set; } = string.Empty;
         public string? UpdatedBy { get; set; }
         public bool IsDeleted { get; set; } = false;
+        public bool IsActive { get; set; } = true;
     }
 }

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Ecom.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class newIntital : Migration
+    public partial class newMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -311,13 +311,17 @@ namespace Ecom.Infrastructure.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     FullName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Phone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Street = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    AddressLine1 = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    AddressLine2 = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     City = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    State = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    State = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     PostalCode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     Country = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IsDefault = table.Column<bool>(type: "bit", nullable: false),
                     AppUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    Phone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Street = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -346,9 +350,7 @@ namespace Ecom.Infrastructure.Migrations
                     Subtotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Shipping = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Tax = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    Discount = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     Total = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    PaymentMethod = table.Column<int>(type: "int", nullable: false),
                     CouponId = table.Column<int>(type: "int", nullable: true),
                     CouponDiscountAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     ShippingAddressId = table.Column<int>(type: "int", nullable: false),

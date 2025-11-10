@@ -8,8 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Ecom.API.Controllers
 {
     [ApiController]
-    [Route("api/admin/[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Route("api/admin/order")]
+    [Authorize]
     public class AdminOrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;

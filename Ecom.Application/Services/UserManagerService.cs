@@ -518,6 +518,96 @@ namespace Ecom.Application.Services
             }
         }
 
+        public async Task<UserResponseDto?> GetUserDetailsAsync(string userId)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return null;
+                }
+
+                return new UserResponseDto
+                {
+                    Id = user.Id,
+                    Username = user.UserName ?? string.Empty,
+                    Email = user.Email ?? string.Empty,
+                    PhoneNumber = user.PhoneNumber ?? string.Empty,
+                    EmailConfirmed = user.EmailConfirmed,
+                    IsActive = !user.LockoutEnd.HasValue || user.LockoutEnd <= DateTimeOffset.UtcNow,
+                    CreatedAt = user.CreatedAt
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user details for user: {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<(bool Success, string Message)> UpdateUsernameAsync(string userId, string newUsername)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return (false, "User not found");
+                }
+
+                var existing = await _userManager.FindByNameAsync(newUsername);
+                if (existing != null && existing.Id != userId)
+                {
+                    return (false, "Username is already taken");
+                }
+
+                user.UserName = newUsername;
+                var result = await _userManager.UpdateAsync(user);
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    return (false, $"Failed to update username: {errors}");
+                }
+
+                _logger.LogInformation("Username updated for user: {UserId}", userId);
+                return (true, "Username updated successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating username for user: {UserId}", userId);
+                return (false, "An error occurred while updating username");
+            }
+        }
+
+        public async Task<(bool Success, string Message)> UpdatePhoneNumberAsync(string userId, string newPhoneNumber)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return (false, "User not found");
+                }
+
+                user.PhoneNumber = newPhoneNumber;
+                var result = await _userManager.UpdateAsync(user);
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    return (false, $"Failed to update phone number: {errors}");
+                }
+
+                _logger.LogInformation("Phone number updated for user: {UserId}", userId);
+                return (true, "Phone number updated successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating phone number for user: {UserId}", userId);
+                return (false, "An error occurred while updating phone number");
+            }
+        }
+
         // Missing interface implementations
         public async Task<bool> SendEmailConfirmationAsync(SendEmailConfirmationDto sendEmailDto)
         {
@@ -679,5 +769,49 @@ namespace Ecom.Application.Services
             return await LoginAsync(loginDto);
         }
 
+        public async Task<string?> GetUserByRefreshTokenAsync(string refreshToken)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(refreshToken))
+                {
+                    return null;
+                }
+
+                var now = DateTime.UtcNow;
+                var user = await _userManager.Users
+                    .Where(u => u.RefreshToken == refreshToken && u.RefreshTokenExpiresAtUtc.HasValue && u.RefreshTokenExpiresAtUtc > now)
+                    .FirstOrDefaultAsync();
+
+                return user?.Id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user by refresh token");
+                return null;
+            }
+        }
+
+        public async Task<bool> SetRefreshTokenAsync(string userId, string refreshToken, DateTime expiresAtUtc)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return false;
+                }
+
+                user.RefreshToken = refreshToken;
+                user.RefreshTokenExpiresAtUtc = expiresAtUtc;
+                var result = await _userManager.UpdateAsync(user);
+                return result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting refresh token for user: {UserId}", userId);
+                return false;
+            }
+        }
     }
 }

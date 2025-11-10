@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Ecom.API.Controllers
 {
     [ApiController]
-    [Route("api/admin/[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Route("api/admin/categories")]
+    //[Authorize(Roles = "Admin")]
     public class AdminCategoriesController : ControllerBase
     {
         private readonly ICategoryService _categoryService;
@@ -20,23 +20,15 @@ namespace Ecom.API.Controllers
 
         [HttpGet]
         public async Task<ActionResult<PagedResult<CategoryDto>>> GetCategories(
-            [FromQuery] bool includeSubCategories = false,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] string? searchTerm = null,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20)
         {
-            var allCategories = includeSubCategories
-                ? await _categoryService.GetCategoriesWithSubCategoriesAsync()
-                : await _categoryService.GetAllCategoriesAsync();
+            var (categories, totalCount) = await _categoryService.GetCategoriesWithFiltersAsync(
+                isActive, searchTerm, pageNumber, pageSize);
 
-            var categoriesList = allCategories.ToList();
-            var totalCount = categoriesList.Count;
-
-            var pagedCategories = categoriesList
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            var result = new PagedResult<CategoryDto>(pagedCategories, totalCount, pageNumber, pageSize);
+            PagedResult<CategoryDto>? result = new PagedResult<CategoryDto>(categories.ToList(), totalCount, pageNumber, pageSize);
             return Ok(result);
         }
 
@@ -62,14 +54,37 @@ namespace Ecom.API.Controllers
             try
             {
                 var category = await _categoryService.CreateCategoryAsync(categoryDto);
-                return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, category);
+                return Ok();
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
         }
-
+        [HttpDelete("bulk")]
+        public async Task<ActionResult<CategoryDto>>bulk([FromBody] List<int> ids)
+        {
+            try
+            {
+                foreach (var id in ids)
+                {
+                    var result = await _categoryService.DeleteCategoryAsync(id);
+                    if (!result)
+                    {
+                        return NotFound($"Category with ID {id} not found.");
+                    }
+                }
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
         [HttpPut("{id}")]
         public async Task<ActionResult<CategoryDto>> UpdateCategory(int id, [FromBody] CategoryUpdateDto categoryDto)
         {
@@ -122,22 +137,16 @@ namespace Ecom.API.Controllers
 
         [HttpGet("subcategories")]
         public async Task<ActionResult<PagedResult<SubCategoryDto>>> GetSubCategories(
-            [FromQuery] bool includeRelated = true,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] int? categoryId = null,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20)
         {
-            var allSubCategories = includeRelated
-                ? await _categoryService.GetAllSubCategoryWithIncludes()
-                : await _categoryService.GetAllSubCategory();
-            var subCategoriesList = allSubCategories.ToList();
-            var totalCount = subCategoriesList.Count;
+            var (subCategories, totalCount) = await _categoryService.GetSubCategoriesWithFiltersAsync(
+                isActive, searchTerm, categoryId, pageNumber, pageSize);
 
-            var pagedSubCategories = subCategoriesList
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            var result = new PagedResult<SubCategoryDto>(pagedSubCategories, totalCount, pageNumber, pageSize);
+            PagedResult<SubCategoryDto>? result = new PagedResult<SubCategoryDto>(subCategories.ToList(), totalCount, pageNumber, pageSize);
             return Ok(result);
         }
 
@@ -236,6 +245,108 @@ namespace Ecom.API.Controllers
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{id}/toggle-active")]
+        public async Task<ActionResult<object>> ToggleCategoryActive(int id)
+        {
+            try
+            {
+                var category = await _categoryService.GetCategoryByIdAsync(id);
+                if (category == null)
+                {
+                    return NotFound($"Category with ID {id} not found.");
+                }
+
+                bool newStatus;
+                if (category.IsActive)
+                {
+                    var result = await _categoryService.DeactivateCategoryAsync(id);
+                    newStatus = false;
+                }
+                else
+                {
+                    var result = await _categoryService.ActivateCategoryAsync(id);
+                    newStatus = true;
+                }
+
+                return Ok(new
+                {
+                    CategoryId = id,
+                    IsActive = newStatus,
+                    Message = $"Category {(newStatus ? "activated" : "deactivated")} successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("subcategories/{id}/toggle-active")]
+        public async Task<ActionResult<object>> ToggleSubCategoryActive(int id)
+        {
+            try
+            {
+                var subCategory = await _categoryService.GetSubCategoryByIdAsync(id);
+                if (subCategory == null)
+                {
+                    return NotFound($"SubCategory with ID {id} not found.");
+                }
+
+                bool newStatus;
+                if (subCategory.IsActive)
+                {
+                    var result = await _categoryService.DeactivateSubCategoryAsync(id);
+                    newStatus = false;
+                }
+                else
+                {
+                    var result = await _categoryService.ActivateSubCategoryAsync(id);
+                    newStatus = true;
+                }
+
+                return Ok(new
+                {
+                    SubCategoryId = id,
+                    IsActive = newStatus,
+                    Message = $"SubCategory {(newStatus ? "activated" : "deactivated")} successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("all")]
+        public async Task<ActionResult<Dictionary<int, string>>> GetAllCategories()
+        {
+            try
+            {
+                var categories = await _categoryService.GetAllCategoriesAsync();
+                Dictionary<int, string>? result = categories.ToDictionary(c => c.Id, c => c.Name);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("subcategories/all")]
+        public async Task<ActionResult<Dictionary<int, string>>> GetAllSubCategories()
+        {
+            try
+            {
+                var subCategories = await _categoryService.GetAllSubCategoriesAsync();
+                var result = subCategories.ToDictionary(sc => sc.Id, sc => sc.Name);
+                return Ok(result);
             }
             catch (Exception ex)
             {

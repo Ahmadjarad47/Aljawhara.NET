@@ -16,7 +16,7 @@ namespace Ecom.Domain.Entity
         public DateTime EndDate { get; set; }
         public int? UsageLimit { get; set; }
         public int UsedCount { get; set; } = 0;
-        public bool IsActive { get; set; } = true;
+        public new bool IsActive { get; set; } = true;
         public bool IsSingleUse { get; set; } = false;
         public string? AppUserId { get; set; } // For user-specific coupons
         public AppUsers? AppUser { get; set; }

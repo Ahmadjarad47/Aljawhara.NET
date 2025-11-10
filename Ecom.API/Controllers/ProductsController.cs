@@ -1,3 +1,4 @@
+using Ecom.API.Controllers.Extensions;
 using Ecom.Application.DTOs.Product;
 using Ecom.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -23,6 +24,11 @@ namespace Ecom.API.Controllers
             [FromQuery] decimal? minPrice = null,
             [FromQuery] decimal? maxPrice = null,
             [FromQuery] string? searchTerm = null,
+            [FromQuery] string? sortBy = null, // "newest", "oldest", "highRating", "lowRating", "bestDiscount", "mostRating"
+            [FromQuery] bool? inStock = null,
+            [FromQuery] bool? onSale = null,
+            [FromQuery] bool? newArrival = null,
+            [FromQuery] bool? bestDiscount = null,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20)
         {
@@ -32,10 +38,11 @@ namespace Ecom.API.Controllers
                 return Ok(searchResults);
             }
 
-            if (categoryId.HasValue || subCategoryId.HasValue || minPrice.HasValue || maxPrice.HasValue)
+            if (categoryId.HasValue || subCategoryId.HasValue || minPrice.HasValue || maxPrice.HasValue || 
+                !string.IsNullOrWhiteSpace(sortBy) || inStock.HasValue || onSale.HasValue || newArrival.HasValue || bestDiscount.HasValue)
             {
                 var (products, totalCount) = await _productService.GetProductsWithFiltersAsync(
-                    categoryId, subCategoryId, minPrice, maxPrice, searchTerm, pageNumber, pageSize);
+                    categoryId, subCategoryId, minPrice, maxPrice, searchTerm, null, sortBy, inStock, onSale, newArrival, bestDiscount, pageNumber, pageSize);
 
                 return Ok(new { Products = products, TotalCount = totalCount, PageNumber = pageNumber, PageSize = pageSize });
             }
@@ -90,7 +97,21 @@ namespace Ecom.API.Controllers
             var ratings = await _productService.GetProductRatingsAsync(id);
             return Ok(ratings);
         }
+        [HttpGet("if-rating-return-it")]
+        [Authorize]
+        public async Task<ActionResult<RatingDto>> myProductRate([FromQuery]int productId)
+        {
+            var userId = User.GetUserId().ToString();
+            var ratings = await _productService.GetProductRatingsAsync(productId);
+            RatingDto? userRating = ratings.FirstOrDefault(r => r.CreatedBy == userId);
 
+            if (userRating == null)
+            {
+                return NotFound("You have not rated this product yet.");
+            }
+
+            return Ok(userRating);
+        }
         [HttpPost("{id}/ratings")]
         public async Task<ActionResult<RatingDto>> AddProductRating(int id, [FromBody] RatingCreateDto ratingDto)
         {

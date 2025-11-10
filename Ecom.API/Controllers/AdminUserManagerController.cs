@@ -1,24 +1,29 @@
 using Ecom.Application.DTOs.Auth;
+using Ecom.Application.Services;
 using Ecom.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/user-manager")]
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     public class AdminUserManagerController : ControllerBase
     {
         private readonly IUserManagerService _userManagerService;
+        private readonly IAddressService addressService;
         private readonly ILogger<AdminUserManagerController> _logger;
 
         public AdminUserManagerController(
             IUserManagerService userManagerService,
-            ILogger<AdminUserManagerController> logger)
+            ILogger<AdminUserManagerController> logger,
+            IAddressService addressService)
         {
             _userManagerService = userManagerService;
             _logger = logger;
+            this.addressService = addressService;
         }
 
         /// <summary>
@@ -260,6 +265,34 @@ namespace Ecom.API.Controllers
             {
                 _logger.LogError(ex, "Error resetting password for user: {UserId}", userId);
                 return StatusCode(500, new { Message = "An error occurred while resetting the password", Error = ex.Message });
+            }
+
+
+        }
+        // Address Management Endpoints
+        [HttpGet("addresses")]
+        public async Task<IActionResult> GetUserAddresses([FromQuery]string userId)
+        {
+          
+
+            try
+            {
+                var addresses = await addressService.GetUserAddressesAsync(userId);
+                    return Ok(new ApiResponseDto<IEnumerable<UserAddressDto>>
+                    {
+                        Success = true,
+                        Message = "Addresses retrieved successfully",
+                        Data = addresses
+                    });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Error retrieving addresses",
+                    Errors = new List<string> { ex.Message }
+                });
             }
         }
     }

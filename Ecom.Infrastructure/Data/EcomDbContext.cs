@@ -1,13 +1,23 @@
 using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 
 namespace Ecom.Infrastructure.Data
 {
     public class EcomDbContext : IdentityDbContext<AppUsers>
     {
+        private readonly IServiceProvider? _serviceProvider;
+        
         public EcomDbContext(DbContextOptions<EcomDbContext> options) : base(options)
         {
+        }
+
+        // Constructor with IServiceProvider for resolving IHttpContextAccessor
+        public EcomDbContext(DbContextOptions<EcomDbContext> options, IServiceProvider serviceProvider) : base(options)
+        {
+            _serviceProvider = serviceProvider;
         }
 
         public DbSet<Category> Categories { get; set; }
@@ -20,6 +30,8 @@ namespace Ecom.Infrastructure.Data
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<Rating> Ratings { get; set; }
         public DbSet<Coupon> Coupons { get; set; }
+        public DbSet<Visitor> Visitors { get; set; }
+        public DbSet<HealthPing> HealthPings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -83,7 +95,6 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
                 entity.Property(e => e.Shipping).HasColumnType("decimal(18,2)");
                 entity.Property(e => e.Tax).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.Discount).HasColumnType("decimal(18,2)");
                 entity.Property(e => e.Total).HasColumnType("decimal(18,2)");
                 entity.HasOne(e => e.AppUser)
                       .WithMany(e => e.Orders)
@@ -208,6 +219,31 @@ namespace Ecom.Infrastructure.Data
 
             modelBuilder.Entity<Coupon>()
                 .HasIndex(c => c.EndDate);
+
+            // Configure Visitor
+            modelBuilder.Entity<Visitor>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.IpAddress).HasMaxLength(100);
+                entity.Property(e => e.UserAgent).HasMaxLength(1024);
+                entity.Property(e => e.Path).HasMaxLength(512);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<Visitor>()
+                .HasIndex(v => v.VisitedAtUtc);
+
+            // Configure HealthPing
+            modelBuilder.Entity<HealthPing>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Status).HasMaxLength(100);
+                entity.Property(e => e.Error).HasMaxLength(1024);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<HealthPing>()
+                .HasIndex(h => h.CreatedAt);
         }
 
         public override int SaveChanges()
@@ -228,6 +264,8 @@ namespace Ecom.Infrastructure.Data
                 .Where(e => e.Entity is Domain.comman.BaseEntity &&
                            (e.State == EntityState.Added || e.State == EntityState.Modified));
 
+            var userId = GetCurrentUserId();
+
             foreach (var entry in entries)
             {
                 var entity = (Domain.comman.BaseEntity)entry.Entity;
@@ -235,15 +273,35 @@ namespace Ecom.Infrastructure.Data
                 if (entry.State == EntityState.Added)
                 {
                     entity.CreatedAt = DateTime.UtcNow;
-                    // Note: In a real application, you would get the current user from the security context
-                    entity.CreatedBy = "System"; // This should be replaced with actual user identification
+                    entity.CreatedBy = userId;
                 }
                 else if (entry.State == EntityState.Modified)
                 {
                     entity.UpdatedAt = DateTime.UtcNow;
-                    entity.UpdatedBy = "System"; // This should be replaced with actual user identification
+                    entity.UpdatedBy = userId;
                 }
             }
+        }
+
+        private string GetCurrentUserId()
+        {
+            if (_serviceProvider == null)
+            {
+                return "System";
+            }
+
+            var httpContextAccessor = _serviceProvider.GetService(typeof(IHttpContextAccessor)) as IHttpContextAccessor;
+            var httpContext = httpContextAccessor?.HttpContext;
+            
+            if (httpContext?.User?.Identity?.IsAuthenticated == true)
+            {
+                var userIdClaim = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!string.IsNullOrEmpty(userIdClaim))
+                {
+                    return userIdClaim;
+                }
+            }
+            return "System";
         }
     }
 }

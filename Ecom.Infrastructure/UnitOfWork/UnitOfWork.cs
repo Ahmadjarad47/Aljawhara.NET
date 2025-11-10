@@ -2,12 +2,14 @@ using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories;
 using Ecom.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Ecom.Infrastructure.UnitOfWork
 {
     public class UnitOfWork : IUnitOfWork
     {
         private readonly EcomDbContext _context;
+        private readonly IMemoryCache _cache;
         private IDbContextTransaction? _transaction;
 
         private ICategoryRepository? _categories;
@@ -20,41 +22,50 @@ namespace Ecom.Infrastructure.UnitOfWork
         private IBaseRepository<Domain.Entity.Rating>? _ratings;
         private IBaseRepository<Domain.Entity.ProductDetails>? _productDetails;
         private ICouponRepository? _coupons;
+        private IVisitorRepository? _visitors;
+        private IHealthPingRepository? _healthPings;
 
-        public UnitOfWork(EcomDbContext context)
+        public UnitOfWork(EcomDbContext context, IMemoryCache cache)
         {
             _context = context;
+            _cache = cache;
         }
 
         public ICategoryRepository Categories =>
-            _categories ??= new CategoryRepository(_context);
+            _categories ??= new CategoryRepository(_context, _cache);
 
         public IProductRepository Products =>
-            _products ??= new ProductRepository(_context);
+            _products ??= new ProductRepository(_context, _cache);
 
         public IOrderRepository Orders =>
-            _orders ??= new OrderRepository(_context);
+            _orders ??= new OrderRepository(_context, _cache);
 
         public ISubCategoryRepository SubCategories =>
-            _subCategories ??= new SubCategoryRepository(_context);
+            _subCategories ??= new SubCategoryRepository(_context, _cache);
 
         public IBaseRepository<Domain.Entity.OrderItem> OrderItems =>
-            _orderItems ??= new BaseRepository<Domain.Entity.OrderItem>(_context);
+            _orderItems ??= new BaseRepository<Domain.Entity.OrderItem>(_context, _cache);
 
         public IBaseRepository<Domain.Entity.ShippingAddress> ShippingAddresses =>
-            _shippingAddresses ??= new BaseRepository<Domain.Entity.ShippingAddress>(_context);
+            _shippingAddresses ??= new BaseRepository<Domain.Entity.ShippingAddress>(_context, _cache);
 
         public ITransactionRepository Transactions =>
-            _transactions ??= new TransactionRepository(_context);
+            _transactions ??= new TransactionRepository(_context, _cache);
 
         public IBaseRepository<Domain.Entity.Rating> Ratings =>
-            _ratings ??= new BaseRepository<Domain.Entity.Rating>(_context);
+            _ratings ??= new BaseRepository<Domain.Entity.Rating>(_context, _cache);
 
         public IBaseRepository<Domain.Entity.ProductDetails> ProductDetails =>
-            _productDetails ??= new BaseRepository<Domain.Entity.ProductDetails>(_context);
+            _productDetails ??= new BaseRepository<Domain.Entity.ProductDetails>(_context, _cache);
 
         public ICouponRepository Coupons =>
-            _coupons ??= new CouponRepository(_context);
+            _coupons ??= new CouponRepository(_context, _cache);
+
+        public IVisitorRepository Visitors =>
+            _visitors ??= new VisitorRepository(_context, _cache);
+
+        public IHealthPingRepository HealthPings =>
+            _healthPings ??= new HealthPingRepository(_context, _cache);
 
         public async Task<int> SaveChangesAsync()
         {
