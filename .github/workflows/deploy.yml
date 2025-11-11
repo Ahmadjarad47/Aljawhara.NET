@@ -16,18 +16,26 @@ jobs:
       - name: SSH Deploy to VPS
         uses: appleboy/ssh-action@v1.1.0
         with:
-          host: 72.61.187.165             # IP السيرفر
-          username: root                  # المستخدم
-          key: ${{ secrets.SSH_PRIVATE_KEY }}   # المفتاح المخزن في GitHub Secrets
+          host: 72.61.187.165
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "===== Starting Deploy on VPS ====="
-            cd /var/www/Aljawhara.NET || { echo "Project directory not found"; exit 1; }
+
+            # إذا المجلد غير موجود أول مرة، اعمل clone
+            if [ ! -d "/var/www/Aljawhara.NET" ]; then
+              cd /var/www
+              git clone https://github.com/Ahmadjarad47/Aljawhara.NET.git
+            fi
+
+            cd /var/www/Aljawhara.NET
 
             echo "Pulling latest code..."
             git fetch --all
             git reset --hard origin/master
 
-            echo "Publishing project..."
+            echo "Publishing project from Ecom.API..."
+            cd /var/www/Aljawhara.NET/Ecom.API
             dotnet publish -c Release -o /var/www/Aljawhara.NET/publish
 
             echo "Restarting service..."
