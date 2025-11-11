@@ -62,7 +62,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "Ecom Taani API", Version = "v1" });
+    c.SwaggerDoc("v1", new() { Title = "Ecom Badder API", Version = "v2" });
     
     // Add JWT Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new()
