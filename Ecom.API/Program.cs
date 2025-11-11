@@ -179,11 +179,11 @@ app.MapHealthChecks("/health");
 // Ensure database is created and seed data
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
-    context.Database.EnsureCreated();
+    //var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+    //context.Database.EnsureCreated();
     
     // Seed roles and admin user
-    await Ecom.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider);
+    //await Ecom.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider);
 }
 
 await app.RunAsync();
