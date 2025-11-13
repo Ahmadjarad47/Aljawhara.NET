@@ -167,15 +167,45 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// CORS must be very early in the pipeline, before other middleware
+app.UseCors("AllowAll");
+
+// Backup middleware to ensure CORS headers are always present
+app.Use(async (context, next) =>
+{
+    // Add CORS headers manually as backup
+    if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
+    {
+        context.Response.Headers.Append("Access-Control-Allow-Origin", "https://aljawharaplus.com");
+        context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+    }
+    await next();
+});
+
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
-// CORS must be before Authentication and Authorization
-app.UseCors("AllowAll");
-
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Configure exception handler to preserve CORS headers on errors
+// This must be before MapControllers to catch exceptions
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        // Ensure CORS headers are present even on error responses
+        context.Response.Headers.Append("Access-Control-Allow-Origin", "https://aljawharaplus.com");
+        context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+        
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        
+        await context.Response.WriteAsync("{\"error\":\"An error occurred while processing your request.\"}");
+    });
+});
 
 app.MapControllers();
 app.MapHealthChecks("/health");
