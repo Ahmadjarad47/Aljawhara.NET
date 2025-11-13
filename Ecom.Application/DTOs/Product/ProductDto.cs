@@ -22,6 +22,7 @@ namespace Ecom.Application.DTOs.Product
         public string CategoryNameAr { get; set; } = string.Empty;
         public List<ProductDetailDto> ProductDetails { get; set; } = new();
         public List<RatingDto> Ratings { get; set; } = new();
+        public List<ProductVariantDto> Variants { get; set; } = new();
         public double AverageRating { get; set; }
         public int TotalReviews { get; set; }
     }
@@ -57,6 +58,7 @@ namespace Ecom.Application.DTOs.Product
         public int SubCategoryId { get; set; }
         
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
+        public List<ProductVariantCreateDto> Variants { get; set; } = new();
     }
 
     public class ProductUpdateDto
@@ -95,6 +97,7 @@ namespace Ecom.Application.DTOs.Product
         public int SubCategoryId { get; set; }
         
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
+        public List<ProductVariantUpdateDto> Variants { get; set; } = new();
     }
 
     public class ProductSummaryDto
@@ -147,6 +150,7 @@ namespace Ecom.Application.DTOs.Product
         public int SubCategoryId { get; set; }
         
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
+        public List<ProductVariantCreateDto> Variants { get; set; } = new();
         public IFormFileCollection? Images { get; set; }
     }
 
@@ -184,6 +188,7 @@ namespace Ecom.Application.DTOs.Product
         public int SubCategoryId { get; set; }
         
         public List<ProductDetailCreateDto> ProductDetails { get; set; } = new();
+        public List<ProductVariantUpdateDto> Variants { get; set; } = new();
         public IFormFileCollection? Images { get; set; }
         public List<string> ImagesToDelete { get; set; } = new();
     }

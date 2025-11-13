@@ -107,6 +107,28 @@ namespace Ecom.Application.Services
         {
             var product = _mapper.Map<Product>(productDto);
 
+            // Handle Variants
+            if (productDto.Variants != null && productDto.Variants.Count > 0)
+            {
+                foreach (var variantDto in productDto.Variants)
+                {
+                    var variant = _mapper.Map<ProductVariant>(variantDto);
+                    variant.ProductId = product.Id;
+                    
+                    if (variantDto.Values != null && variantDto.Values.Count > 0)
+                    {
+                        foreach (var valueDto in variantDto.Values)
+                        {
+                            var value = _mapper.Map<ProductVariantValue>(valueDto);
+                            value.ProductVariantId = variant.Id;
+                            variant.Values.Add(value);
+                        }
+                    }
+                    
+                    product.Variants.Add(variant);
+                }
+            }
+
             await _unitOfWork.Products.AddAsync(product);
             await _unitOfWork.SaveChangesAsync();
 
@@ -141,6 +163,28 @@ namespace Ecom.Application.Services
                 product.Images = imageUrls.ToArray();
             }
 
+            // Handle Variants
+            if (productDto.Variants != null && productDto.Variants.Count > 0)
+            {
+                foreach (var variantDto in productDto.Variants)
+                {
+                    var variant = _mapper.Map<ProductVariant>(variantDto);
+                    variant.ProductId = product.Id;
+                    
+                    if (variantDto.Values != null && variantDto.Values.Count > 0)
+                    {
+                        foreach (var valueDto in variantDto.Values)
+                        {
+                            var value = _mapper.Map<ProductVariantValue>(valueDto);
+                            value.ProductVariantId = variant.Id;
+                            variant.Values.Add(value);
+                        }
+                    }
+                    
+                    product.Variants.Add(variant);
+                }
+            }
+
             await _unitOfWork.Products.AddAsync(product);
             await _unitOfWork.SaveChangesAsync();
 
@@ -150,11 +194,56 @@ namespace Ecom.Application.Services
 
         public async Task<ProductDto> UpdateProductAsync(ProductUpdateDto productDto)
         {
-            var existingProduct = await _unitOfWork.Products.GetByIdAsync(productDto.Id);
+            var existingProduct = await _unitOfWork.Products.GetProductWithDetailsAsync(productDto.Id);
             if (existingProduct == null)
                 throw new ArgumentException($"Product with ID {productDto.Id} not found.");
 
-            _mapper.Map(productDto, existingProduct);
+            // Map basic properties
+            existingProduct.Title = productDto.Title;
+            existingProduct.TitleAr = productDto.TitleAr;
+            existingProduct.Description = productDto.Description;
+            existingProduct.DescriptionAr = productDto.DescriptionAr;
+            existingProduct.oldPrice = productDto.OldPrice;
+            existingProduct.newPrice = productDto.NewPrice;
+            existingProduct.IsInStock = productDto.IsInStock;
+            existingProduct.TotalInStock = productDto.TotalInStock;
+            existingProduct.SubCategoryId = productDto.SubCategoryId;
+
+            // Handle ProductDetails update - clear existing and add new ones
+            existingProduct.productDetails.Clear();
+            if (productDto.ProductDetails != null && productDto.ProductDetails.Count > 0)
+            {
+                var newProductDetails = _mapper.Map<List<ProductDetails>>(productDto.ProductDetails);
+                foreach (var detail in newProductDetails)
+                {
+                    detail.ProductId = existingProduct.Id;
+                    existingProduct.productDetails.Add(detail);
+                }
+            }
+
+            // Handle Variants update
+            existingProduct.Variants.Clear();
+            if (productDto.Variants != null && productDto.Variants.Count > 0)
+            {
+                foreach (var variantDto in productDto.Variants)
+                {
+                    var variant = _mapper.Map<ProductVariant>(variantDto);
+                    variant.ProductId = existingProduct.Id;
+                    
+                    if (variantDto.Values != null && variantDto.Values.Count > 0)
+                    {
+                        foreach (var valueDto in variantDto.Values)
+                        {
+                            var value = _mapper.Map<ProductVariantValue>(valueDto);
+                            value.ProductVariantId = variant.Id;
+                            variant.Values.Add(value);
+                        }
+                    }
+                    
+                    existingProduct.Variants.Add(variant);
+                }
+            }
+
             _unitOfWork.Products.Update(existingProduct);
             await _unitOfWork.SaveChangesAsync();
 
@@ -190,6 +279,29 @@ namespace Ecom.Application.Services
                 {
                     detail.ProductId = existingProduct.Id;
                     existingProduct.productDetails.Add(detail);
+                }
+            }
+
+            // Handle Variants update
+            existingProduct.Variants.Clear();
+            if (productDto.Variants != null && productDto.Variants.Count > 0)
+            {
+                foreach (var variantDto in productDto.Variants)
+                {
+                    var variant = _mapper.Map<ProductVariant>(variantDto);
+                    variant.ProductId = existingProduct.Id;
+                    
+                    if (variantDto.Values != null && variantDto.Values.Count > 0)
+                    {
+                        foreach (var valueDto in variantDto.Values)
+                        {
+                            var value = _mapper.Map<ProductVariantValue>(valueDto);
+                            value.ProductVariantId = variant.Id;
+                            variant.Values.Add(value);
+                        }
+                    }
+                    
+                    existingProduct.Variants.Add(variant);
                 }
             }
 

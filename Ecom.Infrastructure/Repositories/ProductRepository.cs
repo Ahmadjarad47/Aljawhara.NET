@@ -19,6 +19,8 @@ namespace Ecom.Infrastructure.Repositories
                 .ThenInclude(sc => sc.Category)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .Where(p => p.subCategory.CategoryId == categoryId)
                 .ToListAsync();
         }
@@ -29,6 +31,8 @@ namespace Ecom.Infrastructure.Repositories
                 .Include(p => p.subCategory)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .Where(p => p.SubCategoryId == subCategoryId)
                 .ToListAsync();
         }
@@ -40,6 +44,8 @@ namespace Ecom.Infrastructure.Repositories
                 .ThenInclude(sc => sc.Category)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(count)
                 .ToListAsync();
@@ -52,6 +58,8 @@ namespace Ecom.Infrastructure.Repositories
                 .ThenInclude(sc => sc.Category)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .Where(p => p.Title.Contains(searchTerm) || 
                            p.TitleAr.Contains(searchTerm) ||
                            p.Description.Contains(searchTerm) ||
@@ -83,6 +91,8 @@ namespace Ecom.Infrastructure.Repositories
                 .ThenInclude(sc => sc.Category)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .AsQueryable();
 
             if (categoryId.HasValue)
@@ -174,6 +184,8 @@ namespace Ecom.Infrastructure.Repositories
                 .ThenInclude(sc => sc.Category)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .FirstOrDefaultAsync(p => p.Id == productId);
         }
 
@@ -188,6 +200,8 @@ namespace Ecom.Infrastructure.Repositories
                 .ThenInclude(sc => sc.Category)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .Where(p => p.SubCategoryId == product.SubCategoryId && p.Id != productId)
                 .Take(count)
                 .ToListAsync();
@@ -200,6 +214,8 @@ namespace Ecom.Infrastructure.Repositories
                 .ThenInclude(sc => sc.Category)
                 .Include(p => p.productDetails)
                 .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Values)
                 .ToListAsync();
         }
     }

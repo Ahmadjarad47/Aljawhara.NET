@@ -32,6 +32,7 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.subCategory.Category.Name))
                 .ForMember(dest => dest.CategoryNameAr, opt => opt.MapFrom(src => src.subCategory.Category.NameAr))
                 .ForMember(dest => dest.ProductDetails, opt => opt.MapFrom(src => src.productDetails))
+                .ForMember(dest => dest.Variants, opt => opt.MapFrom(src => src.Variants))
                 .ForMember(dest => dest.AverageRating, opt => opt.MapFrom(src => src.Ratings.Any() ? src.Ratings.Average(r => r.RatingNumber) : 0))
                 .ForMember(dest => dest.TotalReviews, opt => opt.MapFrom(src => src.Ratings.Count));
 
@@ -68,6 +69,14 @@ namespace Ecom.Application.Mappings
 
             CreateMap<ProductDetails, ProductDetailDto>();
             CreateMap<ProductDetailCreateDto, ProductDetails>();
+
+            // ProductVariant Mappings
+            CreateMap<ProductVariant, ProductVariantDto>();
+            CreateMap<ProductVariantValue, ProductVariantValueDto>();
+            CreateMap<ProductVariantCreateDto, ProductVariant>();
+            CreateMap<ProductVariantValueCreateDto, ProductVariantValue>();
+            CreateMap<ProductVariantUpdateDto, ProductVariant>();
+            CreateMap<ProductVariantValueUpdateDto, ProductVariantValue>();
 
             CreateMap<Rating, RatingDto>()
                 .ForMember(dest => dest.ProductTitle, opt => opt.MapFrom(src => src.Product != null ? src.Product.Title : string.Empty))

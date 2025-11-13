@@ -23,5 +23,8 @@ namespace Ecom.Domain.Entity
 
         public int SubCategoryId { get; set; }
         public SubCategory subCategory { get; set; } = null!;
+
+        public List<ProductVariant> Variants { get; set; } = new();
+
     }
 }

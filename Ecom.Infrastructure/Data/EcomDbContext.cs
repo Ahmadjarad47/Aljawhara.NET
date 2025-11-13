@@ -24,6 +24,8 @@ namespace Ecom.Infrastructure.Data
         public DbSet<SubCategory> SubCategories { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductDetails> ProductDetails { get; set; }
+        public DbSet<ProductVariant> ProductVariants { get; set; }
+        public DbSet<ProductVariantValue> ProductVariantValues { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<ShippingAddress> ShippingAddresses { get; set; }
@@ -83,6 +85,33 @@ namespace Ecom.Infrastructure.Data
                 entity.HasOne(e => e.Product)
                       .WithMany(e => e.productDetails)
                       .HasForeignKey(e => e.ProductId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            // Configure ProductVariant
+            modelBuilder.Entity<ProductVariant>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.NameAr).HasMaxLength(100);
+                entity.HasOne(e => e.Product)
+                      .WithMany(e => e.Variants)
+                      .HasForeignKey(e => e.ProductId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            // Configure ProductVariantValue
+            modelBuilder.Entity<ProductVariantValue>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Value).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.ValueAr).HasMaxLength(100);
+                entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+                entity.HasOne(e => e.ProductVariant)
+                      .WithMany(e => e.Values)
+                      .HasForeignKey(e => e.ProductVariantId)
                       .OnDelete(DeleteBehavior.Cascade);
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
