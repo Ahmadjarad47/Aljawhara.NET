@@ -14,19 +14,47 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
+using System.IO.Compression;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Request size limits for security
+    options.MaxModelBindingCollectionSize = 100;
+})
+.AddJsonOptions(options =>
+{
+    // Performance: Use camelCase for JSON
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.WriteIndented = false; // Smaller payload in production
+});
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 
 // Add Entity Framework with factory to inject IServiceProvider
+// Performance: Enable connection pooling and query optimizations
 builder.Services.AddDbContext<EcomDbContext>((serviceProvider, options) =>
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        // Performance: Enable connection resiliency
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null);
+        // Performance: Enable query splitting for better performance
+        sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+    });
+    // Performance: Connection pooling is enabled by default in EF Core
+    // Performance: Disable change tracking for read-only scenarios
+    // options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 }, ServiceLifetime.Scoped);
 
 // Override the DbContext registration to inject IServiceProvider for audit fields
@@ -36,15 +64,33 @@ builder.Services.AddScoped(serviceProvider =>
     return new EcomDbContext(options, serviceProvider);
 });
 
-// Add Identity
+// Add Identity with enhanced security settings
 builder.Services.AddIdentity<AppUsers, IdentityRole>(options =>
 {
+    // Enhanced password requirements for security
     options.Password.RequireDigit = true;
     options.Password.RequireLowercase = true;
     options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = true; // Require special characters
+    options.Password.RequiredLength = 8; // Increased minimum length
+    options.Password.RequiredUniqueChars = 1;
+    
+    // Security: Lockout settings
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
+    
+    // Security: User settings
     options.User.RequireUniqueEmail = true;
+    options.SignIn.RequireConfirmedEmail = false; // Set to true if email confirmation is implemented
+    options.SignIn.RequireConfirmedPhoneNumber = false;
+    
+    // Security: Token settings
+    options.Tokens.EmailConfirmationTokenProvider = TokenOptions.DefaultEmailProvider;
+    options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultProvider;
+    
+    // Security: Prevent user enumeration
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
 })
 .AddEntityFrameworkStores<EcomDbContext>()
 .AddDefaultTokenProviders();
@@ -106,7 +152,37 @@ builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 
 // Add Memory Cache for OTP storage
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1024; // Limit cache size
+});
+
+// Add Response Caching for performance
+builder.Services.AddResponseCaching(options =>
+{
+    options.MaximumBodySize = 64 * 1024 * 1024; // 64 MB
+    options.UseCaseSensitivePaths = false;
+});
+
+// Add Response Compression for performance
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+        new[] { "application/json", "application/xml", "text/plain", "text/css", "application/javascript" });
+});
+
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Optimal;
+});
+
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Optimal;
+});
 
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -141,40 +217,189 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("User", "Admin"));
 });
 
-// Add CORS
+// Add CORS with security best practices
+var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() 
+    ?? new[] { "http://localhost:3000", "https://localhost:3000" };
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials() // Required for cookies/auth headers
+              .SetPreflightMaxAge(TimeSpan.FromHours(24)); // Cache preflight requests
     });
+    
+    // Fallback policy for development (remove in production)
+    if (builder.Environment.IsDevelopment())
+    {
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+    }
 });
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
+
+// Add Rate Limiting for security
+builder.Services.AddRateLimiter(options =>
+{
+    // Global rate limiter
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100, // Requests per window
+                Window = TimeSpan.FromMinutes(1) // Time window
+            }));
+
+    // Specific endpoint rate limiters
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 5, // 5 login attempts per window
+                Window = TimeSpan.FromMinutes(15)
+            }));
+
+    options.AddPolicy("api", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 1000, // Higher limit for authenticated users
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // Rejection response
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync("Rate limit exceeded. Please try again later.", token);
+    };
+});
+
+// Add Health Checks
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<EcomDbContext>(name: "database");
+
+// Add Request Timeout (if available in .NET 9)
+// Note: RequestTimeouts may require additional configuration
+// Alternative: Configure Kestrel server options for timeouts
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+});
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+
+// Security: Add security headers middleware (must be early in pipeline)
+app.Use(async (context, next) =>
+{
+    // Security Headers
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+    
+    // Remove server header for security
+    context.Response.Headers.Remove("Server");
+    context.Response.Headers.Remove("X-Powered-By");
+    
+    // HSTS (HTTP Strict Transport Security) - only for HTTPS
+    if (context.Request.IsHttps && !app.Environment.IsDevelopment())
+    {
+        context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+    }
+    
+    await next();
+});
+
+// Performance: Enable response compression (must be before other middleware)
+app.UseResponseCompression();
+
+// Performance: Enable response caching
+app.UseResponseCaching();
+
+// Security: Request timeout (configured via Kestrel options above)
+// app.UseRequestTimeouts(); // Uncomment if RequestTimeouts package is added
+
+// Security: Rate limiting (must be before authentication)
+app.UseRateLimiter();
+
+// Security: HTTPS redirection
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+// Security: CORS (must be before authentication)
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("AllowAll");
+}
+else
+{
+    app.UseCors("AllowSpecificOrigins");
+}
+
+// Security: Swagger only in development
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Ecom Badder API v2");
+        c.RoutePrefix = "swagger";
+        // Security: Disable Swagger UI in production
+        c.DocumentTitle = "Ecom API - Development";
+    });
 }
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseHttpsRedirection();
-app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-app.MapHealthChecks("/health");
+// Security: Apply rate limiting to controllers
+app.MapControllers()
+   .RequireRateLimiting("api");
+
+// Health checks endpoint
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                exception = e.Value.Exception?.Message,
+                duration = e.Value.Duration.ToString()
+            })
+        });
+        await context.Response.WriteAsync(result);
+    }
+});
 
 // Ensure database is created and seed data
 using (var scope = app.Services.CreateScope())
