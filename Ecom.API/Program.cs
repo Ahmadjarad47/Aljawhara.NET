@@ -149,7 +149,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("https://aljawharaplus.com")
               .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowCredentials()
+              .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
     });
 });
 
@@ -169,6 +170,8 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
+
+// CORS must be before Authentication and Authorization
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
