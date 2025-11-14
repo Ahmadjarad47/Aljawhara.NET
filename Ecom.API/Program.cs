@@ -155,7 +155,7 @@ builder.Services.AddScoped<ICarouselService, CarouselService>();
 // Add Memory Cache for OTP storage
 builder.Services.AddMemoryCache(options =>
 {
-    options.SizeLimit = 1024; // Limit cache size
+    options.SizeLimit = 4096; // Limit cache size
 });
 
 // Add Response Caching for performance
@@ -220,17 +220,16 @@ builder.Services.AddAuthorization(options =>
 
 // Add CORS with security best practices
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() 
-    ?? new[] { "http://localhost:3000", "https://localhost:3000" };
+    ?? new[] { "http://localhost:4200", "https://localhost:4200" };
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials() // Required for cookies/auth headers
-              .SetPreflightMaxAge(TimeSpan.FromHours(24)); // Cache preflight requests
+        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+                   .AllowAnyMethod()
+                   .AllowAnyHeader()
+                   .AllowCredentials();
     });
     
     // Fallback policy for development (remove in production)
@@ -238,9 +237,10 @@ builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowAll", policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
                   .AllowAnyMethod()
-                  .AllowAnyHeader();
+                  .AllowAnyHeader()
+                  .AllowCredentials(); // Allow credentials for JWT tokens
         });
     }
 });
@@ -318,6 +318,21 @@ app.Use(async (context, next) =>
     context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
     context.Response.Headers.Append("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+    
+    // Content Security Policy - Note: CSP is typically handled by the frontend application
+    // We only set it in production for additional security. In development, we skip it
+    // to avoid conflicts with the frontend's CSP configuration.
+    if (!app.Environment.IsDevelopment())
+    {
+        // Strict CSP for production
+        context.Response.Headers.Append("Content-Security-Policy", 
+            "default-src 'self'; " +
+           
+            "script-src 'self'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: https:; " +
+            "font-src 'self' data:;");
+    }
     
     // Remove server header for security
     context.Response.Headers.Remove("Server");
