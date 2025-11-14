@@ -1,5 +1,6 @@
 using AutoMapper;
 using Ecom.Application.DTOs.Auth;
+using Ecom.Application.DTOs.Carousel;
 using Ecom.Application.DTOs.Category;
 using Ecom.Application.DTOs.Coupon;
 using Ecom.Application.DTOs.Order;
@@ -18,6 +19,7 @@ namespace Ecom.Application.Mappings
             CreateOrderMappings();
             CreateCouponMappings();
             CreateAuthMappings();
+            CreateCarouselMappings();
         }
 
         private void CreateProductMappings()
@@ -212,6 +214,17 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.LastLoginAt, opt => opt.Ignore()) // This would need to be tracked separately
                 .ForMember(dest => dest.AccessFailedCount, opt => opt.MapFrom(src => src.AccessFailedCount))
                 .ForMember(dest => dest.TwoFactorEnabled, opt => opt.MapFrom(src => src.TwoFactorEnabled));
+        }
+
+        private void CreateCarouselMappings()
+        {
+            CreateMap<Carousel, CarouselDto>();
+            CreateMap<CarouselCreateDto, Carousel>();
+            CreateMap<CarouselCreateWithFileDto, Carousel>()
+                .ForMember(dest => dest.Image, opt => opt.Ignore()); // Image will be set manually after file upload
+            CreateMap<CarouselUpdateDto, Carousel>();
+            CreateMap<CarouselUpdateWithFileDto, Carousel>()
+                .ForMember(dest => dest.Image, opt => opt.Ignore()); // Image will be set manually after file upload
         }
     }
 

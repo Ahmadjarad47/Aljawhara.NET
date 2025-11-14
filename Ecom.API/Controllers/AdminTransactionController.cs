@@ -10,7 +10,7 @@ namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/transaction")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public class AdminTransactionController : ControllerBase
     {
         private readonly ITransactionService _transactionService;

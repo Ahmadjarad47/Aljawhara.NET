@@ -8,7 +8,7 @@ namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/products")]
-    //[Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     public class AdminProductsController : ControllerBase
     {
         private readonly IProductService _productService;

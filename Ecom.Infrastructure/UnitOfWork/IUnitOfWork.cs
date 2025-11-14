@@ -16,6 +16,7 @@ namespace Ecom.Infrastructure.UnitOfWork
         ICouponRepository Coupons { get; }
         IVisitorRepository Visitors { get; }
         IHealthPingRepository HealthPings { get; }
+        ICarouselRepository Carousels { get; }
 
         Task<int> SaveChangesAsync();
         Task BeginTransactionAsync();

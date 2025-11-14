@@ -9,7 +9,7 @@ namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/order")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public class AdminOrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;

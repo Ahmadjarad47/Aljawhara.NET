@@ -8,7 +8,7 @@ namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/coupons")]
-    [Authorize]
+    [Authorize(Roles ="Admin")]
     public class AdminCouponsController : ControllerBase
     {
         private readonly ICouponService _couponService;

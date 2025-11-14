@@ -34,6 +34,7 @@ namespace Ecom.Infrastructure.Data
         public DbSet<Coupon> Coupons { get; set; }
         public DbSet<Visitor> Visitors { get; set; }
         public DbSet<HealthPing> HealthPings { get; set; }
+        public DbSet<Carousel> Carousels { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -273,6 +274,17 @@ namespace Ecom.Infrastructure.Data
 
             modelBuilder.Entity<HealthPing>()
                 .HasIndex(h => h.CreatedAt);
+
+            // Configure Carousel
+            modelBuilder.Entity<Carousel>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Description).HasMaxLength(1000);
+                entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Image).HasMaxLength(500);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
         }
 
         public override int SaveChanges()

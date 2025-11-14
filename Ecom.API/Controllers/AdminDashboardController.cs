@@ -6,7 +6,7 @@ namespace Ecom.API.Controllers
 {
     [ApiController]
     [Route("api/admin/dashboard")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public class AdminDashboardController : ControllerBase
     {
         private readonly IAnalyticsService _analyticsService;

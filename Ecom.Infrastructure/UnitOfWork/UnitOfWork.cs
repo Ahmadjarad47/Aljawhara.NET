@@ -24,6 +24,7 @@ namespace Ecom.Infrastructure.UnitOfWork
         private ICouponRepository? _coupons;
         private IVisitorRepository? _visitors;
         private IHealthPingRepository? _healthPings;
+        private ICarouselRepository? _carousels;
 
         public UnitOfWork(EcomDbContext context, IMemoryCache cache)
         {
@@ -66,6 +67,9 @@ namespace Ecom.Infrastructure.UnitOfWork
 
         public IHealthPingRepository HealthPings =>
             _healthPings ??= new HealthPingRepository(_context, _cache);
+
+        public ICarouselRepository Carousels =>
+            _carousels ??= new CarouselRepository(_context, _cache);
 
         public async Task<int> SaveChangesAsync()
         {

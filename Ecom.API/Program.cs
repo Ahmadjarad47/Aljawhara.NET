@@ -150,6 +150,7 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
+builder.Services.AddScoped<ICarouselService, CarouselService>();
 
 // Add Memory Cache for OTP storage
 builder.Services.AddMemoryCache(options =>
