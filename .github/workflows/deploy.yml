@@ -6,52 +6,37 @@ on:
       - master
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: SSH Deploy to VPS
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish API
+        run: |
+          cd Ecom.API
+          dotnet publish -c Release -o publish
+
+      - name: SCP publish folder to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 72.61.187.165
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "Ecom.API/publish/*"
+          target: "/var/www/Aljawhara.NET/publish"
+
+      - name: Restart service
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: 72.61.187.165
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "===== Starting Deploy on VPS ====="
-
-            # Ensure main folder exists
-            if [ ! -d "/var/www/Aljawhara.NET" ]; then
-              mkdir -p /var/www/Aljawhara.NET
-            fi
-
-            cd /var/www
-
-            # Clone if not exists
-            if [ ! -d "/var/www/Aljawhara.NET/.git" ]; then
-              git clone https://github.com/Ahmadjarad47/Aljawhara.NET.git
-            fi
-
-            cd /var/www/Aljawhara.NET
-
-            echo "Pulling latest source code..."
-            git fetch --all
-            git reset --hard origin/master
-
-            echo "Stopping API service..."
-            systemctl stop aljawhara.service || true
-
-            echo "Cleaning old publish folder..."
-            rm -rf /var/www/Aljawhara.NET/publish
-            mkdir -p /var/www/Aljawhara.NET/publish
-
-            echo "Publishing project..."
-            cd /var/www/Aljawhara.NET/Ecom.API
-            dotnet publish -c Release -o /var/www/Aljawhara.NET/publish
-
-            echo "Starting API service..."
-            systemctl start aljawhara.service
-
-            echo "===== Deploy Finished Successfully ====="
+            systemctl restart aljawhara.service
