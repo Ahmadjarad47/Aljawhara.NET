@@ -3,44 +3,40 @@ name: Auto Deploy Aljawhara.NET to VPS
 on:
   push:
     branches:
-      - master    # يعمل عند كل push على master
+      - master
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: SSH Deploy to VPS
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish API
+        run: |
+          cd Ecom.API
+          dotnet publish -c Release -o publish
+
+      - name: SCP publish folder to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 72.61.187.165
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "Ecom.API/publish/*"
+          target: "/var/www/Aljawhara.NET/publish"
+
+      - name: Restart service
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: 72.61.187.165
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "===== Starting Deploy on VPS ====="
-
-            # إذا المجلد غير موجود أول مرة، اعمل clone
-            if [ ! -d "/var/www/Aljawhara.NET" ]; then
-              cd /var/www
-              git clone https://github.com/Ahmadjarad47/Aljawhara.NET.git
-            fi
-
-            cd /var/www/Aljawhara.NET
-
-            echo "Pulling latest code..."
-            git fetch --all
-            git reset --hard origin/master
-
-            echo "Publishing project from Ecom.API..."
-            cd /var/www/Aljawhara.NET/Ecom.API
-            dotnet publish -c Release -o /var/www/Aljawhara.NET/publish
-
-            echo "Restarting service..."
-            systemctl stop aljawhara.service || true
-            cp -r /var/www/Aljawhara.NET/publish/* /var/www/Aljawhara.NET/
-            systemctl start aljawhara.service
-
-            echo "===== Deploy Finished ====="
+            systemctl restart aljawhara.service
