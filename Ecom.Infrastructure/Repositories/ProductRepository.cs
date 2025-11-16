@@ -362,51 +362,46 @@ namespace Ecom.Infrastructure.Repositories
         }
 
         // Helper: Normalize text
-       
-
-        public async Task<(IEnumerable<Product> Products, int TotalCount)> GetProductsWithFiltersAsync(
-            int? categoryId = null,
-            int? subCategoryId = null,
-            decimal? minPrice = null,
-            decimal? maxPrice = null,
-            string? searchTerm = null,
-            bool? isActive = null,
-            string? sortBy = null,
-            bool? inStock = null,
-            bool? onSale = null,
-            bool? newArrival = null,
-            bool? bestDiscount = null,
-            int pageNumber = 1,
-            int pageSize = 20)
+        public async Task<(IReadOnlyList<Product> Products, int TotalCount)>
+      GetProductsWithFiltersAsync(
+          int? categoryId = null,
+          int? subCategoryId = null,
+          decimal? minPrice = null,
+          decimal? maxPrice = null,
+          string? searchTerm = null,
+          bool? isActive = null,
+          string? sortBy = null,
+          bool? inStock = null,
+          bool? onSale = null,
+          bool? newArrival = null,
+          bool? bestDiscount = null,
+          int pageNumber = 1,
+          int pageSize = 20)
         {
-            var cacheKey = GenerateFilteredProductsCacheKey(
-                categoryId, subCategoryId, minPrice, maxPrice, searchTerm,
-                isActive, sortBy, inStock, onSale, newArrival, bestDiscount,
-                pageNumber, pageSize);
-            
-            var cacheVersionKey = $"{ProductCacheTag}_Version";
-            var cacheVersion = _cache.Get<int?>(cacheVersionKey) ?? 0;
-            var versionedCacheKey = $"{cacheKey}_v{cacheVersion}";
+            // ============================
+            //     1) BUILD CACHE KEY
+            // ============================
+            string cacheKey =
+                $"products:{categoryId}:{subCategoryId}:{minPrice}:{maxPrice}:{searchTerm}:{isActive}:{sortBy}:{inStock}:{onSale}:{newArrival}:{bestDiscount}:{pageNumber}:{pageSize}";
 
-            if (_cache.TryGetValue(versionedCacheKey, out (IEnumerable<Product> Products, int TotalCount)? cachedResult))
-            {
-                return cachedResult!.Value;
-            }
+            if (_cache.TryGetValue(cacheKey, out (IReadOnlyList<Product> Products, int TotalCount)? cached))
+                return cached.Value;
 
-            IQueryable<Product>? query = _dbSet
-                .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
-                .Include(p => p.Variants)
-                .ThenInclude(v => v.Values)
-                .AsQueryable();
+            // ============================
+            //     2) BASE QUERY
+            // ============================
+            IQueryable<Product> query = _dbSet
+                .AsNoTracking()                    // ãåã ÌÏÇð ÌÏÇð
+                .Where(p => p.IsDeleted == false && p.IsActive == true);
 
+            // ============================
+            //     3) FILTERS
+            // ============================
             if (categoryId.HasValue)
-                query = query.Where(p => p.subCategory.CategoryId == categoryId.Value);
+                query = query.Where(p => p.subCategory.CategoryId == categoryId);
 
             if (subCategoryId.HasValue)
-                query = query.Where(p => p.SubCategoryId == subCategoryId.Value);
+                query = query.Where(p => p.SubCategoryId == subCategoryId);
 
             if (minPrice.HasValue)
                 query = query.Where(p => p.newPrice >= minPrice.Value);
@@ -417,82 +412,83 @@ namespace Ecom.Infrastructure.Repositories
             if (isActive.HasValue)
                 query = query.Where(p => p.IsActive == isActive.Value);
 
-            // New filters
-            if (inStock.HasValue)
-                query = query.Where(p => p.IsInStock == inStock.Value);
+            if (inStock.HasValue && inStock.Value)
+                query = query.Where(p => p.IsInStock == true);
 
             if (onSale.HasValue && onSale.Value)
                 query = query.Where(p => p.oldPrice > p.newPrice);
 
             if (newArrival.HasValue && newArrival.Value)
             {
-                var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
-                query = query.Where(p => p.CreatedAt >= thirtyDaysAgo);
+                var since = DateTime.UtcNow.AddDays(-30);
+                query = query.Where(p => p.CreatedAt >= since);
             }
 
-            // Best Discount filter - products with highest discount percentage
             if (bestDiscount.HasValue && bestDiscount.Value)
-            {
-                query = query.Where(p => p.oldPrice > 0 && p.oldPrice > p.newPrice);
-            }
+                query = query.Where(p => p.oldPrice > p.newPrice);
 
+            // Optimized Search (LIKE only on key columns)
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                query = query.Where(p => p.Title.Contains(searchTerm) || 
-                                        p.TitleAr.Contains(searchTerm) ||
-                                        p.Description.Contains(searchTerm) ||
-                                        p.DescriptionAr.Contains(searchTerm));
+                string t = searchTerm.Trim();
+                query = query.Where(p =>
+                    EF.Functions.Like(p.Title, $"%{t}%") ||
+                    EF.Functions.Like(p.TitleAr, $"%{t}%"));
             }
 
-            var totalCount = await query.CountAsync();
-
-            // Apply sorting
-            switch (sortBy?.ToLower())
+            // ============================
+            //     4) SORTING
+            // ============================
+            query = sortBy?.ToLower() switch
             {
-                case "newest":
-                    query = query.OrderByDescending(p => p.CreatedAt);
-                    break;
-                case "oldest":
-                    query = query.OrderBy(p => p.CreatedAt);
-                    break;
-                case "highrating":
-                    query = query.OrderByDescending(p => p.Ratings.Any() ? p.Ratings.Average(r => r.RatingNumber) : 0);
-                    break;
-                case "lowrating":
-                    query = query.OrderBy(p => p.Ratings.Any() ? p.Ratings.Average(r => r.RatingNumber) : 0);
-                    break;
-                case "mostrating":
-                    // Sort products by highest average RatingNumber (stars)
-                    query = query.OrderByDescending(p => p.Ratings.Any()
-                        ? p.Ratings.Average(r => r.RatingNumber)
-                        : 0);
-                    break;
-                case "bestdiscount":
-                    query = query.OrderByDescending(p => Math.Round(((p.oldPrice - p.newPrice) / p.oldPrice) * 100, 2));
+                "newest" => query.OrderByDescending(p => p.CreatedAt),
+                "oldest" => query.OrderBy(p => p.CreatedAt),
+                "highrating" => query.OrderByDescending(p =>
+                    p.Ratings.Any() ? p.Ratings.Average(r => r.RatingNumber) : 0),
+                "lowrating" => query.OrderBy(p =>
+                    p.Ratings.Any() ? p.Ratings.Average(r => r.RatingNumber) : 0),
+                "bestdiscount" => query.OrderByDescending(p =>
+                    (p.oldPrice > 0) ? ((p.oldPrice - p.newPrice) / p.oldPrice) : 0),
+                _ => query.OrderByDescending(p => p.Id)
+            };
 
-                    break;
-                default:
-                    query = query.OrderBy(p => p.Title);
-                    break;
-            }
+            // ============================
+            //     5) COUNT BEFORE PAGING
+            // ============================
+            int totalCount = await query.CountAsync();
 
-            var products = await query
+            // ============================
+            //     6) PAGINATION (VERY IMPORTANT)
+            // ============================
+            query = query
                 .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
+                .Take(pageSize);
+
+            // ============================
+            //     7) NOW APPLY INCLUDES
+            // ============================
+            var result = await query
+                .Include(p => p.subCategory)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails)
+                .Include(p => p.Ratings)
+                .Include(p => p.Variants)
+                    .ThenInclude(v => v.Values)
                 .ToListAsync();
 
-            var result = (products, totalCount);
+            // ============================
+            //     8) SAVE TO CACHE
+            // ============================
+            var output = ((IReadOnlyList<Product>)result, totalCount);
 
-            // Cache the result
-            _cache.Set(versionedCacheKey, result, new MemoryCacheEntryOptions
+            _cache.Set(cacheKey, output, new MemoryCacheEntryOptions
             {
-                AbsoluteExpirationRelativeToNow = FilteredProductsCacheExpiration,
-                SlidingExpiration = TimeSpan.FromMinutes(5),
-                Priority = CacheItemPriority.Normal,
-                Size = 1024,
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30),
+                SlidingExpiration = TimeSpan.FromMinutes(2),
+                Priority = CacheItemPriority.High
             });
 
-            return result;
+            return output;
         }
 
         public async Task<Product?> GetProductWithDetailsAsync(int productId)

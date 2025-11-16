@@ -17,39 +17,39 @@ namespace Ecom.API.Controllers
             _productService = productService;
         }
 
-        [HttpGet]
-        public async Task<ActionResult<List<ProductSummaryDto>>> GetProducts(
-            [FromQuery] int? categoryId = null,
-            [FromQuery] int? subCategoryId = null,
-            [FromQuery] decimal? minPrice = null,
-            [FromQuery] decimal? maxPrice = null,
-            [FromQuery] string? searchTerm = null,
-            [FromQuery] string? sortBy = null, // "newest", "oldest", "highRating", "lowRating", "bestDiscount", "mostRating"
-            [FromQuery] bool? inStock = null,
-            [FromQuery] bool? onSale = null,
-            [FromQuery] bool? newArrival = null,
-            [FromQuery] bool? bestDiscount = null,
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 20)
-        {
-            if (!string.IsNullOrWhiteSpace(searchTerm))
+            [HttpGet]
+            public async Task<ActionResult<List<ProductSummaryDto>>> GetProducts(
+                [FromQuery] int? categoryId = null,
+                [FromQuery] int? subCategoryId = null,
+                [FromQuery] decimal? minPrice = null,
+                [FromQuery] decimal? maxPrice = null,
+                [FromQuery] string? searchTerm = null,
+                [FromQuery] string? sortBy = null, // "newest", "oldest", "highRating", "lowRating", "bestDiscount", "mostRating"
+                [FromQuery] bool? inStock = null,
+                [FromQuery] bool? onSale = null,
+                [FromQuery] bool? newArrival = null,
+                [FromQuery] bool? bestDiscount = null,
+                [FromQuery] int pageNumber = 1,
+                [FromQuery] int pageSize = 20)
             {
-                var searchResults = await _productService.SearchProductsAsync(searchTerm);
-                return Ok(searchResults);
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    var searchResults = await _productService.SearchProductsAsync(searchTerm);
+                    return Ok(searchResults);
+                }
+
+                if (categoryId.HasValue || subCategoryId.HasValue || minPrice.HasValue || maxPrice.HasValue || 
+                    !string.IsNullOrWhiteSpace(sortBy) || inStock.HasValue || onSale.HasValue || newArrival.HasValue || bestDiscount.HasValue)
+                {
+                    var (products, totalCount) = await _productService.GetProductsWithFiltersAsync(
+                        categoryId, subCategoryId, minPrice, maxPrice, searchTerm, null, sortBy, inStock, onSale, newArrival, bestDiscount, pageNumber, pageSize);
+
+                    return Ok(new { Products = products, TotalCount = totalCount, PageNumber = pageNumber, PageSize = pageSize });
+                }
+
+                var allProducts = await _productService.GetAllProductsAsync();
+                return Ok(allProducts.ToList());
             }
-
-            if (categoryId.HasValue || subCategoryId.HasValue || minPrice.HasValue || maxPrice.HasValue || 
-                !string.IsNullOrWhiteSpace(sortBy) || inStock.HasValue || onSale.HasValue || newArrival.HasValue || bestDiscount.HasValue)
-            {
-                var (products, totalCount) = await _productService.GetProductsWithFiltersAsync(
-                    categoryId, subCategoryId, minPrice, maxPrice, searchTerm, null, sortBy, inStock, onSale, newArrival, bestDiscount, pageNumber, pageSize);
-
-                return Ok(new { Products = products, TotalCount = totalCount, PageNumber = pageNumber, PageSize = pageSize });
-            }
-
-            var allProducts = await _productService.GetAllProductsAsync();
-            return Ok(allProducts.ToList());
-        }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ProductDto>> GetProduct(int id)

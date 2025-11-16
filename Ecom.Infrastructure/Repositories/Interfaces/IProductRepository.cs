@@ -9,7 +9,7 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
         Task<IEnumerable<Product>> GetProductsBySubCategoryAsync(int subCategoryId);
         Task<IEnumerable<Product>> GetFeaturedProductsAsync(int count = 10);
         Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm);
-        Task<(IEnumerable<Product> Products, int TotalCount)> GetProductsWithFiltersAsync(
+        Task<(IReadOnlyList<Product> Products, int TotalCount)> GetProductsWithFiltersAsync(
             int? categoryId = null,
             int? subCategoryId = null,
             decimal? minPrice = null,
