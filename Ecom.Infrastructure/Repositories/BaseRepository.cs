@@ -85,11 +85,15 @@ namespace Ecom.Infrastructure.Repositories
             }
 
             var entity = await _dbSet.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
-            
             if (entity != null && entity.IsActive)
             {
-                _cache.Set(cacheKey, entity, GetCacheOptions());
+                var options = new MemoryCacheEntryOptions()
+                    .SetSize(1) // ãåã ÌÏÇð ãÚ SizeLimit
+                    .SetSlidingExpiration(TimeSpan.FromMinutes(5));
+
+                _cache.Set(cacheKey, entity, options);
             }
+
 
             return entity;
         }
