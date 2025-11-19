@@ -23,14 +23,27 @@ jobs:
           cd Ecom.API
           dotnet publish -c Release -o publish
 
+      - name: Clean old publish folder on server
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: 72.61.187.165
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            rm -rf /var/www/Aljawhara.NET/publish
+            mkdir -p /var/www/Aljawhara.NET/publish
+
       - name: SCP publish folder to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: 72.61.187.165
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "Ecom.API/publish/*"
-          target: "/var/www/Aljawhara.NET/publish"
+          source: "Ecom.API/publish"
+          target: "/var/www/Aljawhara.NET"
+          strip_components: 1
+          rm: true
+          overwrite: true
 
       - name: Restart service
         uses: appleboy/ssh-action@v1.1.0
