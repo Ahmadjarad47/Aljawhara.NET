@@ -486,7 +486,7 @@ namespace Ecom.Infrastructure.Repositories
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30),
                 SlidingExpiration = TimeSpan.FromMinutes(2),
                 Priority = CacheItemPriority.High
-            });
+            }.SetSize(1));
 
             return output;
         }
