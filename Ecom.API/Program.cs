@@ -376,8 +376,8 @@ else
 }
 
 // Security: Swagger only in development
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
+//{
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -387,7 +387,7 @@ if (app.Environment.IsDevelopment())
         // Security: Disable Swagger UI in production
         c.DocumentTitle = "Ecom API - Development";
     });
-}
+//}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -420,11 +420,11 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 // Ensure database is created and seed data
 using (var scope = app.Services.CreateScope())
 {
-    //var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
-    //context.Database.EnsureCreated();
-    
-    // Seed roles and admin user
-    //await Ecom.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider);
+    var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+    context.Database.EnsureCreated();
+
+    //Seed roles and admin user
+   await Ecom.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider);
 }
 
 await app.RunAsync();

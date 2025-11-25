@@ -11,5 +11,6 @@ namespace Ecom.Application.Services.Interfaces
         Task<bool> SendUserUnblockedNotificationAsync(AppUsers user);
         Task<bool> SendOtpEmailAsync(AppUsers user, string otp);
         Task<bool> SendPasswordChangeConfirmationAsync(AppUsers user);
+        Task<bool> SendContactEmailAsync(string name, string email, string? phoneNumber, string subject, string message);
     }
 }

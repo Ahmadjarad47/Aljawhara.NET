@@ -17,17 +17,20 @@ namespace Ecom.API.Controllers
         private readonly IJwtService _jwtService;
         private readonly IAddressService _addressService;
         private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
 
         public AuthController(
             IUserManagerService userManagerService, 
             IJwtService jwtService, 
             IAddressService addressService,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IEmailService emailService)
         {
             _userManagerService = userManagerService;
             _jwtService = jwtService;
             _addressService = addressService;
             _configuration = configuration;
+            _emailService = emailService;
         }
 
         [HttpGet("isAuth")]
@@ -784,6 +787,55 @@ namespace Ecom.API.Controllers
         //        });
         //    }
         //}
+
+        [HttpPost("contact")]
+        public async Task<IActionResult> Contact([FromBody] ContactDto contactDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid input data",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                });
+            }
+
+            try
+            {
+                var result = await _emailService.SendContactEmailAsync(
+                    contactDto.Name,
+                    contactDto.Email,
+                    contactDto.PhoneNumber,
+                    contactDto.Subject,
+                    contactDto.Message
+                );
+
+                if (!result)
+                {
+                    return BadRequest(new ApiResponseDto
+                    {
+                        Success = false,
+                        Message = "Failed to send contact email. Please try again later."
+                    });
+                }
+
+                return Ok(new ApiResponseDto
+                {
+                    Success = true,
+                    Message = "Your message has been sent successfully. We will get back to you soon."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred while sending your message.",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
     }
 }
 

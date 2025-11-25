@@ -217,6 +217,37 @@ namespace Ecom.Application.Services
             }
         }
 
+        public async Task<bool> SendContactEmailAsync(string name, string email, string? phoneNumber, string subject, string message)
+        {
+            try
+            {
+                var contactSubject = $"Contact Form Submission: {subject}";
+                var phoneInfo = !string.IsNullOrWhiteSpace(phoneNumber) ? $"<p><strong>Phone Number:</strong> {phoneNumber}</p>" : "";
+                var body = $@"
+                    <html>
+                    <body style='font-family: Arial, sans-serif;'>
+                        <h2>New Contact Form Submission</h2>
+                        <p><strong>Name:</strong> {name}</p>
+                        <p><strong>Email:</strong> {email}</p>
+                        {phoneInfo}
+                        <p><strong>Subject:</strong> {subject}</p>
+                        <hr>
+                        <p><strong>Message:</strong></p>
+                        <p style='white-space: pre-wrap;'>{message}</p>
+                        <hr>
+                        <p><em>This email was sent from the contact form on the website.</em></p>
+                    </body>
+                    </html>";
+
+                return await SendEmailAsync("info@aljawhara.com", contactSubject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending contact email from {Email}", email);
+                return false;
+            }
+        }
+
         private async Task<bool> SendEmailAsync(string toEmail, string subject, string body)
         {
             try

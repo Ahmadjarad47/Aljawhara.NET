@@ -27,20 +27,20 @@ namespace Ecom.Infrastructure.Data
             // Seed Admin User
             await SeedAdminUserAsync(userManager);
 
-            // Seed all entities in order
-            await SeedCategoriesAsync(context);
-            await SeedSubCategoriesAsync(context);
-            await SeedProductsAsync(context);
-            await SeedProductDetailsAsync(context);
-            await SeedUsersAsync(userManager);
-            await SeedShippingAddressesAsync(context);
-            await SeedRatingsAsync(context);
-            await SeedCouponsAsync(context);
-            await SeedOrdersAsync(context);
-            await SeedOrderItemsAsync(context);
-            await SeedTransactionsAsync(context);
-            await SeedVisitorsAsync(context);
-            await SeedHealthPingsAsync(context);
+            //// Seed all entities in order
+            //await SeedCategoriesAsync(context);
+            //await SeedSubCategoriesAsync(context);
+            //await SeedProductsAsync(context);
+            //await SeedProductDetailsAsync(context);
+            //await SeedUsersAsync(userManager);
+            //await SeedShippingAddressesAsync(context);
+            //await SeedRatingsAsync(context);
+            //await SeedCouponsAsync(context);
+            //await SeedOrdersAsync(context);
+            //await SeedOrderItemsAsync(context);
+            //await SeedTransactionsAsync(context);
+            //await SeedVisitorsAsync(context);
+            //await SeedHealthPingsAsync(context);
         }
 
         /// <summary>

@@ -19,15 +19,15 @@
       "launchUrl": "swagger",
 
       "applicationUrl": "https://localhost:7130;http://localhost:5055",
-      "environmentVariables": {
-        "R2_KEY": "989417c748e285d5db39610eccf8387b",
-        "R2_SECRET": "6485cea9842396e812ecceae37effb3b7d1dd48906ab41760d8689342b0fd889",
-        "R2_ACCOUNT_ID": "a59b26bc6f4cd061679191efc0aaf5b4",
-        "R2_BUCKET_NAME": "images",
-        "R2_PUBLIC_DOMAIN": "https://pub-5e0d94703a8542879fc9e11780a08bb7.r2.dev",
+        "environmentVariables": {
+            "R2_KEY": "cc44f15754cab1f28139c18d454d23bd",
+            "R2_SECRET": "e120206b1cda359809df8bf5d640e5cf9d66b00a2467eb6c4d6f50c1947757f5",
+            "R2_ACCOUNT_ID": "9ee5c3481a066f7d5ede735a51152737",
+            "R2_BUCKET_NAME": "images",
+            "R2_PUBLIC_DOMAIN": "https://pub-f74e7f2ba8e642ce869f4e0826b90ff8.r2.dev",
 
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
+            "ASPNETCORE_ENVIRONMENT": "Development"
+        }
     }
   }
 }
