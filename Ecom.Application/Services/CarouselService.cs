@@ -101,6 +101,7 @@ namespace Ecom.Application.Services
             existingCarousel.Description = carouselDto.Description;
             existingCarousel.DescriptionAr = carouselDto.DescriptionAr;
             existingCarousel.Price = carouselDto.Price;
+            existingCarousel.ProductUrl = carouselDto.ProductUrl;
 
             // Handle image deletion if specified
             if (!string.IsNullOrEmpty(carouselDto.ImageToDelete) && carouselDto.ImageToDelete == oldImageUrl)

@@ -10,6 +10,7 @@ namespace Ecom.Domain.Entity
         public string DescriptionAr { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public string Image { get; set; } = string.Empty;
+        public string ProductUrl { get; set; } = string.Empty;
     }
 }
 

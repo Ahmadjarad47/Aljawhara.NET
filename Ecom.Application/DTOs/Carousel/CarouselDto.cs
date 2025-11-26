@@ -12,6 +12,7 @@ namespace Ecom.Application.DTOs.Carousel
         public string DescriptionAr { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public string Image { get; set; } = string.Empty;
+        public string ProductUrl { get; set; } = string.Empty;
     }
 
     public class CarouselCreateDto
@@ -32,6 +33,9 @@ namespace Ecom.Application.DTOs.Carousel
         
         [Range(0, double.MaxValue, ErrorMessage = "Price must be 0 or greater")]
         public decimal Price { get; set; }
+
+        [StringLength(500, ErrorMessage = "Product URL cannot exceed 500 characters")]
+        public string ProductUrl { get; set; } = string.Empty;
     }
 
     public class CarouselUpdateDto
@@ -57,6 +61,9 @@ namespace Ecom.Application.DTOs.Carousel
         public decimal Price { get; set; }
         
         public string Image { get; set; } = string.Empty;
+
+        [StringLength(500, ErrorMessage = "Product URL cannot exceed 500 characters")]
+        public string ProductUrl { get; set; } = string.Empty;
     }
 
     public class CarouselCreateWithFileDto
@@ -80,6 +87,9 @@ namespace Ecom.Application.DTOs.Carousel
         
         [Required(ErrorMessage = "Image is required")]
         public IFormFile Image { get; set; } = null!;
+
+        [StringLength(500, ErrorMessage = "Product URL cannot exceed 500 characters")]
+        public string ProductUrl { get; set; } = string.Empty;
     }
 
     public class CarouselUpdateWithFileDto
@@ -107,6 +117,9 @@ namespace Ecom.Application.DTOs.Carousel
         public IFormFile? Image { get; set; }
         
         public string? ImageToDelete { get; set; }
+
+        [StringLength(500, ErrorMessage = "Product URL cannot exceed 500 characters")]
+        public string ProductUrl { get; set; } = string.Empty;
     }
 }
 
