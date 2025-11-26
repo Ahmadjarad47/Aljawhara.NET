@@ -19,7 +19,7 @@ namespace Ecom.Infrastructure.Data
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
             // Ensure database is created
-            await context.Database.EnsureCreatedAsync();
+            //await context.Database.EnsureCreatedAsync();
 
             // Seed Roles
             await SeedRolesAsync(roleManager);

@@ -97,7 +97,9 @@ namespace Ecom.Application.Services
 
             // Map basic properties
             existingCarousel.Title = carouselDto.Title;
+            existingCarousel.TitleAr = carouselDto.TitleAr;
             existingCarousel.Description = carouselDto.Description;
+            existingCarousel.DescriptionAr = carouselDto.DescriptionAr;
             existingCarousel.Price = carouselDto.Price;
 
             // Handle image deletion if specified

@@ -49,7 +49,8 @@ namespace Ecom.Infrastructure.Repositories
             {
                 AbsoluteExpirationRelativeToNow = DefaultCacheExpiration,
                 SlidingExpiration = SlidingCacheExpiration,
-                Priority = CacheItemPriority.Normal
+                Priority = CacheItemPriority.Normal,
+                Size= 1 // דוד ÌÏÇנ דÚ SizeLimit
             };
         }
 
