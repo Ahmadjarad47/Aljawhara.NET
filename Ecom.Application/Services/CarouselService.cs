@@ -4,6 +4,7 @@ using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Interfaces;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.UnitOfWork;
+using Microsoft.EntityFrameworkCore;
 
 namespace Ecom.Application.Services
 {
@@ -195,6 +196,78 @@ namespace Ecom.Application.Services
             _unitOfWork.Carousels.Deactivate(carousel);
             await _unitOfWork.SaveChangesAsync();
             return true;
+        }
+
+        /// <summary>
+        /// نسبة رضا الزبائن = (متوسط تقييم المنتجات / 5) * 100
+        /// إذا لا يوجد أي تقييمات ترجع 0.
+        /// كما تعيد عدد المنتجات المتوفرة (Active + InStock).
+        /// </summary>
+        public async Task<CustomerSatisfactionDto> GetCustomerSatisfactionPercentageAsync()
+        {
+            // نستخدم DbContext مباشرة عبر UnitOfWork وأي Repo مناسب، هنا الأسهل عبر Products ورابطها مع Ratings
+            var productsWithRatings = await _unitOfWork.Products.GetAllAsync();
+
+            // نجمع كل التقييمات لجميع المنتجات
+            var allRatings = productsWithRatings
+                .SelectMany(p => p.Ratings)
+                .ToList();
+
+            double percentage = 0;
+
+            if (allRatings.Count > 0)
+            {
+                var average = allRatings.Average(r => r.RatingNumber);
+
+                // نفترض أن أعلى تقييم = 5
+                const double maxRating = 5.0;
+                percentage = (average / maxRating) * 100.0;
+            }
+
+            // عدد المنتجات المتوفرة: مفعلة وغير محذوفة ومتوفر منها في المخزون
+            var availableProductsCount = productsWithRatings
+                .Count(p => p.IsActive && p.IsInStock);
+
+            return new CustomerSatisfactionDto
+            {
+                Percentage = Math.Round(percentage, 2),
+                AvailableProductsCount = availableProductsCount
+            };
+        }
+
+        /// <summary>
+        /// إرجاع آخر ثلث التقييمات (بناءً على CreatedAt) مع معلومات المنتج.
+        /// </summary>
+        public async Task<IEnumerable<ProductRatingSummaryDto>> GetLatestThirdReviewsAsync()
+        {
+            // نستخدم DbContext من خلال UnitOfWork (عبر Ratings من Orders أو Products)
+            // أبسط طريقة: الوصول إلى DbContext من ريبو المنتجات عن طريق Include لرابط Ratings
+            var allProducts = await _unitOfWork.Products.GetAllAsync();
+
+            var allRatings = allProducts
+                .SelectMany(p => p.Ratings.Select(r => new { Product = p, Rating = r }))
+                .OrderByDescending(x => x.Rating.CreatedAt)
+                .ToList();
+
+            if (allRatings.Count == 0)
+                return Enumerable.Empty<ProductRatingSummaryDto>();
+
+            var takeCount = Math.Max(1, allRatings.Count / 3); // "آخر ثلث" التقييمات
+
+            var latestThird = allRatings
+                .Take(takeCount)
+                .Select(x => new ProductRatingSummaryDto
+                {
+                    RatingId = x.Rating.Id,
+                    ProductId = x.Product.Id,
+                    ProductTitle = x.Product.Title,
+                    Content = x.Rating.Content,
+                    RatingNumber = x.Rating.RatingNumber,
+                    CreatedAt = x.Rating.CreatedAt
+                })
+                .ToList();
+
+            return latestThird;
         }
     }
 }

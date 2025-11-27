@@ -12,62 +12,32 @@ namespace Ecom.Infrastructure.Repositories
         protected readonly EcomDbContext _context;
         protected readonly DbSet<T> _dbSet;
         protected readonly IMemoryCache _cache;
-        protected readonly string _entityTypeName;
-        
-        // Cache configuration
-        private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(520);
-        private static readonly TimeSpan SlidingCacheExpiration = TimeSpan.FromMinutes(320);
+        private readonly string _cachePrefix;
+
+        private static readonly TimeSpan CacheDuration = TimeSpan.FromDays(7);
 
         public BaseRepository(EcomDbContext context, IMemoryCache cache)
         {
             _context = context;
             _dbSet = context.Set<T>();
             _cache = cache;
-            _entityTypeName = typeof(T).Name;
-        }
-
-        // Cache key helpers
-        private string GetCacheKey(string suffix) => $"{_entityTypeName}_{suffix}";
-        private string GetByIdCacheKey(int id) => GetCacheKey($"Id_{id}");
-        private string GetAllCacheKey() => GetCacheKey("All");
-        private string GetAllActiveCacheKey() => GetCacheKey("AllActive");
-        
-        private void InvalidateCache(params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                _cache.Remove(key);
-            }
-            // Also remove collection cache keys
-            _cache.Remove(GetAllCacheKey());
-            _cache.Remove(GetAllActiveCacheKey());
-        }
-
-        private MemoryCacheEntryOptions GetCacheOptions()
-        {
-            return new MemoryCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = DefaultCacheExpiration,
-                SlidingExpiration = SlidingCacheExpiration,
-                Priority = CacheItemPriority.Normal,
-                Size= 1 // ãåã ÌÏÇð ãÚ SizeLimit
-            };
+            _cachePrefix = $"repo:{typeof(T).Name}";
         }
 
         public virtual async Task<T?> GetByIdAsync(int id)
         {
             var cacheKey = GetByIdCacheKey(id);
-            
+
             if (_cache.TryGetValue(cacheKey, out T? cachedEntity))
             {
                 return cachedEntity;
             }
 
-            var entity = await _dbSet.FindAsync(id);
-            
+            var entity = await _dbSet.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+
             if (entity != null)
             {
-                _cache.Set(cacheKey, entity, GetCacheOptions());
+                _cache.Set(cacheKey, entity, GetCacheEntryOptions());
             }
 
             return entity;
@@ -75,26 +45,21 @@ namespace Ecom.Infrastructure.Repositories
 
         public virtual async Task<T?> GetActiveByIdAsync(int id)
         {
-            var cacheKey = GetByIdCacheKey(id);
-            
+            var cacheKey = GetActiveByIdCacheKey(id);
+
             if (_cache.TryGetValue(cacheKey, out T? cachedEntity))
             {
-                if (cachedEntity != null && cachedEntity.IsActive && !cachedEntity.IsDeleted)
-                {
-                    return cachedEntity;
-                }
+                return cachedEntity;
             }
 
-            var entity = await _dbSet.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
-            if (entity != null && entity.IsActive)
+            var entity = await _dbSet
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == id && x.IsActive && !x.IsDeleted);
+
+            if (entity != null)
             {
-                var options = new MemoryCacheEntryOptions()
-                    .SetSize(1) // ãåã ÌÏÇð ãÚ SizeLimit
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(5));
-
-                _cache.Set(cacheKey, entity, options);
+                _cache.Set(cacheKey, entity, GetCacheEntryOptions());
             }
-
 
             return entity;
         }
@@ -102,39 +67,36 @@ namespace Ecom.Infrastructure.Repositories
         public virtual async Task<List<T>> GetAllAsync()
         {
             var cacheKey = GetAllCacheKey();
-            
+
             if (_cache.TryGetValue(cacheKey, out List<T>? cachedList))
             {
-                return cachedList ?? new List<T>();
+                return cachedList;
             }
 
-            var entities = await _dbSet.ToListAsync();
-            
-            if (entities.Any())
-            {
-                _cache.Set(cacheKey, entities, GetCacheOptions());
-            }
+            var items = await _dbSet.AsNoTracking().ToListAsync();
 
-            return entities;
+            _cache.Set(cacheKey, items, GetCacheEntryOptions());
+
+            return items;
         }
 
         public virtual async Task<List<T>> GetAllActiveAsync()
         {
             var cacheKey = GetAllActiveCacheKey();
-            
+
             if (_cache.TryGetValue(cacheKey, out List<T>? cachedList))
             {
-                return cachedList ?? new List<T>();
+                return cachedList;
             }
 
-            var entities = await _dbSet.Where(x => x.IsActive && !x.IsDeleted).ToListAsync();
-            
-            if (entities.Any())
-            {
-                _cache.Set(cacheKey, entities, GetCacheOptions());
-            }
+            var items = await _dbSet
+                .AsNoTracking()
+                .Where(x => x.IsActive && !x.IsDeleted)
+                .ToListAsync();
 
-            return entities;
+            _cache.Set(cacheKey, items, GetCacheEntryOptions());
+
+            return items;
         }
 
         public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
@@ -178,49 +140,45 @@ namespace Ecom.Infrastructure.Repositories
         public virtual async Task<T> AddAsync(T entity)
         {
             await _dbSet.AddAsync(entity);
-            InvalidateCache(GetByIdCacheKey(entity.Id));
+            InvalidateCollectionCache();
             return entity;
         }
 
         public virtual async Task<IEnumerable<T>> AddRangeAsync(IEnumerable<T> entities)
         {
             await _dbSet.AddRangeAsync(entities);
-            var entityIds = entities.Select(e => GetByIdCacheKey(e.Id)).ToArray();
-            InvalidateCache(entityIds);
+            InvalidateCollectionCache();
             return entities;
         }
 
         public virtual void Update(T entity)
         {
             _dbSet.Update(entity);
-            InvalidateCache(GetByIdCacheKey(entity.Id));
+            InvalidateCacheForEntity(entity);
         }
 
         public virtual void UpdateRange(IEnumerable<T> entities)
         {
             _dbSet.UpdateRange(entities);
-            var entityIds = entities.Select(e => GetByIdCacheKey(e.Id)).ToArray();
-            InvalidateCache(entityIds);
+            InvalidateCollectionCache();
         }
 
         public virtual void Remove(T entity)
         {
             _dbSet.Remove(entity);
-            InvalidateCache(GetByIdCacheKey(entity.Id));
+            InvalidateCacheForEntity(entity);
         }
 
         public virtual void RemoveRange(IEnumerable<T> entities)
         {
             _dbSet.RemoveRange(entities);
-            var entityIds = entities.Select(e => GetByIdCacheKey(e.Id)).ToArray();
-            InvalidateCache(entityIds);
+            InvalidateCollectionCache();
         }
 
         public virtual void SoftDelete(T entity)
         {
             entity.IsDeleted = true;
             Update(entity);
-            // Cache invalidation is handled by Update method
         }
 
         public virtual void SoftDeleteRange(IEnumerable<T> entities)
@@ -230,21 +188,18 @@ namespace Ecom.Infrastructure.Repositories
                 entity.IsDeleted = true;
             }
             UpdateRange(entities);
-            // Cache invalidation is handled by UpdateRange method
         }
 
         public virtual void Activate(T entity)
         {
             entity.IsActive = true;
             Update(entity);
-            // Cache invalidation is handled by Update method
         }
 
         public virtual void Deactivate(T entity)
         {
             entity.IsActive = false;
             Update(entity);
-            // Cache invalidation is handled by Update method
         }
 
         public virtual void ActivateRange(IEnumerable<T> entities)
@@ -254,7 +209,6 @@ namespace Ecom.Infrastructure.Repositories
                 entity.IsActive = true;
             }
             UpdateRange(entities);
-            // Cache invalidation is handled by UpdateRange method
         }
 
         public virtual void DeactivateRange(IEnumerable<T> entities)
@@ -264,7 +218,6 @@ namespace Ecom.Infrastructure.Repositories
                 entity.IsActive = false;
             }
             UpdateRange(entities);
-            // Cache invalidation is handled by UpdateRange method
         }
 
         public virtual async Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
@@ -290,6 +243,46 @@ namespace Ecom.Infrastructure.Repositories
 
             return (items, totalCount);
         }
+
+        #region Caching helpers
+
+        private string GetAllCacheKey() => $"{_cachePrefix}:all";
+
+        private string GetAllActiveCacheKey() => $"{_cachePrefix}:all:active";
+
+        private string GetByIdCacheKey(int id) => $"{_cachePrefix}:id:{id}";
+
+        private string GetActiveByIdCacheKey(int id) => $"{_cachePrefix}:id:{id}:active";
+
+        private static MemoryCacheEntryOptions GetCacheEntryOptions()
+        {
+            return new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = CacheDuration
+            };
+        }
+
+        /// <summary>
+        /// Invalidate cached collections (GetAll / GetAllActive) for this entity type.
+        /// Called after add / bulk updates / bulk deletes where we don't track specific IDs.
+        /// </summary>
+        protected virtual void InvalidateCollectionCache()
+        {
+            _cache.Remove(GetAllCacheKey());
+            _cache.Remove(GetAllActiveCacheKey());
+        }
+
+        /// <summary>
+        /// Invalidate cache entries related to a specific entity plus the collections.
+        /// </summary>
+        protected virtual void InvalidateCacheForEntity(T entity)
+        {
+            _cache.Remove(GetByIdCacheKey(entity.Id));
+            _cache.Remove(GetActiveByIdCacheKey(entity.Id));
+            InvalidateCollectionCache();
+        }
+
+        #endregion
     }
 }
 

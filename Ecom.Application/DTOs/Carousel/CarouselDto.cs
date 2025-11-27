@@ -15,6 +15,35 @@ namespace Ecom.Application.DTOs.Carousel
         public string ProductUrl { get; set; } = string.Empty;
     }
 
+    /// <summary>
+    /// DTO مبسط لعرض مراجعات المنتجات في الـ API الخاص بالـ Carousel.
+    /// </summary>
+    public class ProductRatingSummaryDto
+    {
+        public int RatingId { get; set; }
+        public int ProductId { get; set; }
+        public string ProductTitle { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public double RatingNumber { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    /// <summary>
+    /// DTO لعرض نسبة رضا الزبائن وعدد المنتجات المتوفرة.
+    /// </summary>
+    public class CustomerSatisfactionDto
+    {
+        /// <summary>
+        /// نسبة الرضا بالمئة (0 - 100).
+        /// </summary>
+        public double Percentage { get; set; }
+
+        /// <summary>
+        /// عدد المنتجات المتوفرة (Active + InStock).
+        /// </summary>
+        public int AvailableProductsCount { get; set; }
+    }
+
     public class CarouselCreateDto
     {
         [Required(ErrorMessage = "Title is required")]

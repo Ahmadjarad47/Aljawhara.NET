@@ -32,6 +32,26 @@ namespace Ecom.API.Controllers
             }
             return Ok(carousel);
         }
+
+        /// <summary>
+        /// نسبة رضا الزبائن بالمئة مبنية على متوسط تقييمات المنتجات (Ratings).
+        /// </summary>
+        [HttpGet("customer-satisfaction")]
+        public async Task<ActionResult<CustomerSatisfactionDto>> GetCustomerSatisfactionPercentage()
+        {
+            var result = await _carouselService.GetCustomerSatisfactionPercentageAsync();
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// إرجاع آخر ثلث التقييمات (Reviews) بترتيب تنازلي حسب التاريخ.
+        /// </summary>
+        [HttpGet("latest-third-reviews")]
+        public async Task<ActionResult<IEnumerable<ProductRatingSummaryDto>>> GetLatestThirdReviews()
+        {
+            var reviews = await _carouselService.GetLatestThirdReviewsAsync();
+            return Ok(reviews.ToList());
+        }
     }
 }
 

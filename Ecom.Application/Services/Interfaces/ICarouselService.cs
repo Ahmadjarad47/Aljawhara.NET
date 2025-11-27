@@ -7,6 +7,17 @@ namespace Ecom.Application.Services.Interfaces
         Task<CarouselDto?> GetCarouselByIdAsync(int id);
         Task<IEnumerable<CarouselDto>> GetAllCarouselsAsync();
         Task<IEnumerable<CarouselDto>> GetActiveCarouselsAsync();
+
+        /// <summary>
+        /// نسبة رضا الزبائن (0-100) مبنية على متوسط تقييمات المنتجات
+        /// مع عدد المنتجات المتوفرة.
+        /// </summary>
+        Task<CustomerSatisfactionDto> GetCustomerSatisfactionPercentageAsync();
+
+        /// <summary>
+        /// إرجاع آخر ثلث التقييمات (Reviews) بترتيب تنازلي حسب التاريخ.
+        /// </summary>
+        Task<IEnumerable<ProductRatingSummaryDto>> GetLatestThirdReviewsAsync();
         
         Task<CarouselDto> CreateCarouselAsync(CarouselCreateDto carouselDto);
         Task<CarouselDto> CreateCarouselWithFileAsync(CarouselCreateWithFileDto carouselDto);
