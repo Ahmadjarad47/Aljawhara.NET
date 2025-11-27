@@ -18,8 +18,8 @@ namespace Ecom.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CarouselDto>>> GetCarousels()
         {
-            var carousels = await _carouselService.GetActiveCarouselsAsync();
-            return Ok(carousels);
+            IEnumerable<CarouselDto>? carousels = await _carouselService.GetActiveCarouselsAsync();
+            return Ok(carousels.ToList());
         }
 
         [HttpGet("{id}")]
