@@ -75,7 +75,7 @@ namespace Ecom.Infrastructure.Repositories
 
             var items = await _dbSet.AsNoTracking().ToListAsync();
 
-            _cache.Set(cacheKey, items, GetCacheEntryOptions());
+            _cache.Set(cacheKey, items, GetCacheEntryOptions(items.Count));
 
             return items;
         }
@@ -94,7 +94,7 @@ namespace Ecom.Infrastructure.Repositories
                 .Where(x => x.IsActive && !x.IsDeleted)
                 .ToListAsync();
 
-            _cache.Set(cacheKey, items, GetCacheEntryOptions());
+            _cache.Set(cacheKey, items, GetCacheEntryOptions(items.Count));
 
             return items;
         }
@@ -254,11 +254,12 @@ namespace Ecom.Infrastructure.Repositories
 
         private string GetActiveByIdCacheKey(int id) => $"{_cachePrefix}:id:{id}:active";
 
-        private static MemoryCacheEntryOptions GetCacheEntryOptions()
+        private static MemoryCacheEntryOptions GetCacheEntryOptions(int size = 1)
         {
             return new MemoryCacheEntryOptions
             {
-                AbsoluteExpirationRelativeToNow = CacheDuration
+                AbsoluteExpirationRelativeToNow = CacheDuration,
+                Size = size
             };
         }
 

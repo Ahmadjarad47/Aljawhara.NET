@@ -49,7 +49,7 @@ namespace Ecom.API.Controllers
         [HttpGet("latest-third-reviews")]
         public async Task<ActionResult<IEnumerable<ProductRatingSummaryDto>>> GetLatestThirdReviews()
         {
-            var reviews = await _carouselService.GetLatestThirdReviewsAsync();
+            IEnumerable<ProductRatingSummaryDto>? reviews = await _carouselService.GetLatestThirdReviewsAsync();
             return Ok(reviews.ToList());
         }
     }
