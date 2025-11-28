@@ -16,7 +16,7 @@ namespace Ecom.Application.DTOs.Carousel
     }
 
     /// <summary>
-    /// DTO مبسط لعرض مراجعات المنتجات في الـ API الخاص بالـ Carousel.
+    /// DTO مبسط لعرض مراجعات المنتجات في الـ API الخاص بالـ 
     /// </summary>
     public class ProductRatingSummaryDto
     {
