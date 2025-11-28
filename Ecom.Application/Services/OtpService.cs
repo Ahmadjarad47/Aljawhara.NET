@@ -31,6 +31,7 @@ namespace Ecom.Application.Services
                 {
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(OtpExpirationMinutes),
                     SlidingExpiration = TimeSpan.FromMinutes(15) // Reset expiration if accessed within 15 minutes
+                    ,Size=1
                 };
                 
                 _cache.Set(cacheKey, otp, cacheEntryOptions);
