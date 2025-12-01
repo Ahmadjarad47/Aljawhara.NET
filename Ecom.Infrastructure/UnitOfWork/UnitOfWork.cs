@@ -1,6 +1,7 @@
 using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories;
 using Ecom.Infrastructure.Repositories.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -25,6 +26,8 @@ namespace Ecom.Infrastructure.UnitOfWork
         private IVisitorRepository? _visitors;
         private IHealthPingRepository? _healthPings;
         private ICarouselRepository? _carousels;
+
+        public DbContext Context => _context; // REQUIRED for ExecutionStrategy
 
         public UnitOfWork(EcomDbContext context, IMemoryCache cache)
         {
@@ -71,21 +74,28 @@ namespace Ecom.Infrastructure.UnitOfWork
         public ICarouselRepository Carousels =>
             _carousels ??= new CarouselRepository(_context, _cache);
 
-        public async Task<int> SaveChangesAsync()
-        {
-            return await _context.SaveChangesAsync();
-        }
+        public Task<int> SaveChangesAsync() => _context.SaveChangesAsync();
 
         public async Task BeginTransactionAsync()
         {
+            if (_transaction != null)
+                return; // Prevent double-open transaction
+
             _transaction = await _context.Database.BeginTransactionAsync();
         }
 
         public async Task CommitTransactionAsync()
         {
-            if (_transaction != null)
+            if (_transaction == null)
+                return;
+
+            try
             {
+                await _context.SaveChangesAsync();  // Ensure final save
                 await _transaction.CommitAsync();
+            }
+            finally
+            {
                 await _transaction.DisposeAsync();
                 _transaction = null;
             }
@@ -93,9 +103,15 @@ namespace Ecom.Infrastructure.UnitOfWork
 
         public async Task RollbackTransactionAsync()
         {
-            if (_transaction != null)
+            if (_transaction == null)
+                return;
+
+            try
             {
                 await _transaction.RollbackAsync();
+            }
+            finally
+            {
                 await _transaction.DisposeAsync();
                 _transaction = null;
             }
@@ -108,4 +124,3 @@ namespace Ecom.Infrastructure.UnitOfWork
         }
     }
 }
-

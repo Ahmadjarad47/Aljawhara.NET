@@ -16,6 +16,7 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<IEnumerable<Order>> GetOrdersByUserAsync(string userId)
         {
             return await _dbSet
+                .Include(m=>m.AppUser)
                 .Include(o => o.Items)
                 .ThenInclude(oi => oi.Product)
                 .Include(o => o.ShippingAddress)

@@ -53,118 +53,125 @@ namespace Ecom.Application.Services
             var orders = await _unitOfWork.Orders.GetRecentOrdersAsync(count);
             return _mapper.Map<IEnumerable<OrderSummaryDto>>(orders);
         }
-
         public async Task<OrderDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null)
         {
             if (string.IsNullOrEmpty(userId))
                 throw new ArgumentException("User ID is required to create an order.");
 
-            await _unitOfWork.BeginTransactionAsync();
+            var context = _unitOfWork.Context;
+            var strategy = context.Database.CreateExecutionStrategy();
 
-            try
-            {
-                // 1️⃣ Get existing shipping address
-                var shipping = await _unitOfWork.ShippingAddresses
-                    .FirstOrDefaultAsync(s => s.AppUserId == userId);
-
-                if (shipping == null)
-                    throw new ArgumentException("No shipping address found for this user. Please add a shipping address first.");
-
-                // 2️⃣ Map order WITHOUT mapping ShippingAddress from DTO
-                var order = _mapper.Map<Order>(orderDto);
-                order.AppUserId = userId;
-                order.ShippingAddressId = shipping.Id;
-                order.ShippingAddress = shipping;
-                order.OrderNumber = await GenerateOrderNumberAsync();
-
-                // 3️⃣ Calculate subtotal and create order items
-                decimal subtotal = 0;
-                var orderItems = new List<OrderItem>();
-
-                foreach (var itemDto in orderDto.Items)
+            return await strategy.ExecuteAsync(
+                state: orderDto,
+                operation: async (db, state, token) =>
                 {
-                    var product = await _unitOfWork.Products.GetByIdAsync(itemDto.ProductId);
-                    if (product == null || product.IsDeleted)
-                        throw new ArgumentException($"Product '{itemDto.ProductId}' not found or unavailable.");
+                    await _unitOfWork.BeginTransactionAsync();
 
-                    if (!product.IsInStock || product.TotalInStock < itemDto.Quantity)
-                        throw new ArgumentException($"Insufficient stock for '{product.Title}'.");
-
-                    var currentPrice = product.newPrice;
-                    subtotal += currentPrice * itemDto.Quantity;
-
-                    var orderItem = new OrderItem
-                    {
-                        ProductId = product.Id,
-                        Name = product.Title,
-                        Image = product.Images?.FirstOrDefault() ?? string.Empty,
-                        Price = currentPrice,
-                        Quantity = itemDto.Quantity
-                    };
-
-                    orderItems.Add(orderItem);
-                }
-
-                order.Subtotal = subtotal;
-
-                // 4️⃣ Apply coupon if provided
-                decimal couponDiscountAmount = 0;
-                if (!string.IsNullOrEmpty(orderDto.CouponCode))
-                {
                     try
                     {
-                        var coupon = await _couponService.ApplyCouponToOrderAsync(orderDto.CouponCode, subtotal, userId);
-                        order.CouponId = coupon.Id;
-                        couponDiscountAmount = CalculateCouponDiscount(coupon, subtotal);
-                        order.CouponDiscountAmount = couponDiscountAmount;
+                        // 1️⃣ Get shipping
+                        var shipping = await _unitOfWork.ShippingAddresses
+                            .FirstOrDefaultAsync(s => s.AppUserId == userId);
+
+                        if (shipping == null)
+                            throw new ArgumentException("No shipping address found.");
+
+                        // 2️⃣ Create order
+                        var order = _mapper.Map<Order>(state);
+                        order.AppUserId = userId;
+                        order.ShippingAddressId = shipping.Id;
+                        order.OrderNumber = await GenerateOrderNumberAsync();
+
+                        decimal subtotal = 0;
+                        var orderItems = new List<OrderItem>();
+
+                        // 3️⃣ Items
+                        foreach (var itemDto in state.Items)
+                        {
+                            var product = await _unitOfWork.Products.GetByIdAsync(itemDto.ProductId);
+
+                            if (product == null || product.IsDeleted)
+                                throw new ArgumentException($"Product '{itemDto.ProductId}' not found.");
+
+                            if (!product.IsInStock || product.TotalInStock < itemDto.Quantity)
+                                throw new ArgumentException($"Insufficient stock for '{product.Title}'.");
+
+                            var price = product.newPrice;
+                            subtotal += price * itemDto.Quantity;
+
+                            orderItems.Add(new OrderItem
+                            {
+                                ProductId = product.Id,
+                                Name = product.Title,
+                                Image = product.Images?.FirstOrDefault() ?? "",
+                                Price = price,
+                                Quantity = itemDto.Quantity
+                            });
+                        }
+
+                        order.Subtotal = subtotal;
+
+                        // 4️⃣ Coupon
+                        decimal discount = 0;
+
+                        if (!string.IsNullOrEmpty(state.CouponCode))
+                        {
+                            var coupon = await _couponService.ApplyCouponToOrderAsync(
+                                state.CouponCode,
+                                subtotal,
+                                userId);
+
+                            order.CouponId = coupon.Id;
+                            discount = CalculateCouponDiscount(coupon, subtotal);
+                            order.CouponDiscountAmount = discount;
+                        }
+
+                        // 5️⃣ Totals
+                        order.Shipping = CalculateShipping(subtotal, state.CouponCode);
+                        order.Tax = CalculateTax(subtotal);
+                        order.Total = subtotal + order.Shipping + order.Tax - discount;
+
+                        // 6️⃣ Save order
+                        await _unitOfWork.Orders.AddAsync(order);
+                        await _unitOfWork.SaveChangesAsync();
+
+                        // 7️⃣ Save items
+                        foreach (var item in orderItems)
+                        {
+                            item.OrderId = order.Id;
+                            await _unitOfWork.OrderItems.AddAsync(item);
+                        }
+
+                        await _unitOfWork.SaveChangesAsync();
+
+                        // 8️⃣ Stock reduction
+                        foreach (var item in orderItems)
+                        {
+                            var ok = await _productService.ReduceProductStockAsync(item.ProductId, item.Quantity);
+
+                            if (!ok)
+                                throw new InvalidOperationException($"Failed to reduce stock for {item.ProductId}");
+                        }
+
+                        // 9️⃣ Coupon usage
+                        if (order.CouponId.HasValue)
+                            await _couponService.IncrementCouponUsageAsync(order.CouponId.Value);
+
+                        // 10️⃣ Commit
+                        await _unitOfWork.CommitTransactionAsync();
+
+                        var created = await _unitOfWork.Orders.GetOrderWithItemsAsync(order.Id);
+                        return _mapper.Map<OrderDto>(created);
                     }
-                    catch (ArgumentException ex)
+                    catch
                     {
-                        throw new ArgumentException($"Coupon validation failed: {ex.Message}");
+                        await _unitOfWork.RollbackTransactionAsync();
+                        throw;
                     }
-                }
-
-                // 5️⃣ Calculate shipping, tax, and total
-                order.Shipping = CalculateShipping(subtotal, orderDto.CouponCode);
-                order.Tax = CalculateTax(subtotal);
-                order.Total = order.Subtotal + order.Shipping + order.Tax - couponDiscountAmount;
-
-                // 6️⃣ Save order
-                await _unitOfWork.Orders.AddAsync(order);
-                await _unitOfWork.SaveChangesAsync();
-
-                // 7️⃣ Save order items
-                foreach (var orderItem in orderItems)
-                {
-                    orderItem.OrderId = order.Id;
-                    await _unitOfWork.OrderItems.AddAsync(orderItem);
-                }
-
-                await _unitOfWork.SaveChangesAsync();
-
-                // 8️⃣ Reduce stock
-                foreach (var orderItem in orderItems)
-                {
-                    var reduced = await _productService.ReduceProductStockAsync(orderItem.ProductId, orderItem.Quantity);
-                    if (!reduced)
-                        throw new InvalidOperationException($"Failed to reduce stock for product {orderItem.ProductId}");
-                }
-
-                // 9️⃣ Increment coupon usage
-                if (order.CouponId.HasValue)
-                    await _couponService.IncrementCouponUsageAsync(order.CouponId.Value);
-
-                await _unitOfWork.CommitTransactionAsync();
-
-                // 10️⃣ Return order with items
-                var createdOrder = await _unitOfWork.Orders.GetOrderWithItemsAsync(order.Id);
-                return _mapper.Map<OrderDto>(createdOrder);
-            }
-            catch
-            {
-                await _unitOfWork.RollbackTransactionAsync();
-                throw;
-            }
+                },
+                verifySucceeded: null,
+                cancellationToken: default
+            );
         }
 
         public async Task<OrderDto> UpdateOrderStatusAsync(OrderUpdateStatusDto orderUpdateDto)

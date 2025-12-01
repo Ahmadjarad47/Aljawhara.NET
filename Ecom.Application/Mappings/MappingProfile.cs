@@ -113,7 +113,7 @@ namespace Ecom.Application.Mappings
 
             CreateMap<Order, OrderSummaryDto>()
                 .ForMember(dest => dest.ItemCount, opt => opt.MapFrom(src => src.Items.Count))
-                .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.AppUser != null ? src.AppUser.UserName : "Guest"));
+                .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.AppUser.UserName));
 
             CreateMap<OrderCreateDto, Order>()
                 .ForMember(dest => dest.OrderNumber, opt => opt.Ignore())

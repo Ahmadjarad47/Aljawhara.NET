@@ -1,4 +1,5 @@
-using Ecom.Infrastructure.Repositories.Interfaces;
+﻿using Ecom.Infrastructure.Repositories.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace Ecom.Infrastructure.UnitOfWork
 {
@@ -17,6 +18,7 @@ namespace Ecom.Infrastructure.UnitOfWork
         IVisitorRepository Visitors { get; }
         IHealthPingRepository HealthPings { get; }
         ICarouselRepository Carousels { get; }
+        DbContext Context { get; }  // ✔ REQUIRED
 
         Task<int> SaveChangesAsync();
         Task BeginTransactionAsync();
