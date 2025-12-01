@@ -15,6 +15,7 @@ namespace Ecom.Application.DTOs.Product
         public bool IsInStock { get; set; }
         public int TotalInStock { get; set; }
         public string[] Images { get; set; } = Array.Empty<string>();
+        public string MainImage { get; set; } = string.Empty;
         public int SubCategoryId { get; set; }
         public string SubCategoryName { get; set; } = string.Empty;
         public string SubCategoryNameAr { get; set; } = string.Empty;

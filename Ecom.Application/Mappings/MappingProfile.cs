@@ -29,6 +29,7 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.NewPrice, opt => opt.MapFrom(src => src.newPrice))
                 .ForMember(dest => dest.IsInStock, opt => opt.MapFrom(src => src.IsInStock))
                 .ForMember(dest => dest.TotalInStock, opt => opt.MapFrom(src => src.TotalInStock))
+                .ForMember(dest => dest.MainImage, opt => opt.MapFrom(src => src.Images.FirstOrDefault() ?? string.Empty))
                 .ForMember(dest => dest.SubCategoryName, opt => opt.MapFrom(src => src.subCategory.Name))
                 .ForMember(dest => dest.SubCategoryNameAr, opt => opt.MapFrom(src => src.subCategory.NameAr))
                 .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.subCategory.Category.Name))

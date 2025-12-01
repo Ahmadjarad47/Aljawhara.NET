@@ -83,6 +83,23 @@ namespace Ecom.API.Controllers
             return Ok(products);
         }
 
+        [HttpGet("subcategory/{subCategoryId}/random")]
+        public async Task<ActionResult<IEnumerable<ProductSummaryDto>>> GetRandomProductsBySubCategory(int subCategoryId, [FromQuery] int count = 3)
+        {
+            var products = await _productService.GetProductsBySubCategoryAsync(subCategoryId);
+            var productsList = products.ToList();
+            
+            if (!productsList.Any())
+            {
+                return NotFound($"No products found for subcategory ID {subCategoryId}.");
+            }
+
+            var random = new Random();
+            var randomProducts = productsList.OrderBy(x => random.Next()).Take(count).ToList();
+            
+            return Ok(randomProducts);
+        }
+
         [HttpGet("{id}/related")]
         public async Task<ActionResult<IEnumerable<ProductSummaryDto>>> GetRelatedProducts(int id, [FromQuery] int count = 5)
         {

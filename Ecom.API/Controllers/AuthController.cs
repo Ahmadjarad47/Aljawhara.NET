@@ -536,7 +536,7 @@ namespace Ecom.API.Controllers
                 {
                     Success = true,
                     Message = "Addresses retrieved successfully",
-                    Data = addresses
+                    Data = addresses.ToList()
                 });
             }
             catch (Exception ex)
