@@ -312,6 +312,11 @@ namespace Ecom.Application.Services
                 // Check if email is confirmed
                 if (!user.EmailConfirmed)
                 {
+                    var newResendVerificationDto = new ResendVerificationDto
+                    {
+                        Email = loginDto.Email,
+                    };
+                    await ResendVerificationAsync(newResendVerificationDto);
                     return (false, null, "Please verify your email before logging in");
                 }
 
