@@ -16,6 +16,14 @@ namespace Ecom.Application.DTOs.Auth
         public bool IsDefault { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        
+        // Arabic address fields
+        public string? AlQataa { get; set; } // القطعة (District/Block)
+        public string? AlSharee { get; set; } // الشارع (Street)
+        public string? AlJada { get; set; } // الجادة (Avenue)
+        public string? AlManzil { get; set; } // المنزل (House)
+        public string? AlDor { get; set; } // الدور (Floor)
+        public string? AlShakka { get; set; } // الشقة (Apartment)
     }
 
     public class CreateAddressDto
@@ -53,6 +61,25 @@ namespace Ecom.Application.DTOs.Auth
         public string PhoneNumber { get; set; } = string.Empty;
 
         public bool IsDefault { get; set; } = false;
+        
+        // Arabic address fields
+        [StringLength(100)]
+        public string? AlQataa { get; set; } // القطعة (District/Block)
+        
+        [StringLength(100)]
+        public string? AlSharee { get; set; } // الشارع (Street)
+        
+        [StringLength(100)]
+        public string? AlJada { get; set; } // الجادة (Avenue)
+        
+        [StringLength(50)]
+        public string? AlManzil { get; set; } // المنزل (House)
+        
+        [StringLength(50)]
+        public string? AlDor { get; set; } // الدور (Floor)
+        
+        [StringLength(50)]
+        public string? AlShakka { get; set; } // الشقة (Apartment)
     }
 
     public class UpdateAddressDto
@@ -93,6 +120,25 @@ namespace Ecom.Application.DTOs.Auth
         public string PhoneNumber { get; set; } = string.Empty;
 
         public bool IsDefault { get; set; } = false;
+        
+        // Arabic address fields
+        [StringLength(100)]
+        public string? AlQataa { get; set; } // القطعة (District/Block)
+        
+        [StringLength(100)]
+        public string? AlSharee { get; set; } // الشارع (Street)
+        
+        [StringLength(100)]
+        public string? AlJada { get; set; } // الجادة (Avenue)
+        
+        [StringLength(50)]
+        public string? AlManzil { get; set; } // المنزل (House)
+        
+        [StringLength(50)]
+        public string? AlDor { get; set; } // الدور (Floor)
+        
+        [StringLength(50)]
+        public string? AlShakka { get; set; } // الشقة (Apartment)
     }
 
     public class SetDefaultAddressDto

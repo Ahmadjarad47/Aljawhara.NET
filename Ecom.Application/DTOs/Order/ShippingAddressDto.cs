@@ -12,6 +12,14 @@ namespace Ecom.Application.DTOs.Order
             public string PostalCode { get; set; } = string.Empty;
             public string Country { get; set; } = string.Empty;
             public string? AppUserId { get; set; }
+            
+            // Arabic address fields
+            public string? AlQataa { get; set; } // القطعة (District/Block)
+            public string? AlSharee { get; set; } // الشارع (Street)
+            public string? AlJada { get; set; } // الجادة (Avenue)
+            public string? AlManzil { get; set; } // المنزل (House)
+            public string? AlDor { get; set; } // الدور (Floor)
+            public string? AlShakka { get; set; } // الشقة (Apartment)
         }
 
     public class ShippingAddressCreateDto
@@ -23,6 +31,14 @@ namespace Ecom.Application.DTOs.Order
         public string? State { get; set; }
         public string PostalCode { get; set; } = string.Empty;
         public string Country { get; set; } = string.Empty;
+        
+        // Arabic address fields
+        public string? AlQataa { get; set; } // القطعة (District/Block)
+        public string? AlSharee { get; set; } // الشارع (Street)
+        public string? AlJada { get; set; } // الجادة (Avenue)
+        public string? AlManzil { get; set; } // المنزل (House)
+        public string? AlDor { get; set; } // الدور (Floor)
+        public string? AlShakka { get; set; } // الشقة (Apartment)
     }
 
     public class ShippingAddressUpdateDto
@@ -35,6 +51,14 @@ namespace Ecom.Application.DTOs.Order
         public string? State { get; set; }
         public string PostalCode { get; set; } = string.Empty;
         public string Country { get; set; } = string.Empty;
+        
+        // Arabic address fields
+        public string? AlQataa { get; set; } // القطعة (District/Block)
+        public string? AlSharee { get; set; } // الشارع (Street)
+        public string? AlJada { get; set; } // الجادة (Avenue)
+        public string? AlManzil { get; set; } // المنزل (House)
+        public string? AlDor { get; set; } // الدور (Floor)
+        public string? AlShakka { get; set; } // الشقة (Apartment)
     }
 }
 

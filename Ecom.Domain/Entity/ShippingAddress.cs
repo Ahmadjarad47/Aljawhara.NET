@@ -14,6 +14,14 @@ namespace Ecom.Domain.Entity
         public string Country { get; set; } = string.Empty;
         public bool IsDefault { get; set; } = false;
 
+        // Arabic address fields
+        public string? AlQataa { get; set; } // القطعة (District/Block)
+        public string? AlSharee { get; set; } // الشارع (Street)
+        public string? AlJada { get; set; } // الجادة (Avenue)
+        public string? AlManzil { get; set; } // المنزل (House)
+        public string? AlDor { get; set; } // الدور (Floor)
+        public string? AlShakka { get; set; } // الشقة (Apartment)
+
         // Optional relation back to AppUser
         public string? AppUserId { get; set; }
         public AppUsers? AppUser { get; set; }
