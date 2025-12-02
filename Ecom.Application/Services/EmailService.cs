@@ -23,7 +23,7 @@ namespace Ecom.Application.Services
         {
             try
             {
-                var confirmationLink = $"{_configuration["AppSettings:BaseUrl"]}/api/auth/confirm-email?userId={user.Id}&token={confirmationToken}";
+                var confirmationLink = $"{_configuration["AppSettings:BaseUrl"]}/auth/verify?userId={user.Id}&token={confirmationToken}";
                 
                 var subject = "Confirm Your Email - Ecom Taani";
                 var body = $@"
@@ -53,7 +53,7 @@ namespace Ecom.Application.Services
         {
             try
             {
-                var resetLink = $"{_configuration["AppSettings:BaseUrl"]}/api/auth/reset-password?userId={user.Id}&token={resetToken}";
+                var resetLink = $"{_configuration["AppSettings:BaseUrl"]}/auth/reset-password?userId={user.Id}&token={resetToken}";
                 
                 var subject = "Reset Your Password - Ecom Taani";
                 var body = $@"
