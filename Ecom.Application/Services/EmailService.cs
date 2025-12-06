@@ -1,5 +1,7 @@
+using Ecom.Application.DTOs.Order;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Entity;
+using Ecom.Domain.constant;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MailKit.Net.Smtp;
@@ -244,6 +246,141 @@ namespace Ecom.Application.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending contact email from {Email}", email);
+                return false;
+            }
+        }
+
+        public async Task<bool> SendOrderNotificationToAdminAsync(OrderDto order, string eventType)
+        {
+            try
+            {
+                var subject = eventType == "Created" 
+                    ? $"New Order Created - {order.OrderNumber}" 
+                    : $"Order Status Updated - {order.OrderNumber}";
+
+                var itemsHtml = string.Join("", order.Items.Select(item => $@"
+                    <tr>
+                        <td style='padding: 10px; border: 1px solid #ddd;'>{item.Name}</td>
+                        <td style='padding: 10px; border: 1px solid #ddd; text-align: center;'>{item.Quantity}</td>
+                        <td style='padding: 10px; border: 1px solid #ddd; text-align: right;'>{item.Price:C}</td>
+                        <td style='padding: 10px; border: 1px solid #ddd; text-align: right;'>{item.Total:C}</td>
+                    </tr>"));
+
+                var statusColor = order.Status switch
+                {
+                    OrderStatus.Pending => "#ffc107",
+                    OrderStatus.Processing => "#17a2b8",
+                    OrderStatus.Shipped => "#007bff",
+                    OrderStatus.Delivered => "#28a745",
+                    OrderStatus.Cancelled => "#dc3545",
+                    OrderStatus.Refunded => "#6c757d",
+                    _ => "#6c757d"
+                };
+
+                var eventDescription = eventType == "Created" 
+                    ? $"A new order has been created by {order.CustomerName}." 
+                    : $"The order status has been updated to <strong style='color: {statusColor};'>{order.Status}</strong>.";
+
+                var body = $@"
+                    <html>
+                    <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+                        <div style='max-width: 800px; margin: 0 auto; padding: 20px;'>
+                            <h2 style='color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px;'>
+                                Order Notification - {order.OrderNumber}
+                            </h2>
+                            
+                            <p style='font-size: 16px;'>{eventDescription}</p>
+                            
+                            <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                                <h3 style='margin-top: 0; color: #495057;'>Order Details</h3>
+                                <table style='width: 100%; border-collapse: collapse;'>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold; width: 200px;'>Order Number:</td>
+                                        <td style='padding: 8px;'>{order.OrderNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold;'>Customer Name:</td>
+                                        <td style='padding: 8px;'>{order.CustomerName}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold;'>Status:</td>
+                                        <td style='padding: 8px;'>
+                                            <span style='background-color: {statusColor}; color: white; padding: 5px 10px; border-radius: 3px; font-weight: bold;'>
+                                                {order.Status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold;'>Order Date:</td>
+                                        <td style='padding: 8px;'>{order.CreatedAt:yyyy-MM-dd HH:mm:ss}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold;'>Subtotal:</td>
+                                        <td style='padding: 8px;'>{order.Subtotal:C}</td>
+                                    </tr>
+                                    {(order.CouponDiscountAmount.HasValue && order.CouponDiscountAmount > 0 ? $@"
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold;'>Coupon ({order.CouponCode}):</td>
+                                        <td style='padding: 8px; color: #28a745;'>-{order.CouponDiscountAmount:C}</td>
+                                    </tr>" : "")}
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold;'>Shipping:</td>
+                                        <td style='padding: 8px;'>{order.Shipping:C}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold;'>Tax:</td>
+                                        <td style='padding: 8px;'>{order.Tax:C}</td>
+                                    </tr>
+                                    <tr style='background-color: #e9ecef;'>
+                                        <td style='padding: 8px; font-weight: bold; font-size: 16px;'>Total:</td>
+                                        <td style='padding: 8px; font-weight: bold; font-size: 16px; color: #007bff;'>{order.Total:C}</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                                <h3 style='margin-top: 0; color: #495057;'>Order Items</h3>
+                                <table style='width: 100%; border-collapse: collapse;'>
+                                    <thead>
+                                        <tr style='background-color: #007bff; color: white;'>
+                                            <th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Product</th>
+                                            <th style='padding: 10px; border: 1px solid #ddd; text-align: center;'>Quantity</th>
+                                            <th style='padding: 10px; border: 1px solid #ddd; text-align: right;'>Price</th>
+                                            <th style='padding: 10px; border: 1px solid #ddd; text-align: right;'>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {itemsHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                                <h3 style='margin-top: 0; color: #495057;'>Shipping Address</h3>
+                                <p style='margin: 5px 0;'><strong>{order.ShippingAddress.FullName}</strong></p>
+                                <p style='margin: 5px 0;'>{order.ShippingAddress.Street}</p>
+                                <p style='margin: 5px 0;'>
+                                    {order.ShippingAddress.City}
+                                    {(!string.IsNullOrEmpty(order.ShippingAddress.State) ? $", {order.ShippingAddress.State}" : "")}
+                                    {order.ShippingAddress.PostalCode}
+                                </p>
+                                <p style='margin: 5px 0;'>{order.ShippingAddress.Country}</p>
+                                <p style='margin: 5px 0;'><strong>Phone:</strong> {order.ShippingAddress.Phone}</p>
+                            </div>
+
+                            <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
+                            <p style='color: #6c757d; font-size: 12px;'>
+                                This is an automated notification from the Aljawhara E-commerce system.
+                            </p>
+                        </div>
+                    </body>
+                    </html>";
+
+                return await SendEmailAsync("info@aljawhara.com", subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending order notification email for order {OrderNumber}", order.OrderNumber);
                 return false;
             }
         }

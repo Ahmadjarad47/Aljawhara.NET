@@ -13,10 +13,12 @@ namespace Ecom.API.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly IEmailService _emailService;
 
-        public OrdersController(IOrderService orderService)
+        public OrdersController(IOrderService orderService, IEmailService emailService)
         {
             _orderService = orderService;
+            _emailService = emailService;
         }
 
 
@@ -84,6 +86,21 @@ namespace Ecom.API.Controllers
                 }
 
                 var order = await _orderService.CreateOrderAsync(orderDto, userId);
+                
+                // Send email notification to admin
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendOrderNotificationToAdminAsync(order, "Created");
+                    }
+                    catch
+                    {
+                        // Log error but don't fail the order creation
+                        // Email sending failures shouldn't prevent order creation
+                    }
+                });
+                
                 return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
             }
             catch (ArgumentException ex)

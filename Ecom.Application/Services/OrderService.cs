@@ -280,14 +280,14 @@ namespace Ecom.Application.Services
                 }
             }
             
-            // Simple shipping calculation - in real app this would be more complex
-            return subtotal > 100 ? 0 : 10;
+            // Fixed shipping cost: always 2
+            return 2;
         }
 
         private static decimal CalculateTax(decimal subtotal)
         {
-            // Simple tax calculation - in real app this would depend on location
-            return subtotal * 0.08m; // 8% tax
+            // No tax - always return 0
+            return 0;
         }
 
         private static decimal CalculateCouponDiscount(CouponDto coupon, decimal subtotal)
