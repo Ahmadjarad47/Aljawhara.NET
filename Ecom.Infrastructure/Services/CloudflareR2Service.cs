@@ -25,7 +25,7 @@ namespace Ecom.Infrastructure.Services
             {
                 ServiceURL = $"https://{accountId}.r2.cloudflarestorage.com",
                 ForcePathStyle = true,
-                UseHttp = true,
+                UseHttp = false,
             };
 
             var credentials = new BasicAWSCredentials(accessKey, secretKey);
