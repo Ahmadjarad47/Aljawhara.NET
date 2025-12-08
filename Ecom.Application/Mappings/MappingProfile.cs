@@ -124,6 +124,7 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.Total, opt => opt.Ignore())
                 .ForMember(dest => dest.Items, opt => opt.Ignore())
                 .ForMember(dest => dest.ShippingAddressId, opt => opt.Ignore())
+                .ForMember(dest => dest.ShippingAddress, opt => opt.Ignore())
                 .ForMember(dest => dest.AppUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.CouponId, opt => opt.Ignore())
                 .ForMember(dest => dest.CouponDiscountAmount, opt => opt.Ignore());

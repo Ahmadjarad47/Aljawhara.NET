@@ -69,9 +69,11 @@ namespace Ecom.Application.Services
 
                     try
                     {
-                        // 1️⃣ Get shipping
+                        // 1️⃣ Get shipping address (prefer default, then any non-deleted address)
                         var shipping = await _unitOfWork.ShippingAddresses
-                            .FirstOrDefaultAsync(s => s.AppUserId == userId);
+                            .FirstOrDefaultAsync(s => s.AppUserId == userId && s.IsDefault && !s.IsDeleted)
+                            ?? await _unitOfWork.ShippingAddresses
+                            .FirstOrDefaultAsync(s => s.AppUserId == userId && !s.IsDeleted);
 
                         if (shipping == null)
                             throw new ArgumentException("No shipping address found.");
@@ -259,6 +261,54 @@ namespace Ecom.Application.Services
         {
             var transactions = await _unitOfWork.Transactions.FindAsync(t => t.OrderId == orderId);
             return _mapper.Map<IEnumerable<TransactionDto>>(transactions);
+        }
+
+        public async Task<InvoicePaymentDto?> GetInvoicePaymentDataAsync(int orderId)
+        {
+            var order = await _unitOfWork.Orders.GetOrderWithItemsAsync(orderId);
+            if (order == null)
+                return null;
+
+            var orderDto = _mapper.Map<OrderDto>(order);
+            
+            var invoicePaymentDto = new InvoicePaymentDto
+            {
+                // Order Information
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                Status = order.Status,
+                OrderCreatedAt = order.CreatedAt,
+                
+                // Financial Information
+                Subtotal = order.Subtotal,
+                Shipping = order.Shipping,
+                Tax = order.Tax,
+                Total = order.Total,
+                PaymentAmount = order.Total,
+                
+                // Customer Information
+                AppUserId = order.AppUserId,
+                CustomerName = orderDto.CustomerName,
+                CustomerEmail = order.AppUser?.Email,
+                CustomerPhone = order.ShippingAddress?.Phone,
+                
+                // Coupon Information
+                CouponId = order.CouponId,
+                CouponCode = orderDto.CouponCode,
+                CouponDiscountAmount = order.CouponDiscountAmount,
+                
+                // Order Items
+                Items = orderDto.Items,
+                
+                // Shipping Address
+                ShippingAddress = orderDto.ShippingAddress,
+                
+                // Success indicator
+                Success = true,
+                Message = "Invoice payment data retrieved successfully"
+            };
+
+            return invoicePaymentDto;
         }
 
         private async Task<string> GenerateOrderNumberAsync()

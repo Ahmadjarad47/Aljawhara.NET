@@ -175,6 +175,22 @@ namespace Ecom.API.Controllers
             var transactions = await _orderService.GetOrderTransactionsAsync(id);
             return Ok(transactions);
         }
+
+        [HttpGet("{id}/invoice-payment")]
+        public async Task<ActionResult<InvoicePaymentDto>> GetInvoicePaymentData(int id)
+        {
+            var invoicePaymentData = await _orderService.GetInvoicePaymentDataAsync(id);
+            if (invoicePaymentData == null)
+            {
+                return NotFound(new InvoicePaymentDto 
+                { 
+                    Success = false, 
+                    Message = $"Order with ID {id} not found." 
+                });
+            }
+            
+            return Ok(invoicePaymentData);
+        }
     }
 }
 

@@ -21,6 +21,8 @@ namespace Ecom.Application.Services.Interfaces
         
         Task<TransactionDto> ProcessPaymentAsync(TransactionCreateDto transactionDto);
         Task<IEnumerable<TransactionDto>> GetOrderTransactionsAsync(int orderId);
+        
+        Task<InvoicePaymentDto?> GetInvoicePaymentDataAsync(int orderId);
     }
 }
 
