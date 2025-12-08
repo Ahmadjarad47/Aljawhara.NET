@@ -23,22 +23,21 @@ namespace Ecom.API.Controllers
 
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<OrderDto>> GetOrder(int id)
         {
-            var orderDto = await _orderService.GetOrderByIdAsync(id);
-            if (orderDto != null)
-            {
-                var userid = User.GetUserId();
-                if (userid.ToString()!= orderDto.AppUserId)
-                {
-                    return Unauthorized();
-                }
-            }
             var order = await _orderService.GetOrderByIdAsync(id);
             if (order == null)
             {
                 return NotFound($"Order with ID {id} not found.");
             }
+            
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId) && userId != order.AppUserId)
+            {
+                return Unauthorized();
+            }
+            
             return Ok(order);
         }
 

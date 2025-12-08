@@ -15,7 +15,8 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<IEnumerable<Category>> GetCategoriesWithSubCategoriesAsync()
         {
             return await _dbSet
-                .Include(c => c.SubCategories)
+                .AsNoTracking()
+                .Include(c => c.SubCategories.Where(sc => !sc.IsDeleted))
                 .OrderBy(c => c.Name)
                 .ToListAsync();
         }
@@ -23,16 +24,20 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<Category?> GetCategoryWithSubCategoriesAsync(int categoryId)
         {
             return await _dbSet
-                .Include(c => c.SubCategories)
-                .ThenInclude(sc => sc.Products)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(c => c.SubCategories.Where(sc => !sc.IsDeleted))
+                    .ThenInclude(sc => sc.Products.Where(p => !p.IsDeleted && p.IsActive))
                 .FirstOrDefaultAsync(c => c.Id == categoryId);
         }
 
         public async Task<IEnumerable<Category>> GetCategoriesWithProductCountAsync()
         {
             return await _dbSet
-                .Include(c => c.SubCategories)
-                .ThenInclude(sc => sc.Products)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(c => c.SubCategories.Where(sc => !sc.IsDeleted))
+                    .ThenInclude(sc => sc.Products.Where(p => !p.IsDeleted && p.IsActive))
                 .OrderBy(c => c.Name)
                 .ToListAsync();
         }

@@ -81,6 +81,7 @@ namespace Ecom.Application.Services
                         order.AppUserId = userId;
                         order.ShippingAddressId = shipping.Id;
                         order.OrderNumber = await GenerateOrderNumberAsync();
+                        order.Items.Clear(); // Ensure Items collection is empty since we'll add them manually
 
                         decimal subtotal = 0;
                         var orderItems = new List<OrderItem>();
