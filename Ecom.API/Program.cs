@@ -310,42 +310,42 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 
 // Security: Add security headers middleware (must be early in pipeline)
-app.Use(async (context, next) =>
-{
-    // Security Headers
-    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Append("X-Frame-Options", "DENY");
-    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.Append("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+//app.Use(async (context, next) =>
+//{
+//    // Security Headers
+//    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+//    context.Response.Headers.Append("X-Frame-Options", "DENY");
+//    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+//    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+//    context.Response.Headers.Append("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
     
-    // Content Security Policy - Note: CSP is typically handled by the frontend application
-    // We only set it in production for additional security. In development, we skip it
-    // to avoid conflicts with the frontend's CSP configuration.
-    if (!app.Environment.IsDevelopment())
-    {
-        // Strict CSP for production
-        context.Response.Headers.Append("Content-Security-Policy", 
-            "default-src 'self'; " +
+//    // Content Security Policy - Note: CSP is typically handled by the frontend application
+//    // We only set it in production for additional security. In development, we skip it
+//    // to avoid conflicts with the frontend's CSP configuration.
+//    if (!app.Environment.IsDevelopment())
+//    {
+//        // Strict CSP for production
+//        context.Response.Headers.Append("Content-Security-Policy", 
+//            "default-src 'self'; " +
            
-            "script-src 'self'; " +
-            "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data: https:; " +
-            "font-src 'self' data:;");
-    }
+//            "script-src 'self'; " +
+//            "style-src 'self' 'unsafe-inline'; " +
+//            "img-src 'self' data: https:; " +
+//            "font-src 'self' data:;");
+//    }
     
-    // Remove server header for security
-    context.Response.Headers.Remove("Server");
-    context.Response.Headers.Remove("X-Powered-By");
+//    // Remove server header for security
+//    context.Response.Headers.Remove("Server");
+//    context.Response.Headers.Remove("X-Powered-By");
     
-    // HSTS (HTTP Strict Transport Security) - only for HTTPS
-    if (context.Request.IsHttps && !app.Environment.IsDevelopment())
-    {
-        context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-    }
+//    // HSTS (HTTP Strict Transport Security) - only for HTTPS
+//    if (context.Request.IsHttps && !app.Environment.IsDevelopment())
+//    {
+//        context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+//    }
     
-    await next();
-});
+//    await next();
+//});
 
 // Performance: Enable response compression (must be before other middleware)
 app.UseResponseCompression();
