@@ -116,6 +116,7 @@ namespace Ecom.Application.Services
 
                         // 4️⃣ Coupon
                         decimal discount = 0;
+                        CouponType? couponType = null;
 
                         if (!string.IsNullOrEmpty(state.CouponCode))
                         {
@@ -127,10 +128,11 @@ namespace Ecom.Application.Services
                             order.CouponId = coupon.Id;
                             discount = CalculateCouponDiscount(coupon, subtotal);
                             order.CouponDiscountAmount = discount;
+                            couponType = coupon.Type;
                         }
 
                         // 5️⃣ Totals
-                        order.Shipping = CalculateShipping(subtotal, state.CouponCode);
+                        order.Shipping = CalculateShipping(subtotal, couponType, shipping.City);
                         order.Tax = CalculateTax(subtotal);
                         order.Total = subtotal + order.Shipping + order.Tax - discount;
 
@@ -318,20 +320,40 @@ namespace Ecom.Application.Services
             return $"ORD-{today}-{(count + 1):D4}";
         }
 
-        private static decimal CalculateShipping(decimal subtotal, string? couponCode = null)
+        private static decimal CalculateShipping(decimal subtotal, CouponType? couponType = null, string? city = null)
         {
             // Check if coupon provides free shipping
-            if (!string.IsNullOrEmpty(couponCode))
+            if (couponType.HasValue && couponType.Value == CouponType.FreeShipping)
             {
-                // This would be checked against coupon type in real implementation
-                // For now, we'll use a simple check
-                if (couponCode.ToUpper().Contains("FREESHIP"))
-                {
-                    return 0;
-                }
+                return 0;
             }
             
-            // Fixed shipping cost: always 2
+            // Area-based delivery fees
+            if (string.IsNullOrEmpty(city))
+            {
+                return 2; // Default fee if city is not provided
+            }
+
+            // Areas with 6 KWD delivery fee
+            var highFeeAreas = new[] { "الأحمدي", "الخيران", "العبدلي", "الوفرة" };
+            if (highFeeAreas.Contains(city))
+            {
+                return 6;
+            }
+
+            // Areas with 3 KWD delivery fee
+            if (city == "صباح السالم")
+            {
+                return 3;
+            }
+
+            // Areas with 4 KWD delivery fee
+            if (city == "المطلاع")
+            {
+                return 4;
+            }
+
+            // Default fee for all other areas: 2 KWD
             return 2;
         }
 
