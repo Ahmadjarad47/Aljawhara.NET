@@ -195,39 +195,53 @@ namespace Ecom.Application.Services
 
         public async Task<bool> CancelOrderAsync(int orderId)
         {
-            await _unitOfWork.BeginTransactionAsync();
-            
-            try
-            {
-                var order = await _unitOfWork.Orders.GetOrderWithItemsAsync(orderId);
-                if (order == null)
-                    return false;
+            var context = _unitOfWork.Context;
+            var strategy = context.Database.CreateExecutionStrategy();
 
-                if (order.Status == OrderStatus.Shipped || order.Status == OrderStatus.Delivered)
-                    throw new InvalidOperationException("Cannot cancel shipped or delivered orders.");
-
-                // Restore stock for all products in the cancelled order
-                foreach (var orderItem in order.Items)
+            return await strategy.ExecuteAsync(
+                state: orderId,
+                operation: async (db, state, token) =>
                 {
-                    var stockIncreased = await _productService.IncreaseProductStockAsync(orderItem.ProductId, orderItem.Quantity);
-                    if (!stockIncreased)
+                    await _unitOfWork.BeginTransactionAsync();
+                    
+                    try
                     {
-                        throw new InvalidOperationException($"Failed to restore stock for product ID {orderItem.ProductId}");
-                    }
-                }
+                        // Use GetOrderWithItemsForUpdateAsync to load with tracking enabled
+                        // and without Product navigation properties to avoid tracking conflicts
+                        var order = await _unitOfWork.Orders.GetOrderWithItemsForUpdateAsync(state);
+                        if (order == null)
+                            return false;
 
-                order.Status = OrderStatus.Cancelled;
-                _unitOfWork.Orders.Update(order);
-                await _unitOfWork.SaveChangesAsync();
-                
-                await _unitOfWork.CommitTransactionAsync();
-                return true;
-            }
-            catch
-            {
-                await _unitOfWork.RollbackTransactionAsync();
-                throw;
-            }
+                        if (order.Status == OrderStatus.Shipped || order.Status == OrderStatus.Delivered)
+                            throw new InvalidOperationException("Cannot cancel shipped or delivered orders.");
+
+                        // Restore stock for all products in the cancelled order
+                        foreach (var orderItem in order.Items)
+                        {
+                            var stockIncreased = await _productService.IncreaseProductStockAsync(orderItem.ProductId, orderItem.Quantity);
+                            if (!stockIncreased)
+                            {
+                                throw new InvalidOperationException($"Failed to restore stock for product ID {orderItem.ProductId}");
+                            }
+                        }
+
+                        order.Status = OrderStatus.Cancelled;
+                        // Order is already tracked, just mark as modified
+                        _unitOfWork.Orders.Update(order);
+                        await _unitOfWork.SaveChangesAsync();
+                        
+                        await _unitOfWork.CommitTransactionAsync();
+                        return true;
+                    }
+                    catch
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        throw;
+                    }
+                },
+                verifySucceeded: null,
+                cancellationToken: default
+            );
         }
 
         public async Task<decimal> GetTotalSalesAsync(DateTime? startDate = null, DateTime? endDate = null)
@@ -327,7 +341,7 @@ namespace Ecom.Application.Services
             {
                 return 0;
             }
-            
+
             // Area-based delivery fees
             if (string.IsNullOrEmpty(city))
             {
@@ -335,14 +349,14 @@ namespace Ecom.Application.Services
             }
 
             // Areas with 6 KWD delivery fee
-            var highFeeAreas = new[] { "الأحمدي", "الخيران", "العبدلي", "الوفرة" };
+            var highFeeAreas = new[] { "مدينة صباح الأحمد", "الخيران", "العبدلي", "الوفرة" };
             if (highFeeAreas.Contains(city))
             {
                 return 6;
             }
 
             // Areas with 3 KWD delivery fee
-            if (city == "صباح السالم")
+            if (city == "صباح السالم"||city== "الأحمدي")
             {
                 return 3;
             }

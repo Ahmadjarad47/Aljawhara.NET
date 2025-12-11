@@ -120,7 +120,7 @@ namespace Ecom.API.Controllers
             try
             {
                 var order = await _orderService.GetOrderByIdAsync(id);
-                if (order!=null)
+                if (order==null)
                 {
                     if (!User.GetUserId().Equals(order.AppUserId))
                     {

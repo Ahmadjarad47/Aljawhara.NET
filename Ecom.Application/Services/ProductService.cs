@@ -522,13 +522,15 @@ namespace Ecom.Application.Services
         // Stock management methods
         public async Task<bool> UpdateProductStockAsync(int productId, int newStockQuantity)
         {
-            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            // Use FirstOrDefaultAsync to get a tracked entity for updates
+            var product = await _unitOfWork.Products.FirstOrDefaultAsync(p => p.Id == productId);
             if (product == null)
                 return false;
 
             product.TotalInStock = newStockQuantity;
             product.IsInStock = newStockQuantity > 0;
 
+            // Entity is already tracked, just mark as modified
             _unitOfWork.Products.Update(product);
             await _unitOfWork.SaveChangesAsync();
             return true;
@@ -536,13 +538,15 @@ namespace Ecom.Application.Services
 
         public async Task<bool> ReduceProductStockAsync(int productId, int quantity)
         {
-            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            // Use FirstOrDefaultAsync to get a tracked entity for updates
+            var product = await _unitOfWork.Products.FirstOrDefaultAsync(p => p.Id == productId);
             if (product == null || product.TotalInStock < quantity)
                 return false;
 
             product.TotalInStock -= quantity;
             product.IsInStock = product.TotalInStock > 0;
 
+            // Entity is already tracked, just mark as modified
             _unitOfWork.Products.Update(product);
             await _unitOfWork.SaveChangesAsync();
             return true;
@@ -550,13 +554,15 @@ namespace Ecom.Application.Services
 
         public async Task<bool> IncreaseProductStockAsync(int productId, int quantity)
         {
-            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            // Use FirstOrDefaultAsync to get a tracked entity for updates
+            var product = await _unitOfWork.Products.FirstOrDefaultAsync(p => p.Id == productId);
             if (product == null)
                 return false;
 
             product.TotalInStock += quantity;
             product.IsInStock = true; // If we're adding stock, it's definitely in stock
 
+            // Entity is already tracked, just mark as modified
             _unitOfWork.Products.Update(product);
             await _unitOfWork.SaveChangesAsync();
             return true;
@@ -564,12 +570,14 @@ namespace Ecom.Application.Services
 
         public async Task<bool> SetProductInStockStatusAsync(int productId, bool isInStock)
         {
-            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            // Use FirstOrDefaultAsync to get a tracked entity for updates
+            var product = await _unitOfWork.Products.FirstOrDefaultAsync(p => p.Id == productId);
             if (product == null)
                 return false;
 
             product.IsInStock = isInStock;
 
+            // Entity is already tracked, just mark as modified
             _unitOfWork.Products.Update(product);
             await _unitOfWork.SaveChangesAsync();
             return true;

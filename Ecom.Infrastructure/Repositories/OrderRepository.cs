@@ -39,6 +39,18 @@ namespace Ecom.Infrastructure.Repositories
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
 
+        public async Task<Order?> GetOrderWithItemsForUpdateAsync(int orderId)
+        {
+            // Load with tracking enabled for update operations
+            // Don't include Product navigation property to avoid tracking conflicts
+            return await _dbSet
+                .AsSplitQuery()
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
+                .Include(o => o.ShippingAddress)
+                .Include(o => o.AppUser)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+        }
+
         public async Task<Order?> GetOrderByNumberAsync(string orderNumber)
         {
             return await _dbSet

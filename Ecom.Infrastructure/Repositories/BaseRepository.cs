@@ -153,7 +153,32 @@ namespace Ecom.Infrastructure.Repositories
 
         public virtual void Update(T entity)
         {
-            _dbSet.Update(entity);
+            var trackedEntity = _context.Entry(entity);
+            
+            if (trackedEntity.State == EntityState.Detached)
+            {
+                // Entity is not tracked, check if another instance with the same key is tracked
+                var existingEntry = _context.ChangeTracker.Entries<T>()
+                    .FirstOrDefault(e => e.Entity.Id == entity.Id);
+                
+                if (existingEntry != null)
+                {
+                    // Another instance is already tracked, update its properties and mark as modified
+                    existingEntry.CurrentValues.SetValues(entity);
+                    existingEntry.State = EntityState.Modified;
+                }
+                else
+                {
+                    // No tracked instance, safe to update
+                    _dbSet.Update(entity);
+                }
+            }
+            else
+            {
+                // Entity is already tracked, just mark as modified
+                trackedEntity.State = EntityState.Modified;
+            }
+            
             InvalidateCacheForEntity(entity);
         }
 
