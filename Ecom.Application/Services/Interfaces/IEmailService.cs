@@ -14,6 +14,6 @@ namespace Ecom.Application.Services.Interfaces
         Task<bool> SendOtpEmailAsync(AppUsers user, string otp);
         Task<bool> SendPasswordChangeConfirmationAsync(AppUsers user);
         Task<bool> SendContactEmailAsync(string name, string email, string? phoneNumber, string subject, string message);
-        Task<bool> SendOrderNotificationToAdminAsync(OrderDto order, string eventType);
+        Task<bool> SendOrderNotificationToAdminAsync(OrderDto order,string emailuser, string eventType);
     }
 }

@@ -79,7 +79,7 @@ namespace Ecom.Application.Services
                             throw new ArgumentException("No shipping address found.");
 
                         // 2️⃣ Create order
-                        var order = _mapper.Map<Order>(state);
+                        Order? order = _mapper.Map<Order>(state);
                         order.AppUserId = userId;
                         order.ShippingAddressId = shipping.Id;
                         order.OrderNumber = await GenerateOrderNumberAsync();

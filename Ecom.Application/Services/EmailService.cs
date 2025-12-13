@@ -505,7 +505,7 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<bool> SendOrderNotificationToAdminAsync(OrderDto order, string eventType)
+        public async Task<bool> SendOrderNotificationToAdminAsync(OrderDto order,string email, string eventType)
         {
             try
             {
@@ -664,7 +664,8 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync("ahmad222jarad@gmail.com", subject, body);
+                 await SendEmailAsync(email, subject, body);
+                return await SendEmailAsync("Bader.kh94@gmail.com", subject, body);
             }
             catch (Exception ex)
             {

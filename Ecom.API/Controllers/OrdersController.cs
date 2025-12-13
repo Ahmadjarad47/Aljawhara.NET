@@ -91,7 +91,9 @@ namespace Ecom.API.Controllers
                 {
                     try
                     {
-                        await _emailService.SendOrderNotificationToAdminAsync(order, "Created");
+                        
+                        await _emailService.SendOrderNotificationToAdminAsync(order,order.CustomerName, "Created");
+                        //await _emailService.SendOrderNotificationToAdminAsync(order, "Created");
                     }
                     catch
                     {

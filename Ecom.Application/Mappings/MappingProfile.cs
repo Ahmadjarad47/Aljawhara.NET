@@ -108,7 +108,7 @@ namespace Ecom.Application.Mappings
         private void CreateOrderMappings()
         {
             CreateMap<Order, OrderDto>()
-                .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.AppUser != null ? src.AppUser.UserName : "Guest"))
+                .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.AppUser != null ? src.AppUser.Email : "Guest"))
                 .ForMember(dest => dest.CouponCode, opt => opt.MapFrom(src => src.Coupon != null ? src.Coupon.Code : string.Empty));
 
             CreateMap<Order, OrderSummaryDto>()
