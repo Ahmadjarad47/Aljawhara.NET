@@ -18,8 +18,18 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using System.IO.Compression;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure FormOptions for large file uploads (up to 50MB)
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 50 * 1024 * 1024; // 50 MB
+    options.ValueLengthLimit = int.MaxValue;
+    options.ValueCountLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+});
 
 // Add services to the container.
 builder.Services.AddControllers(options =>
@@ -303,6 +313,8 @@ builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+    // Increase max request body size to 50MB for file uploads
+    options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50 MB
 });
 
 var app = builder.Build();
@@ -366,14 +378,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 // Security: CORS (must be before authentication)
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("AllowAll");
-}
-else
-{
-    app.UseCors("AllowSpecificOrigins");
-}
+// Always use AllowSpecificOrigins to ensure CORS headers are sent
+app.UseCors("AllowSpecificOrigins");
 
 // Security: Swagger only in development
 //if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
