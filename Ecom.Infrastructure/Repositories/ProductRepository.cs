@@ -221,6 +221,21 @@ namespace Ecom.Infrastructure.Repositories
             return product;
         }
 
+        public async Task<Product?> GetProductWithDetailsForUpdateAsync(int productId)
+        {
+            var product = await _dbSet
+                .AsSplitQuery()
+                .Include(p => p.subCategory)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .FirstOrDefaultAsync(p => p.Id == productId && p.IsActive == true);
+
+            return product;
+        }
+
         public async Task<IEnumerable<Product>> GetRelatedProductsAsync(int productId, int count = 5)
         {
             var product = await _dbSet

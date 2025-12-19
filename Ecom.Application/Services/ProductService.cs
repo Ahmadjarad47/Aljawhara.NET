@@ -113,6 +113,8 @@ namespace Ecom.Application.Services
                 foreach (var variantDto in productDto.Variants)
                 {
                     var variant = _mapper.Map<ProductVariant>(variantDto);
+                    // Reset values to avoid double-mapping from AutoMapper
+                    variant.Values = new List<ProductVariantValue>();
                     variant.ProductId = product.Id;
                     
                     if (variantDto.Values != null && variantDto.Values.Count > 0)
@@ -169,6 +171,8 @@ namespace Ecom.Application.Services
                 foreach (var variantDto in productDto.Variants)
                 {
                     var variant = _mapper.Map<ProductVariant>(variantDto);
+                    // Reset values to avoid double-mapping from AutoMapper
+                    variant.Values = new List<ProductVariantValue>();
                     variant.ProductId = product.Id;
                     
                     if (variantDto.Values != null && variantDto.Values.Count > 0)
@@ -194,7 +198,7 @@ namespace Ecom.Application.Services
 
         public async Task<ProductDto> UpdateProductAsync(ProductUpdateDto productDto)
         {
-            var existingProduct = await _unitOfWork.Products.GetProductWithDetailsAsync(productDto.Id);
+            var existingProduct = await _unitOfWork.Products.GetProductWithDetailsForUpdateAsync(productDto.Id);
             if (existingProduct == null)
                 throw new ArgumentException($"Product with ID {productDto.Id} not found.");
 
@@ -228,6 +232,8 @@ namespace Ecom.Application.Services
                 foreach (var variantDto in productDto.Variants)
                 {
                     var variant = _mapper.Map<ProductVariant>(variantDto);
+                    // Reset values to avoid double-mapping from AutoMapper
+                    variant.Values = new List<ProductVariantValue>();
                     variant.ProductId = existingProduct.Id;
                     
                     if (variantDto.Values != null && variantDto.Values.Count > 0)
@@ -253,22 +259,23 @@ namespace Ecom.Application.Services
 
         public async Task<ProductDto> UpdateProductWithFilesAsync(ProductUpdateWithFilesDto productDto)
         {
-            var existingProduct = await _unitOfWork.Products.GetProductWithDetailsAsync(productDto.Id);
+            var existingProduct = await _unitOfWork.Products.GetProductWithDetailsForUpdateAsync(productDto.Id);
             if (existingProduct == null)
                 throw new ArgumentException($"Product with ID {productDto.Id} not found.");
 
             // Store old image URLs for deletion
             var oldImageUrls = existingProduct.Images?.ToList() ?? new List<string>();
 
-            // Map basic properties
+            // Map basic properties, including localized fields
             existingProduct.Title = productDto.Title;
+            existingProduct.TitleAr = productDto.TitleAr;
             existingProduct.Description = productDto.Description;
+            existingProduct.DescriptionAr = productDto.DescriptionAr;
             existingProduct.oldPrice = productDto.OldPrice;
             existingProduct.newPrice = productDto.NewPrice;
             existingProduct.SubCategoryId = productDto.SubCategoryId;
             existingProduct.TotalInStock = productDto.TotalInStock;
             existingProduct.IsInStock = productDto.IsInStock;
-            existingProduct.Title = productDto.Title;
             
             // Handle ProductDetails update - clear existing and add new ones
             existingProduct.productDetails.Clear();
@@ -289,6 +296,8 @@ namespace Ecom.Application.Services
                 foreach (var variantDto in productDto.Variants)
                 {
                     var variant = _mapper.Map<ProductVariant>(variantDto);
+                    // Reset values to avoid double-mapping from AutoMapper
+                    variant.Values = new List<ProductVariantValue>();
                     variant.ProductId = existingProduct.Id;
                     
                     if (variantDto.Values != null && variantDto.Values.Count > 0)

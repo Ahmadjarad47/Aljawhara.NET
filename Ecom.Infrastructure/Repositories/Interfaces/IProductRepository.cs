@@ -24,6 +24,7 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
             int pageNumber = 1,
             int pageSize = 20);
         Task<Product?> GetProductWithDetailsAsync(int productId);
+        Task<Product?> GetProductWithDetailsForUpdateAsync(int productId);
         Task<IEnumerable<Product>> GetRelatedProductsAsync(int productId, int count = 5);
         Task<IEnumerable<Product>> GetAllProductsWithDetailsAsync();
     }

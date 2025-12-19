@@ -106,7 +106,7 @@ namespace Ecom.API.Controllers
                 {
                     try
                     {
-                        await _emailService.SendOrderNotificationToAdminAsync(order, "StatusUpdated");
+                        await _emailService.SendOrderNotificationToAdminAsync(order,order.CustomerName, "StatusUpdated");
                     }
                     catch
                     {
