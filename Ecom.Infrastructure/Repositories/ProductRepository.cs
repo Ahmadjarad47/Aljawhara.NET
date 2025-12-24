@@ -79,14 +79,14 @@ namespace Ecom.Infrastructure.Repositories
             {
                 var t = token; // local copy for EF
                 query = query.Where(p =>
-                    EF.Functions.Like(p.Title, $"{t}%") ||
-                    EF.Functions.Like(p.TitleAr, $"{t}%") ||
+                    EF.Functions.Like(p.Title, $"%{t}%") ||
+                    EF.Functions.Like(p.TitleAr, $"%{t}%") ||
                     EF.Functions.Like(p.Description, $"%{t}%") ||
                     EF.Functions.Like(p.DescriptionAr, $"%{t}%") ||
-                    EF.Functions.Like(p.subCategory.Name, $"{t}%") ||
-                    EF.Functions.Like(p.subCategory.NameAr, $"{t}%") ||
-                    EF.Functions.Like(p.subCategory.Category.Name, $"{t}%") ||
-                    EF.Functions.Like(p.subCategory.Category.NameAr, $"{t}%")
+                    EF.Functions.Like(p.subCategory.Name, $"%{t}%") ||
+                    EF.Functions.Like(p.subCategory.NameAr, $"%{t}%") ||
+                    EF.Functions.Like(p.subCategory.Category.Name, $"%{t}%") ||
+                    EF.Functions.Like(p.subCategory.Category.NameAr, $"%{t}%")
                 );
             }
             var products = await query
