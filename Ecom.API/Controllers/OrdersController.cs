@@ -67,7 +67,6 @@ namespace Ecom.API.Controllers
             return Ok(orders);
         }
 
-        [Authorize]
         [HttpPost]
         public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] OrderCreateDto orderDto)
         {
@@ -79,11 +78,6 @@ namespace Ecom.API.Controllers
             try
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized("User ID not found in token.");
-                }
-
                 var order = await _orderService.CreateOrderAsync(orderDto, userId);
                 
                 // Send email notification to admin

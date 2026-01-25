@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Ecom.Application.DTOs.Coupon;
 using Ecom.Application.DTOs.Order;
 using Ecom.Application.Mappings;
@@ -55,9 +55,6 @@ namespace Ecom.Application.Services
         }
         public async Task<OrderDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null)
         {
-            if (string.IsNullOrEmpty(userId))
-                throw new ArgumentException("User ID is required to create an order.");
-
             var context = _unitOfWork.Context;
             var strategy = context.Database.CreateExecutionStrategy();
 
@@ -70,13 +67,22 @@ namespace Ecom.Application.Services
                     try
                     {
                         // 1️⃣ Get shipping address (prefer default, then any non-deleted address)
-                        var shipping = await _unitOfWork.ShippingAddresses
-                            .FirstOrDefaultAsync(s => s.AppUserId == userId && s.IsDefault && !s.IsDeleted)
-                            ?? await _unitOfWork.ShippingAddresses
-                            .FirstOrDefaultAsync(s => s.AppUserId == userId && !s.IsDeleted);
+                        ShippingAddress? shipping = null;
+                        if (!string.IsNullOrEmpty(userId))
+                        {
+                            shipping = await _unitOfWork.ShippingAddresses
+                                .FirstOrDefaultAsync(s => s.AppUserId == userId && s.IsDefault && !s.IsDeleted)
+                                ?? await _unitOfWork.ShippingAddresses
+                                .FirstOrDefaultAsync(s => s.AppUserId == userId && !s.IsDeleted);
+                        }
 
                         if (shipping == null)
-                            throw new ArgumentException("No shipping address found.");
+                        {
+                            shipping = _mapper.Map<ShippingAddress>(state.ShippingAddress);
+                            shipping.AppUserId = userId;
+                            await _unitOfWork.ShippingAddresses.AddAsync(shipping);
+                            await _unitOfWork.SaveChangesAsync();
+                        }
 
                         // 2️⃣ Create order
                         Order? order = _mapper.Map<Order>(state);
