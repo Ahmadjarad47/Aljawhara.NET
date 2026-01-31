@@ -34,7 +34,7 @@ namespace Ecom.Application.Services
 
         public async Task<IEnumerable<CategoryDto>> GetCategoriesWithSubCategoriesAsync()
         {
-            var categories = await _unitOfWork.Categories.GetCategoriesWithSubCategoriesAsync();
+            var categories = await _unitOfWork.Categories.GetCategoriesWithProductCountAsync();
             return _mapper.Map<IEnumerable<CategoryDto>>(categories);
         }
 
@@ -211,7 +211,7 @@ namespace Ecom.Application.Services
             var predicate = BuildCategoryFilterPredicate(isActive, searchTerm);
             var orderBy = (IQueryable<Category> query) => query.OrderBy(c => c.Name);
             
-            var (categories, totalCount) = await _unitOfWork.Categories.GetPagedAsync(
+            var (categories, totalCount) = await _unitOfWork.Categories.GetPagedCategoriesWithProductCountAsync(
                 pageNumber, pageSize, predicate, orderBy);
             
             return (_mapper.Map<IEnumerable<CategoryDto>>(categories), totalCount);

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories.Interfaces;
@@ -40,6 +41,32 @@ namespace Ecom.Infrastructure.Repositories
                     .ThenInclude(sc => sc.Products.Where(p => !p.IsDeleted && p.IsActive))
                 .OrderBy(c => c.Name)
                 .ToListAsync();
+        }
+
+        public async Task<(IEnumerable<Category> Items, int TotalCount)> GetPagedCategoriesWithProductCountAsync(
+            int pageNumber, int pageSize, Expression<Func<Category, bool>>? predicate, Func<IQueryable<Category>, IOrderedQueryable<Category>>? orderBy)
+        {
+            var query = _dbSet.AsNoTracking().AsQueryable();
+
+            if (predicate != null)
+                query = query.Where(predicate);
+
+            var totalCount = await query.CountAsync();
+
+            query = query
+                .AsSplitQuery()
+                .Include(c => c.SubCategories.Where(sc => !sc.IsDeleted))
+                    .ThenInclude(sc => sc.Products.Where(p => !p.IsDeleted && p.IsActive));
+
+            if (orderBy != null)
+                query = orderBy(query);
+
+            var items = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
         }
     }
 }
