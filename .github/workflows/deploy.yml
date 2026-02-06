@@ -1,9 +1,9 @@
-name: Auto Deploy Aljawhara.NET to VPS
+name: Auto Deploy Game Store Backend
 
 on:
   push:
     branches:
-      - master
+      - main  # عدل حسب فرعك
 
 jobs:
   publish:
@@ -13,34 +13,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install .NET
+      - name: Install .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Publish API
         run: |
-          cd Ecom.API
+          cd game-store.backend
           dotnet publish -c Release -o publish
 
       - name: Clean old publish folder on server
         uses: appleboy/ssh-action@v1.1.0
         with:
-          host: 72.61.187.165
+          host: 76.13.146.245
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            rm -rf /var/www/Aljawhara.NET/publish
-            mkdir -p /var/www/Aljawhara.NET/publish
+            rm -rf /var/www/api.eng-sy.store*
+            mkdir -p /var/www/api.eng-sy.store
 
       - name: SCP publish folder to server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: 72.61.187.165
+          host: 76.13.146.245
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "Ecom.API/publish"
-          target: "/var/www/Aljawhara.NET"
+          source: "game-store.backend/publish/*"
+          target: "/var/www/api.eng-sy.store"
           strip_components: 1
           rm: true
           overwrite: true
@@ -48,8 +48,8 @@ jobs:
       - name: Restart service
         uses: appleboy/ssh-action@v1.1.0
         with:
-          host: 72.61.187.165
+          host: 76.13.146.245
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            systemctl restart aljawhara.service
+            systemctl restart eng-sy.service
