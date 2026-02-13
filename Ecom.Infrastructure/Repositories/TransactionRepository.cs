@@ -51,7 +51,7 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<bool> HasSuccessfulTransactionAsync(int orderId)
         {
             return await _context.Transactions
-                .AnyAsync(t => t.OrderId == orderId && t.Status == "Completed");
+                .AnyAsync(t => t.OrderId == orderId && t.Status == TransactionStatus.Paid);
         }
 
         public async Task<IEnumerable<Transaction>> GetTransactionsByOrderAsync(int orderId)
@@ -67,7 +67,7 @@ namespace Ecom.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Transaction>> GetTransactionsByStatusAsync(string status, int pageNumber = 1, int pageSize = 20)
+        public async Task<IEnumerable<Transaction>> GetTransactionsByStatusAsync(TransactionStatus status, int pageNumber = 1, int pageSize = 20)
         {
             return await _context.Transactions
                 .Include(t => t.Order)
@@ -110,7 +110,7 @@ namespace Ecom.Infrastructure.Repositories
                     t.Order!.OrderNumber.Contains(searchTerm) ||
                     (t.AppUser != null && (t.AppUser.UserName!.Contains(searchTerm) || t.AppUser.Email!.Contains(searchTerm))) ||
                     (t.Order!.ShippingAddress != null && t.Order.ShippingAddress.FullName.Contains(searchTerm)) ||
-                    t.Status.Contains(searchTerm) ||
+                    t.Status.ToString().Contains(searchTerm) ||
                     t.PaymentMethod.ToString().Contains(searchTerm))
                 .OrderByDescending(t => t.TransactionDate)
                 .Take(limit)
@@ -125,6 +125,13 @@ namespace Ecom.Infrastructure.Repositories
                 .Include(t => t.Order)
                     .ThenInclude(o => o.ShippingAddress)
                 .Include(t => t.AppUser);
+        }
+
+        public async Task<Transaction?> GetTransactionByGatewayInvoiceIdAsync(string gatewayInvoiceId)
+        {
+            return await _context.Transactions
+                .Include(t => t.Order)
+                .FirstOrDefaultAsync(t => t.GatewayInvoiceId == gatewayInvoiceId);
         }
     }
 }

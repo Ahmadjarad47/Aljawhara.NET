@@ -14,7 +14,7 @@ namespace Ecom.Application.DTOs.Order
         public decimal Amount { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
         public string PaymentMethodName => PaymentMethod.ToString();
-        public string Status { get; set; } = string.Empty;
+        public TransactionStatus Status { get; set; }
         public DateTime TransactionDate { get; set; }
         public DateTime? ProcessedDate { get; set; }
         public string? TransactionReference { get; set; }
@@ -24,28 +24,34 @@ namespace Ecom.Application.DTOs.Order
         public decimal? RefundAmount { get; set; }
         public DateTime? RefundDate { get; set; }
         public string? RefundReason { get; set; }
+        public string? GatewayInvoiceId { get; set; }
+        public string? PaymentUrl { get; set; }
         public bool IsActive { get; set; }
     }
 
     public class TransactionCreateAdvancedDto
     {
+
         [Required]
         public int OrderId { get; set; }
         
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
         public decimal Amount { get; set; }
-        
+        public string AppUserId { get; set; }
+
         [Required]
         public PaymentMethod PaymentMethod { get; set; }
         
-        public string Status { get; set; } = "Pending";
+        public TransactionStatus Status { get; set; } = TransactionStatus.Pending;
         
         public string? TransactionReference { get; set; }
         
         public string? PaymentGatewayResponse { get; set; }
         
         public string? Notes { get; set; }
+        
+        public string? GatewayInvoiceId { get; set; }
     }
 
     public class TransactionUpdateDto
@@ -53,13 +59,15 @@ namespace Ecom.Application.DTOs.Order
         [Required]
         public int Id { get; set; }
         
-        public string Status { get; set; } = string.Empty;
+        public TransactionStatus Status { get; set; }
         
         public string? TransactionReference { get; set; }
         
         public string? PaymentGatewayResponse { get; set; }
         
         public string? Notes { get; set; }
+        
+        public string? GatewayInvoiceId { get; set; }
     }
 
     public class TransactionRefundDto
@@ -83,7 +91,7 @@ namespace Ecom.Application.DTOs.Order
         public string? OrderNumber { get; set; }
         public string? AppUserId { get; set; }
         public PaymentMethod? PaymentMethod { get; set; }
-        public string? Status { get; set; }
+        public TransactionStatus? Status { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public decimal? MinAmount { get; set; }
@@ -126,9 +134,10 @@ namespace Ecom.Application.DTOs.Order
         public string OrderNumber { get; set; } = string.Empty;
         public string CustomerName { get; set; } = string.Empty;
         public decimal Amount { get; set; }
-        public string PaymentMethod { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
+        public PaymentMethod PaymentMethod { get; set; }
+        public TransactionStatus Status { get; set; }
         public DateTime TransactionDate { get; set; }
+        public string? GatewayInvoiceId { get; set; }
         public bool IsRefunded { get; set; }
         public bool IsActive { get; set; }
     }

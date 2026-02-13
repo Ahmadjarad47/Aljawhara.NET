@@ -36,6 +36,7 @@ namespace Ecom.Infrastructure.Repositories
                     .ThenInclude(oi => oi.Product)
                 .Include(o => o.ShippingAddress)
                 .Include(o => o.AppUser)
+                .Include(o => o.Coupon)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
 

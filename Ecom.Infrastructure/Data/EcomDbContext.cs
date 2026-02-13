@@ -1,3 +1,4 @@
+using Ecom.Domain.constant;
 using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -183,7 +184,8 @@ namespace Ecom.Infrastructure.Data
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Status).HasConversion<int>();
+                entity.Property(e => e.GatewayInvoiceId).HasMaxLength(100);
                 entity.HasOne(e => e.Order)
                       .WithMany()
                       .HasForeignKey(e => e.OrderId)

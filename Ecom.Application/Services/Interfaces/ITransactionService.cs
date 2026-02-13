@@ -21,8 +21,9 @@ namespace Ecom.Application.Services.Interfaces
 
         // Payment processing
         Task<TransactionAdvancedDto> ProcessPaymentAsync(PaymentProcessingDto paymentDto);
+        Task<string?> GetPaymentUrlByTransactionIdAsync(int transactionId);
         Task<TransactionAdvancedDto> ProcessRefundAsync(TransactionRefundDto refundDto);
-        Task<bool> UpdateTransactionStatusAsync(int transactionId, string status, string? gatewayResponse = null);
+        Task<bool> UpdateTransactionStatusAsync(int transactionId, TransactionStatus status, string? gatewayResponse = null);
 
         // Analytics and reporting
         Task<TransactionAnalyticsDto> GetTransactionAnalyticsAsync(DateTime? startDate = null, DateTime? endDate = null);
@@ -42,11 +43,16 @@ namespace Ecom.Application.Services.Interfaces
 
         // Search and filtering
         Task<List<TransactionSummaryDto>> SearchTransactionsAsync(string searchTerm, int limit = 50);
-        Task<List<TransactionAdvancedDto>> GetTransactionsByStatusAsync(string status, int pageNumber = 1, int pageSize = 20);
+        Task<List<TransactionAdvancedDto>> GetTransactionsByStatusAsync(TransactionStatus status, int pageNumber = 1, int pageSize = 20);
         Task<List<TransactionAdvancedDto>> GetTransactionsByPaymentMethodAsync(PaymentMethod paymentMethod, int pageNumber = 1, int pageSize = 20);
 
         // Export functionality
         Task<byte[]> ExportTransactionsToCsvAsync(TransactionFilterDto filter);
         Task<byte[]> ExportTransactionsToExcelAsync(TransactionFilterDto filter);
+
+        /// <summary>
+        /// Handles Sadad paid webhook: verifies payment via Sadad API, then updates transaction and order status.
+        /// </summary>
+        Task<bool> HandleSadadPaidWebhookAsync(SadadWebhookDto webhookPayload);
     }
 }

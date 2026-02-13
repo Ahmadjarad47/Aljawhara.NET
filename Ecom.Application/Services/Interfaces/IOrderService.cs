@@ -12,7 +12,7 @@ namespace Ecom.Application.Services.Interfaces
         Task<IEnumerable<OrderSummaryDto>> GetOrdersByStatusAsync(OrderStatus status);
         Task<IEnumerable<OrderSummaryDto>> GetRecentOrdersAsync(int count = 10);
         
-        Task<OrderDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null);
+        Task<TransactionAdvancedDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null);
         Task<OrderDto> UpdateOrderStatusAsync(OrderUpdateStatusDto orderUpdateDto);
         Task<bool> CancelOrderAsync(int orderId);
         

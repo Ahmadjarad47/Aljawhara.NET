@@ -147,7 +147,8 @@ namespace Ecom.Application.Mappings
             CreateMap<CreateAddressDto, ShippingAddress>();
             CreateMap<UpdateAddressDto, ShippingAddress>();
 
-            CreateMap<Transaction, TransactionDto>();
+            CreateMap<Transaction, TransactionDto>()
+                .ForMember(dest => dest.OrderNumber, opt => opt.MapFrom(src => src.Order != null ? src.Order.OrderNumber : string.Empty));
             CreateMap<TransactionCreateDto, Transaction>();
             
             // Advanced Transaction Mappings
@@ -173,14 +174,16 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.IsRefunded, opt => opt.Ignore())
                 .ForMember(dest => dest.RefundAmount, opt => opt.Ignore())
                 .ForMember(dest => dest.RefundDate, opt => opt.Ignore())
-                .ForMember(dest => dest.RefundReason, opt => opt.Ignore());
+                .ForMember(dest => dest.RefundReason, opt => opt.Ignore())
+                .ForMember(dest => dest.GatewayInvoiceId, opt => opt.MapFrom(src => src.GatewayInvoiceId));
 
             CreateMap<Transaction, TransactionSummaryDto>()
                 .ForMember(dest => dest.OrderNumber, opt => opt.MapFrom(src => src.Order.OrderNumber))
                 .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => 
                     src.Order != null && src.Order.ShippingAddress != null ? src.Order.ShippingAddress.FullName : 
                     (src.AppUser != null ? src.AppUser.UserName : "Guest")))
-                .ForMember(dest => dest.PaymentMethod, opt => opt.MapFrom(src => src.PaymentMethod.ToString()));
+                .ForMember(dest => dest.PaymentMethod, opt => opt.MapFrom(src => src.PaymentMethod))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
         }
 
         private void CreateCouponMappings()

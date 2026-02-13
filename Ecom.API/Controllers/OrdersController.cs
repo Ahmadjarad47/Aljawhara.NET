@@ -14,11 +14,13 @@ namespace Ecom.API.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly IEmailService _emailService;
+        private readonly ITransactionService _transactionService;
 
-        public OrdersController(IOrderService orderService, IEmailService emailService)
+        public OrdersController(IOrderService orderService, IEmailService emailService, ITransactionService transactionService)
         {
             _orderService = orderService;
             _emailService = emailService;
+            _transactionService = transactionService;
         }
 
 
@@ -68,7 +70,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] OrderCreateDto orderDto)
+        public async Task<ActionResult<TransactionAdvancedDto>> CreateOrder([FromBody] OrderCreateDto orderDto)
         {
             if (!ModelState.IsValid)
             {
@@ -78,16 +80,16 @@ namespace Ecom.API.Controllers
             try
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var order = await _orderService.CreateOrderAsync(orderDto, userId);
-                
+                var transaction = await _orderService.CreateOrderAsync(orderDto, userId);
+
                 // Send email notification to admin
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        
-                        await _emailService.SendOrderNotificationToAdminAsync(order,order.CustomerName, "Created");
-                        //await _emailService.SendOrderNotificationToAdminAsync(order, "Created");
+                        var order = await _orderService.GetOrderByIdAsync(transaction.OrderId);
+                        if (order != null)
+                            await _emailService.SendOrderNotificationToAdminAsync(order, transaction.CustomerName ?? order.CustomerName, "Created");
                     }
                     catch
                     {
@@ -95,8 +97,8 @@ namespace Ecom.API.Controllers
                         // Email sending failures shouldn't prevent order creation
                     }
                 });
-                
-                return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+
+                return CreatedAtAction(nameof(GetOrder), new { id = transaction.OrderId }, transaction);
             }
             catch (ArgumentException ex)
             {
@@ -186,6 +188,26 @@ namespace Ecom.API.Controllers
             }
             
             return Ok(invoicePaymentData);
+        }
+
+        /// <summary>
+        /// Sadad paid webhook. Configure this URL in Sadad dashboard.
+        /// Verifies payment via Sadad API, then updates transaction and order status.
+        /// Always returns 200 OK to prevent Sadad retries.
+        /// </summary>
+        [HttpPost("webhook/sadad-paid")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SadadPaidWebhook([FromBody] SadadWebhookDto payload)
+        {
+            try
+            {
+                await _transactionService.HandleSadadPaidWebhookAsync(payload);
+            }
+            catch (Exception)
+            {
+                // Log but still return 200 - Sadad retries every 3 min (max 5) if non-200
+            }
+            return Ok();
         }
     }
 }

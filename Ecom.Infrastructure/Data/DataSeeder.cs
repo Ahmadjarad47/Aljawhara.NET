@@ -1102,7 +1102,7 @@ namespace Ecom.Infrastructure.Data
 
             var transactions = new List<Transaction>();
             var paymentMethods = Enum.GetValues(typeof(PaymentMethod)).Cast<PaymentMethod>().ToArray();
-            var statuses = new[] { "Completed", "Pending", "Failed", "Refunded" };
+            var statuses = new[] { TransactionStatus.Paid, TransactionStatus.Pending, TransactionStatus.Failed, TransactionStatus.Refunded };
 
             // Generate varied transaction dates across different months and years
             var transactionDates = new List<DateTime>();
@@ -1156,7 +1156,7 @@ namespace Ecom.Infrastructure.Data
                     
                     // First transaction might fail, second one should succeed
                     var status = txnIdx == 0 && transactionCountForOrder > 1 && _random.Next(100) > 50
-                        ? "Failed" 
+                        ? TransactionStatus.Failed 
                         : statuses[_random.Next(statuses.Length)];
                     
                     // Use varied dates for transactions
@@ -1180,16 +1180,16 @@ namespace Ecom.Infrastructure.Data
                         PaymentMethod = paymentMethod,
                         Status = status,
                         TransactionDate = transactionDate,
-                        ProcessedDate = status == "Completed" ? transactionDate.AddMinutes(_random.Next(1, 60)) : null,
+                        ProcessedDate = status == TransactionStatus.Paid ? transactionDate.AddMinutes(_random.Next(1, 60)) : null,
                         TransactionReference = $"TXN{_random.Next(100000, 999999)}",
-                        PaymentGatewayResponse = status == "Completed" ? "Success" : status == "Failed" ? "Payment failed" : "Pending",
-                        Notes = status == "Refunded" ? "Customer requested refund" : (status == "Failed" && txnIdx == 0) ? "Initial payment attempt failed" : null,
-                        IsRefunded = status == "Refunded",
-                        RefundAmount = status == "Refunded" ? order.Total : null,
-                        RefundDate = status == "Refunded" ? transactionDate.AddDays(_random.Next(1, 7)) : null,
-                        RefundReason = status == "Refunded" ? "Customer request" : null,
+                        PaymentGatewayResponse = status == TransactionStatus.Paid ? "Success" : status == TransactionStatus.Failed ? "Payment failed" : "Pending",
+                        Notes = status == TransactionStatus.Refunded ? "Customer requested refund" : (status == TransactionStatus.Failed && txnIdx == 0) ? "Initial payment attempt failed" : null,
+                        IsRefunded = status == TransactionStatus.Refunded,
+                        RefundAmount = status == TransactionStatus.Refunded ? order.Total : null,
+                        RefundDate = status == TransactionStatus.Refunded ? transactionDate.AddDays(_random.Next(1, 7)) : null,
+                        RefundReason = status == TransactionStatus.Refunded ? "Customer request" : null,
                         CreatedAt = transactionDate,
-                        UpdatedAt = status != "Pending" ? transactionDate.AddMinutes(_random.Next(1, 30)) : null,
+                        UpdatedAt = status != TransactionStatus.Pending ? transactionDate.AddMinutes(_random.Next(1, 30)) : null,
                         IsActive = true
                     };
 
@@ -1220,16 +1220,16 @@ namespace Ecom.Infrastructure.Data
                     PaymentMethod = paymentMethod,
                     Status = status,
                     TransactionDate = transactionDate,
-                    ProcessedDate = status == "Completed" ? transactionDate.AddMinutes(_random.Next(1, 60)) : null,
+                    ProcessedDate = status == TransactionStatus.Paid ? transactionDate.AddMinutes(_random.Next(1, 60)) : null,
                     TransactionReference = $"TXN{_random.Next(100000, 999999)}",
-                    PaymentGatewayResponse = status == "Completed" ? "Success" : status == "Failed" ? "Payment failed" : "Pending",
-                    Notes = status == "Refunded" ? "Customer requested refund" : null,
-                    IsRefunded = status == "Refunded",
-                    RefundAmount = status == "Refunded" ? order.Total : null,
-                    RefundDate = status == "Refunded" ? transactionDate.AddDays(_random.Next(1, 7)) : null,
-                    RefundReason = status == "Refunded" ? "Customer request" : null,
+                    PaymentGatewayResponse = status == TransactionStatus.Paid ? "Success" : status == TransactionStatus.Failed ? "Payment failed" : "Pending",
+                    Notes = status == TransactionStatus.Refunded ? "Customer requested refund" : null,
+                    IsRefunded = status == TransactionStatus.Refunded,
+                    RefundAmount = status == TransactionStatus.Refunded ? order.Total : null,
+                    RefundDate = status == TransactionStatus.Refunded ? transactionDate.AddDays(_random.Next(1, 7)) : null,
+                    RefundReason = status == TransactionStatus.Refunded ? "Customer request" : null,
                     CreatedAt = transactionDate,
-                    UpdatedAt = status != "Pending" ? transactionDate.AddMinutes(_random.Next(1, 30)) : null,
+                    UpdatedAt = status != TransactionStatus.Pending ? transactionDate.AddMinutes(_random.Next(1, 30)) : null,
                     IsActive = true
                 };
 

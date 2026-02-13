@@ -514,11 +514,11 @@ namespace Ecom.API.Controllers
         }
 
         /// <summary>
-        /// Get transactions by status
+        /// Get transactions by status (Pending, Paid, Failed, Cancelled, Refunded)
         /// </summary>
         [HttpGet("status/{status}")]
         public async Task<ActionResult<List<TransactionAdvancedDto>>> GetTransactionsByStatus(
-            string status,
+            TransactionStatus status,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20)
         {
@@ -596,7 +596,7 @@ namespace Ecom.API.Controllers
     public class UpdateTransactionStatusDto
     {
         [Required]
-        public string Status { get; set; } = string.Empty;
+        public TransactionStatus Status { get; set; }
         public string? GatewayResponse { get; set; }
     }
 

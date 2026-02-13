@@ -9,20 +9,23 @@ using Ecom.Infrastructure.UnitOfWork;
 
 namespace Ecom.Application.Services
 {
-    public class OrderService : IOrderService
+    public class OrderService(
+       IUnitOfWork unitOfWork,
+       IMapper mapper,
+       ICouponService couponService,
+       IProductService productService,
+       ITransactionService transaction
+   ) : IOrderService
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
-        private readonly ICouponService _couponService;
-        private readonly IProductService _productService;
+        private readonly IUnitOfWork _unitOfWork = unitOfWork;
+        private readonly IMapper _mapper = mapper;
+        private readonly ICouponService _couponService = couponService;
+        private readonly IProductService _productService = productService;
+        private readonly ITransactionService _transaction = transaction;
 
-        public OrderService(IUnitOfWork unitOfWork, IMapper mapper, ICouponService couponService, IProductService productService)
-        {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-            _couponService = couponService;
-            _productService = productService;
-        }
+    // باقي الميثودات هنا
+
+
 
         public async Task<OrderDto?> GetOrderByIdAsync(int id)
         {
@@ -53,7 +56,7 @@ namespace Ecom.Application.Services
             var orders = await _unitOfWork.Orders.GetRecentOrdersAsync(count);
             return _mapper.Map<IEnumerable<OrderSummaryDto>>(orders);
         }
-        public async Task<OrderDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null)
+        public async Task<TransactionAdvancedDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null)
         {
             var context = _unitOfWork.Context;
             var strategy = context.Database.CreateExecutionStrategy();
@@ -171,8 +174,16 @@ namespace Ecom.Application.Services
                         // 10️⃣ Commit
                         await _unitOfWork.CommitTransactionAsync();
 
-                        var created = await _unitOfWork.Orders.GetOrderWithItemsAsync(order.Id);
-                        return _mapper.Map<OrderDto>(created);
+                        var transactionDto = new TransactionCreateAdvancedDto
+                        {
+                            OrderId = order.Id,
+                            Amount = order.Total,
+                            Status = TransactionStatus.Pending,
+                            AppUserId = userId ?? string.Empty,
+                            PaymentMethod = PaymentMethod.Bank,
+                        };
+                        var result = await _transaction.CreateTransactionAsync(transactionDto);
+                        return result;
                     }
                     catch
                     {
@@ -271,17 +282,19 @@ namespace Ecom.Application.Services
         public async Task<TransactionDto> ProcessPaymentAsync(TransactionCreateDto transactionDto)
         {
             var transaction = _mapper.Map<Transaction>(transactionDto);
-            transaction.Status = "Completed"; // In real app, this would be determined by payment processor
+            transaction.Status = Domain.constant.TransactionStatus.Paid; // In real app, this would be determined by payment processor
             
             await _unitOfWork.Transactions.AddAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
             
-            return _mapper.Map<TransactionDto>(transaction);
+            // Fetch with Order included for OrderNumber in response
+            var storedTransaction = await _unitOfWork.Transactions.GetTransactionWithDetailsAsync(transaction.Id);
+            return _mapper.Map<TransactionDto>(storedTransaction ?? transaction);
         }
 
         public async Task<IEnumerable<TransactionDto>> GetOrderTransactionsAsync(int orderId)
         {
-            var transactions = await _unitOfWork.Transactions.FindAsync(t => t.OrderId == orderId);
+            var transactions = await _unitOfWork.Transactions.GetTransactionsByOrderAsync(orderId);
             return _mapper.Map<IEnumerable<TransactionDto>>(transactions);
         }
 
