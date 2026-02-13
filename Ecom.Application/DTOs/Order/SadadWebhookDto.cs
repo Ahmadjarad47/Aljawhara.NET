@@ -9,7 +9,7 @@ namespace Ecom.Application.DTOs.Order
     public class SadadWebhookDto
     {
         [JsonPropertyName("invoiceId")]
-        public string? InvoiceId { get; set; }
+        public long InvoiceId { get; set; }      // <-- long æáíÓ string
 
         [JsonPropertyName("invoiceCode")]
         public string? InvoiceCode { get; set; }

@@ -227,7 +227,8 @@ namespace Ecom.API.Controllers
                 return BadRequest("Invalid webhook: malformed JSON.");
             }
 
-            if (payload == null || string.IsNullOrWhiteSpace(payload.InvoiceId))
+            if (payload == null || payload.InvoiceId <= 0
+)
             {
                 _logger.LogWarning("[Sadad Webhook] Step 2 failed: Missing invoiceId. Payload: {Payload}", payload == null ? "null" : "empty invoiceId");
                 return BadRequest("Invalid webhook payload: missing invoiceId.");
