@@ -5,6 +5,7 @@ using Ecom.Domain.constant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace Ecom.API.Controllers
 {
@@ -190,25 +191,15 @@ namespace Ecom.API.Controllers
             return Ok(invoicePaymentData);
         }
 
-        /// <summary>
-        /// Sadad paid webhook. Configure this URL in Sadad dashboard.
-        /// Verifies payment via Sadad API, then updates transaction and order status.
-        /// Always returns 200 OK to prevent Sadad retries.
-        /// </summary>
         [HttpPost("webhook/sadad-paid")]
         [AllowAnonymous]
-        public async Task<IActionResult> SadadPaidWebhook([FromBody] SadadWebhookDto payload)
+        public async Task<IActionResult> SadadPaidWebhook([FromBody] JsonElement payload)
         {
-            try
-            {
-                await _transactionService.HandleSadadPaidWebhookAsync(payload);
-            }
-            catch (Exception)
-            {
-                // Log but still return 200 - Sadad retries every 3 min (max 5) if non-200
-            }
+            Console.WriteLine("Webhook hit");
+            Console.WriteLine(payload.ToString());
             return Ok();
         }
+
     }
 }
 
