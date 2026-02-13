@@ -1,4 +1,4 @@
-name: Auto Deploy Aljawhara.NET to VPS
+name: Auto Deploy Aljawhara.NET
 
 on:
   push:
