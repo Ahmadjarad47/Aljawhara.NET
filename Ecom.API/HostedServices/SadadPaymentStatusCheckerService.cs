@@ -28,7 +28,6 @@ public class SadadPaymentStatusCheckerService : BackgroundService
         {
             try
             {
-                await Task.Delay(Interval, stoppingToken);
 
                 using var scope = _serviceProvider.CreateScope();
                 var transactionService = scope.ServiceProvider.GetRequiredService<ITransactionService>();
@@ -36,6 +35,7 @@ public class SadadPaymentStatusCheckerService : BackgroundService
                 _logger.LogInformation("[Sadad Status Checker] Running pending payments check.");
                 await transactionService.CheckPendingSadadPaymentsAsync();
                 _logger.LogInformation("[Sadad Status Checker] Pending payments check completed.");
+                await Task.Delay(Interval, stoppingToken);
             }
             catch (OperationCanceledException)
             {
