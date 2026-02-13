@@ -7,6 +7,7 @@ using Ecom.Domain.Entity;
 using Ecom.Infrastructure.UnitOfWork;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -70,12 +71,14 @@ namespace Ecom.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly ILogger<TransactionService> _logger;
 
-        public TransactionService(IUnitOfWork unitOfWork, IMapper mapper, IHttpClientFactory httpClientFactory)
+        public TransactionService(IUnitOfWork unitOfWork, IMapper mapper, IHttpClientFactory httpClientFactory, ILogger<TransactionService> logger)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _httpClientFactory = httpClientFactory;
+            _logger = logger;
         }
 
         public async Task<TransactionAdvancedDto?> GetTransactionByIdAsync(int id)
@@ -294,8 +297,10 @@ namespace Ecom.Application.Services
         /// <summary>
         /// Verifies invoice payment status via Sadad API. MANDATORY before updating order/transaction.
         /// </summary>
-        private async Task<(bool IsPaid, string? RawResponse)> VerifySadadInvoicePaymentAsync(long invoiceId)
+        private async Task<(bool IsPaid, string? RawResponse)> VerifySadadInvoicePaymentAsync(string invoiceId)
         {
+            if (string.IsNullOrWhiteSpace(invoiceId))
+                return (false, null);
             try
             {
                 var tokens = await GenerateTokens();
@@ -329,15 +334,14 @@ namespace Ecom.Application.Services
 
         public async Task<bool> HandleSadadPaidWebhookAsync(SadadWebhookDto webhookPayload)
         {
-            if (webhookPayload == null || webhookPayload.InvoiceId <= 0
-)
+            if (webhookPayload == null || webhookPayload.InvoiceId <= 0)
                 return false;
 
             if (!string.Equals(webhookPayload.Status, "Paid", StringComparison.OrdinalIgnoreCase))
                 return false;
 
             // MANDATORY: Verify with Sadad API before any action
-            var (isPaid, rawResponse) = await VerifySadadInvoicePaymentAsync(webhookPayload.InvoiceId);
+            var (isPaid, rawResponse) = await VerifySadadInvoicePaymentAsync(webhookPayload.InvoiceId.ToString());
             if (!isPaid)
                 return false;
 
@@ -365,6 +369,41 @@ namespace Ecom.Application.Services
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+
+        /// <summary>
+        /// Checks all pending transactions with GatewayInvoiceId (Sadad) and updates status if paid.
+        /// Called by background job every 5 minutes.
+        /// </summary>
+        public async Task CheckPendingSadadPaymentsAsync()
+        {
+            var pending = await _unitOfWork.Transactions.GetPendingTransactionsWithGatewayInvoiceIdAsync();
+            foreach (var transaction in pending)
+            {
+                if (string.IsNullOrWhiteSpace(transaction.GatewayInvoiceId))
+                    continue;
+                try
+                {
+                    var (isPaid, rawResponse) = await VerifySadadInvoicePaymentAsync(transaction.GatewayInvoiceId);
+                    if (!isPaid)
+                        continue;
+                    transaction.Status = TransactionStatus.Paid;
+                    transaction.ProcessedDate = DateTime.UtcNow;
+                    transaction.PaymentGatewayResponse = rawResponse ?? transaction.PaymentGatewayResponse;
+                    if (transaction.Order != null && transaction.Order.Status != OrderStatus.Processing && transaction.Order.Status != OrderStatus.Shipped && transaction.Order.Status != OrderStatus.Delivered)
+                    {
+                        transaction.Order.Status = OrderStatus.Processing;
+                        _unitOfWork.Orders.Update(transaction.Order);
+                    }
+                    _unitOfWork.Transactions.Update(transaction);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[Sadad Status Check] Failed for Transaction {TransactionId} (InvoiceId={InvoiceId})", transaction.Id, transaction.GatewayInvoiceId);
+                }
+            }
+        }
+
         public async Task<TokenResponse> GenerateTokens()
         {
             var clientKey = Environment.GetEnvironmentVariable("ClientKey");

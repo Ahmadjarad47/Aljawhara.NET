@@ -54,5 +54,11 @@ namespace Ecom.Application.Services.Interfaces
         /// Handles Sadad paid webhook: verifies payment via Sadad API, then updates transaction and order status.
         /// </summary>
         Task<bool> HandleSadadPaidWebhookAsync(SadadWebhookDto webhookPayload);
+
+        /// <summary>
+        /// Checks all pending transactions with Sadad GatewayInvoiceId and updates status if paid.
+        /// Used by background job.
+        /// </summary>
+        Task CheckPendingSadadPaymentsAsync();
     }
 }

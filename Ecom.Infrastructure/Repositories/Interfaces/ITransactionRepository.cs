@@ -15,5 +15,6 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
         Task<IEnumerable<Transaction>> SearchTransactionsAsync(string searchTerm, int limit = 50);
         IQueryable<Transaction> GetTransactionsQuery();
         Task<Transaction?> GetTransactionByGatewayInvoiceIdAsync(long gatewayInvoiceId);
+        Task<IEnumerable<Transaction>> GetPendingTransactionsWithGatewayInvoiceIdAsync();
     }
 }

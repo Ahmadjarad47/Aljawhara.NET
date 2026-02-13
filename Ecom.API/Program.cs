@@ -1,3 +1,4 @@
+using Ecom.API.HostedServices;
 using Ecom.Application.Mappings;
 using Ecom.Application.Services;
 using Ecom.Application.Services.Interfaces;
@@ -162,6 +163,7 @@ builder.Services.AddScoped<IFileService, CloudflareR2Service>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserManagerService, UserManagerService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddHostedService<SadadPaymentStatusCheckerService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IHealthService, HealthService>();

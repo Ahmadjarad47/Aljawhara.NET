@@ -133,5 +133,13 @@ namespace Ecom.Infrastructure.Repositories
                 .Include(t => t.Order)
                 .FirstOrDefaultAsync(t => t.GatewayInvoiceId == gatewayInvoiceId.ToString());
         }
+
+        public async Task<IEnumerable<Transaction>> GetPendingTransactionsWithGatewayInvoiceIdAsync()
+        {
+            return await _context.Transactions
+                .Include(t => t.Order)
+                .Where(t => t.Status == TransactionStatus.Pending && t.GatewayInvoiceId != null && t.GatewayInvoiceId != "")
+                .ToListAsync();
+        }
     }
 }
