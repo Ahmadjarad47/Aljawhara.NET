@@ -294,7 +294,7 @@ namespace Ecom.Application.Services
         /// <summary>
         /// Verifies invoice payment status via Sadad API. MANDATORY before updating order/transaction.
         /// </summary>
-        private async Task<(bool IsPaid, string? RawResponse)> VerifySadadInvoicePaymentAsync(string invoiceId)
+        private async Task<(bool IsPaid, string? RawResponse)> VerifySadadInvoicePaymentAsync(long invoiceId)
         {
             try
             {
@@ -329,7 +329,8 @@ namespace Ecom.Application.Services
 
         public async Task<bool> HandleSadadPaidWebhookAsync(SadadWebhookDto webhookPayload)
         {
-            if (webhookPayload == null || string.IsNullOrWhiteSpace(webhookPayload.InvoiceId))
+            if (webhookPayload == null || webhookPayload.InvoiceId <= 0
+)
                 return false;
 
             if (!string.Equals(webhookPayload.Status, "Paid", StringComparison.OrdinalIgnoreCase))

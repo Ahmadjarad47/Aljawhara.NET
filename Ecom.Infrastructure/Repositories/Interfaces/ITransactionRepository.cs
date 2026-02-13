@@ -14,6 +14,6 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
         Task<IEnumerable<Transaction>> GetTransactionsByPaymentMethodAsync(Domain.constant.PaymentMethod paymentMethod, int pageNumber = 1, int pageSize = 20);
         Task<IEnumerable<Transaction>> SearchTransactionsAsync(string searchTerm, int limit = 50);
         IQueryable<Transaction> GetTransactionsQuery();
-        Task<Transaction?> GetTransactionByGatewayInvoiceIdAsync(string gatewayInvoiceId);
+        Task<Transaction?> GetTransactionByGatewayInvoiceIdAsync(long gatewayInvoiceId);
     }
 }
