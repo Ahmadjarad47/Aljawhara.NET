@@ -8,28 +8,14 @@ namespace Ecom.Application.DTOs.Order
     /// </summary>
     public class SadadWebhookDto
     {
-        [JsonPropertyName("invoiceId")]
-        public long InvoiceId { get; set; }      // <-- long æáíÓ string
-
-        [JsonPropertyName("invoiceCode")]
-        public string? InvoiceCode { get; set; }
-
-        [JsonPropertyName("invoiceKey")]
-        public string? InvoiceKey { get; set; }
-
-        [JsonPropertyName("status")]
-        public string? Status { get; set; }
-
-        [JsonPropertyName("amount")]
-        public decimal? Amount { get; set; }
-
-        [JsonPropertyName("paymentMethod")]
-        public string? PaymentMethod { get; set; }
-
-        [JsonPropertyName("transactionId")]
-        public string? TransactionId { get; set; }
-
-        [JsonPropertyName("transactionStatus")]
-        public string? TransactionStatus { get; set; }
+        public long InvoiceId { get; set; }
+        public string InvoiceCode { get; set; }
+        public long InvoiceKey { get; set; }
+        public decimal Amount { get; set; }
+        public string Status { get; set; }
+        public string PaymentMethod { get; set; }
+        public string TransactionId { get; set; }
+        public string Session_Id { get; set; }
+        public string TransactionStatus { get; set; }
     }
 }
