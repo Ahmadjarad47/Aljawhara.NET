@@ -127,11 +127,11 @@ namespace Ecom.Infrastructure.Repositories
                 .Include(t => t.AppUser);
         }
 
-        public async Task<Transaction?> GetTransactionByGatewayInvoiceIdAsync(string gatewayInvoiceId)
+        public async Task<Transaction?> GetTransactionByGatewayInvoiceIdAsync(long gatewayInvoiceId)
         {
             return await _context.Transactions
                 .Include(t => t.Order)
-                .FirstOrDefaultAsync(t => t.GatewayInvoiceId == gatewayInvoiceId);
+                .FirstOrDefaultAsync(t => t.GatewayInvoiceId == gatewayInvoiceId.ToString());
         }
     }
 }
