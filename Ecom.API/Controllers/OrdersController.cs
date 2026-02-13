@@ -15,12 +15,14 @@ namespace Ecom.API.Controllers
         private readonly IOrderService _orderService;
         private readonly IEmailService _emailService;
         private readonly ITransactionService _transactionService;
+        private readonly ILogger<OrdersController> _logger;
 
-        public OrdersController(IOrderService orderService, IEmailService emailService, ITransactionService transactionService)
+        public OrdersController(IOrderService orderService, IEmailService emailService, ITransactionService transactionService, ILogger<OrdersController> logger)
         {
             _orderService = orderService;
             _emailService = emailService;
             _transactionService = transactionService;
+            _logger = logger;
         }
 
 
@@ -192,15 +194,57 @@ namespace Ecom.API.Controllers
 
         [HttpPost("webhook/sadad-paid")]
         [AllowAnonymous]
-        public async Task<IActionResult> SadadPaidWebhook([FromBody] SadadWebhookDto payload)
+        public async Task<IActionResult> SadadPaidWebhook()
         {
+            _logger.LogInformation("[Sadad Webhook] Step 1: Received webhook request.");
+
+            string rawJson;
+            using (var reader = new StreamReader(Request.Body))
+            {
+                rawJson = await reader.ReadToEndAsync();
+            }
+
+            if (string.IsNullOrWhiteSpace(rawJson))
+            {
+                _logger.LogWarning("[Sadad Webhook] Step 1 failed: Empty body.");
+                return BadRequest("Invalid webhook: empty body.");
+            }
+            _logger.LogDebug("[Sadad Webhook] Step 1 OK: Raw body length {Length} chars.", rawJson.Length);
+
+            SadadWebhookDto? payload;
+            try
+            {
+                payload = System.Text.Json.JsonSerializer.Deserialize<SadadWebhookDto>(rawJson, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    AllowTrailingCommas = true,
+                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+                });
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                _logger.LogWarning(ex, "[Sadad Webhook] Step 2 failed: Malformed JSON.");
+                return BadRequest("Invalid webhook: malformed JSON.");
+            }
+
             if (payload == null || string.IsNullOrWhiteSpace(payload.InvoiceId))
             {
+                _logger.LogWarning("[Sadad Webhook] Step 2 failed: Missing invoiceId. Payload: {Payload}", payload == null ? "null" : "empty invoiceId");
                 return BadRequest("Invalid webhook payload: missing invoiceId.");
             }
-Console.WriteLine("InvoiceId:===============>  "+payload.InvoiceId);
+            _logger.LogInformation("[Sadad Webhook] Step 2 OK: Parsed payload. InvoiceId={InvoiceId}, Status={Status}", payload.InvoiceId, payload.Status);
+
+            _logger.LogInformation("[Sadad Webhook] Step 3: Calling HandleSadadPaidWebhookAsync for InvoiceId={InvoiceId}.", payload.InvoiceId);
             var success = await _transactionService.HandleSadadPaidWebhookAsync(payload);
-            return success ? Ok() : BadRequest("Webhook processing failed.");
+
+            if (success)
+            {
+                _logger.LogInformation("[Sadad Webhook] Step 3 OK: Webhook processed successfully for InvoiceId={InvoiceId}.", payload.InvoiceId);
+                return Ok();
+            }
+
+            _logger.LogWarning("[Sadad Webhook] Step 3 failed: HandleSadadPaidWebhookAsync returned false for InvoiceId={InvoiceId}.", payload.InvoiceId);
+            return BadRequest("Webhook processing failed.");
         }
 
     }
