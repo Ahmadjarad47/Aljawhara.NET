@@ -5,7 +5,6 @@ using Ecom.Domain.constant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using System.Text.Json;
 
 namespace Ecom.API.Controllers
 {
@@ -193,11 +192,15 @@ namespace Ecom.API.Controllers
 
         [HttpPost("webhook/sadad-paid")]
         [AllowAnonymous]
-        public async Task<IActionResult> SadadPaidWebhook([FromBody] JsonElement payload)
+        public async Task<IActionResult> SadadPaidWebhook([FromBody] SadadWebhookDto payload)
         {
-            Console.WriteLine("Webhook hit");
-            Console.WriteLine(payload.ToString());
-            return Ok();
+            if (payload == null || string.IsNullOrWhiteSpace(payload.InvoiceId))
+            {
+                return BadRequest("Invalid webhook payload: missing invoiceId.");
+            }
+Console.WriteLine("InvoiceId:===============>  "+payload.InvoiceId);
+            var success = await _transactionService.HandleSadadPaidWebhookAsync(payload);
+            return success ? Ok() : BadRequest("Webhook processing failed.");
         }
 
     }
