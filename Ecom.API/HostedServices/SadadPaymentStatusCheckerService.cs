@@ -28,6 +28,7 @@ public class SadadPaymentStatusCheckerService : BackgroundService
         {
             try
             {
+                
 
                 using var scope = _serviceProvider.CreateScope();
                 var transactionService = scope.ServiceProvider.GetRequiredService<ITransactionService>();

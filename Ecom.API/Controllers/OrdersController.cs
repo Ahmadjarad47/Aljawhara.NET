@@ -120,17 +120,20 @@ namespace Ecom.API.Controllers
             try
             {
                 var order = await _orderService.GetOrderByIdAsync(id);
-                if (order==null)
+                if (order == null)
                 {
-                    if (!User.GetUserId().Equals(order.AppUserId))
-                    {
-                        return Unauthorized();
-                    }
+                    return NotFound($"Order with ID {id} not found.");
+                }
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrWhiteSpace(order.AppUserId) && !string.Equals(order.AppUserId, userId, StringComparison.Ordinal))
+                {
+                    return Unauthorized();
                 }
                 var result = await _orderService.CancelOrderAsync(id);
                 if (!result)
                 {
-                    return NotFound($"Order with ID {id} not found.");
+                    return BadRequest($"Unable to cancel order with ID {id}.");
                 }
                 return NoContent();
             }
@@ -185,11 +188,50 @@ namespace Ecom.API.Controllers
                 return NotFound(new InvoicePaymentDto 
                 { 
                     Success = false, 
-                    Message = $"Order with ID {id} not found." 
+                    Message = $"الطلب بالرقم {id} غير موجود."
                 });
             }
             
             return Ok(invoicePaymentData);
+        }
+
+        [HttpPost("{id}/payment-link")]
+        [Authorize]
+        public async Task<ActionResult> GetOrderPaymentLink(int id)
+        {
+            try
+            {
+                var order = await _orderService.GetOrderByIdAsync(id);
+                if (order == null)
+                {
+                    return NotFound($"Order with ID {id} not found.");
+                }
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrWhiteSpace(order.AppUserId) && !string.Equals(order.AppUserId, userId, StringComparison.Ordinal))
+                {
+                    return Unauthorized();
+                }
+
+                var paymentLink = await _orderService.GetOrderPaymentLinkAsync(id);
+                return Ok(new
+                {
+                    OrderId = id,
+                    PaymentLink = paymentLink
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("webhook/sadad-paid")]

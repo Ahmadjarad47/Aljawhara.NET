@@ -148,6 +148,7 @@ namespace Ecom.Application.Services
         public async Task<TransactionAdvancedDto> CreateTransactionAsync(TransactionCreateAdvancedDto transactionDto)
         {
             var transaction = _mapper.Map<Transaction>(transactionDto);
+            transaction.AppUserId = string.IsNullOrWhiteSpace(transaction.AppUserId) ? null : transaction.AppUserId;
             transaction.TransactionDate = DateTime.UtcNow;
             transaction.TransactionReference = transactionDto.TransactionReference ?? GenerateTransactionReference();
 

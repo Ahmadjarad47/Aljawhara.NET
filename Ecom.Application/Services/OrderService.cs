@@ -179,7 +179,7 @@ namespace Ecom.Application.Services
                             OrderId = order.Id,
                             Amount = order.Total,
                             Status = TransactionStatus.Pending,
-                            AppUserId = userId ?? string.Empty,
+                            AppUserId = string.IsNullOrWhiteSpace(userId) ? null : userId,
                             PaymentMethod = PaymentMethod.Bank,
                         };
                         var result = await _transaction.CreateTransactionAsync(transactionDto);
@@ -298,6 +298,41 @@ namespace Ecom.Application.Services
             return _mapper.Map<IEnumerable<TransactionDto>>(transactions);
         }
 
+        public async Task<string> GetOrderPaymentLinkAsync(int orderId)
+        {
+            var order = await _unitOfWork.Orders.GetByIdAsync(orderId);
+            if (order == null)
+                throw new ArgumentException($"Order with ID {orderId} not found.");
+
+            if (await _transaction.HasSuccessfulTransactionAsync(orderId))
+                throw new InvalidOperationException("Order already has a successful payment.");
+
+            var latestTransaction = await _transaction.GetLatestTransactionByOrderAsync(orderId);
+            if (latestTransaction != null &&
+                latestTransaction.Status == TransactionStatus.Pending &&
+                !string.IsNullOrWhiteSpace(latestTransaction.GatewayInvoiceId))
+            {
+                var existingPaymentUrl = await _transaction.GetPaymentUrlByTransactionIdAsync(latestTransaction.Id);
+                if (!string.IsNullOrWhiteSpace(existingPaymentUrl))
+                    return existingPaymentUrl;
+            }
+
+            var transactionDto = new TransactionCreateAdvancedDto
+            {
+                OrderId = order.Id,
+                Amount = order.Total,
+                Status = TransactionStatus.Pending,
+                AppUserId = string.IsNullOrWhiteSpace(order.AppUserId) ? null : order.AppUserId,
+                PaymentMethod = PaymentMethod.Bank
+            };
+
+            var createdTransaction = await _transaction.CreateTransactionAsync(transactionDto);
+            if (string.IsNullOrWhiteSpace(createdTransaction.PaymentUrl))
+                throw new InvalidOperationException("Unable to generate payment link for this order.");
+
+            return createdTransaction.PaymentUrl;
+        }
+
         public async Task<InvoicePaymentDto?> GetInvoicePaymentDataAsync(int orderId)
         {
             var order = await _unitOfWork.Orders.GetOrderWithItemsAsync(orderId);
@@ -305,6 +340,17 @@ namespace Ecom.Application.Services
                 return null;
 
             var orderDto = _mapper.Map<OrderDto>(order);
+
+            foreach (var item in orderDto.Items)
+            {
+                var sourceItem = order.Items.FirstOrDefault(oi => oi.Id == item.Id);
+                if (sourceItem == null)
+                    continue;
+
+                item.Name = !string.IsNullOrWhiteSpace(sourceItem.Product?.TitleAr)
+                    ? sourceItem.Product.TitleAr
+                    : sourceItem.Name;
+            }
             
             var invoicePaymentDto = new InvoicePaymentDto
             {
@@ -340,7 +386,7 @@ namespace Ecom.Application.Services
                 
                 // Success indicator
                 Success = true,
-                Message = "Invoice payment data retrieved successfully"
+                Message = "تم استرجاع بيانات دفع الفاتورة بنجاح"
             };
 
             return invoicePaymentDto;
@@ -355,6 +401,12 @@ namespace Ecom.Application.Services
 
         private static decimal CalculateShipping(decimal subtotal, CouponType? couponType = null, string? city = null)
         {
+            // Offer: free shipping for orders with subtotal 20 or more.
+            if (subtotal >= 20)
+            {
+                return 0;
+            }
+
             // Check if coupon provides free shipping
             if (couponType.HasValue && couponType.Value == CouponType.FreeShipping)
             {

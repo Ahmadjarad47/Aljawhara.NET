@@ -38,7 +38,7 @@ namespace Ecom.Application.DTOs.Order
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
         public decimal Amount { get; set; }
-        public string AppUserId { get; set; }
+        public string? AppUserId { get; set; }
 
         [Required]
         public PaymentMethod PaymentMethod { get; set; }
