@@ -298,7 +298,7 @@ namespace Ecom.Infrastructure.Data
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             UpdateAuditFields();
-            return await base.SaveChangesAsync(cancellationToken);
+                return await base.SaveChangesAsync(cancellationToken);
         }
 
         private void UpdateAuditFields()

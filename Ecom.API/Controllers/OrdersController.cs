@@ -290,6 +290,61 @@ namespace Ecom.API.Controllers
             return BadRequest("Webhook processing failed.");
         }
 
+        [HttpGet("payment-callback")]
+        [Authorize]
+        public async Task<IActionResult> PaymentCallback(
+            [FromQuery(Name = "invoice_id")] long invoiceId,
+            [FromQuery(Name = "payment")] string? payment)
+        {
+            if (invoiceId <= 0)
+            {
+                return BadRequest(new
+                {
+                    InvoiceId = invoiceId,
+                    Payment = payment,
+                    Updated = false,
+                    Message = "Invalid invoice_id."
+                });
+            }
+
+            if (!string.Equals(payment, "success", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new
+                {
+                    InvoiceId = invoiceId,
+                    Payment = payment,
+                    Updated = false,
+                    Message = "Payment is not marked as success."
+                });
+            }
+
+            var payload = new SadadWebhookDto
+            {
+                InvoiceId = invoiceId,
+                Status = "Paid"
+            };
+
+            var updated = await _transactionService.HandleSadadPaidWebhookAsync(payload);
+            if (!updated)
+            {
+                return BadRequest(new
+                {
+                    InvoiceId = invoiceId,
+                    Payment = payment,
+                    Updated = false,
+                    Message = "Payment verification or status update failed."
+                });
+            }
+
+            return Ok(new
+            {
+                InvoiceId = invoiceId,
+                Payment = payment,
+                Updated = true,
+                Message = "Payment verified and order status updated."
+            });
+        }
+
     }
 }
 
