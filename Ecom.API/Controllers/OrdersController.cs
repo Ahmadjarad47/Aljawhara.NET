@@ -291,7 +291,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpGet("payment-callback")]
-        [Authorize]
+        //[Authorize]
         public async Task<IActionResult> PaymentCallback(
             [FromQuery(Name = "invoice_id")] long invoiceId,
             [FromQuery(Name = "payment")] string? payment)
