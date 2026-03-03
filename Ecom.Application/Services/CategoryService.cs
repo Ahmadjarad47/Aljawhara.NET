@@ -2,6 +2,7 @@ using AutoMapper;
 using Ecom.Application.DTOs.Category;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Entity;
+using Ecom.Domain.Interfaces;
 using Ecom.Infrastructure.UnitOfWork;
 
 namespace Ecom.Application.Services
@@ -10,11 +11,13 @@ namespace Ecom.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IFileService _fileService;
 
-        public CategoryService(IUnitOfWork unitOfWork, IMapper mapper)
+        public CategoryService(IUnitOfWork unitOfWork, IMapper mapper, IFileService fileService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _fileService = fileService;
         }
 
         public async Task<CategoryDto?> GetCategoryByIdAsync(int id)
@@ -48,6 +51,30 @@ namespace Ecom.Application.Services
             return _mapper.Map<CategoryDto>(category);
         }
 
+        public async Task<CategoryDto> CreateCategoryWithFileAsync(CategoryCreateWithFileDto categoryDto)
+        {
+            var category = _mapper.Map<Category>(categoryDto);
+
+            if (categoryDto.Image != null)
+            {
+                try
+                {
+                    var directory = $"categories/{DateTime.UtcNow:yyyy/MM/dd}";
+                    var imageUrl = await _fileService.SaveFileAsync(categoryDto.Image, directory);
+                    category.Image = imageUrl;
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error uploading image: {ex.Message}", ex);
+                }
+            }
+
+            await _unitOfWork.Categories.AddAsync(category);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<CategoryDto>(category);
+        }
+
         public async Task<CategoryDto> UpdateCategoryAsync(CategoryUpdateDto categoryDto)
         {
             var existingCategory = await _unitOfWork.Categories.GetByIdAsync(categoryDto.Id);
@@ -61,11 +88,82 @@ namespace Ecom.Application.Services
             return _mapper.Map<CategoryDto>(existingCategory);
         }
 
+        public async Task<CategoryDto> UpdateCategoryWithFileAsync(CategoryUpdateWithFileDto categoryDto)
+        {
+            var existingCategory = await _unitOfWork.Categories.GetByIdAsync(categoryDto.Id);
+            if (existingCategory == null)
+                throw new ArgumentException($"Category with ID {categoryDto.Id} not found.");
+
+            var oldImageUrl = existingCategory.Image;
+
+            existingCategory.Name = categoryDto.Name;
+            existingCategory.NameAr = categoryDto.NameAr;
+            existingCategory.Description = categoryDto.Description;
+            existingCategory.DescriptionAr = categoryDto.DescriptionAr;
+
+            if (!string.IsNullOrEmpty(categoryDto.ImageToDelete) && categoryDto.ImageToDelete == oldImageUrl)
+            {
+                try
+                {
+                    await _fileService.DeleteFileAsync(categoryDto.ImageToDelete);
+                    existingCategory.Image = null;
+                    oldImageUrl = null;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error deleting image {categoryDto.ImageToDelete}: {ex.Message}");
+                }
+            }
+
+            if (categoryDto.Image != null)
+            {
+                try
+                {
+                    if (!string.IsNullOrEmpty(oldImageUrl) && oldImageUrl != categoryDto.ImageToDelete)
+                    {
+                        try
+                        {
+                            await _fileService.DeleteFileAsync(oldImageUrl);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error deleting old image {oldImageUrl}: {ex.Message}");
+                        }
+                    }
+
+                    var directory = $"categories/{DateTime.UtcNow:yyyy/MM/dd}";
+                    var imageUrl = await _fileService.SaveFileAsync(categoryDto.Image, directory);
+                    existingCategory.Image = imageUrl;
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error uploading image: {ex.Message}", ex);
+                }
+            }
+
+            _unitOfWork.Categories.Update(existingCategory);
+            await _unitOfWork.SaveChangesAsync();
+
+            return _mapper.Map<CategoryDto>(existingCategory);
+        }
+
         public async Task<bool> DeleteCategoryAsync(int id)
         {
             var category = await _unitOfWork.Categories.GetByIdAsync(id);
             if (category == null)
                 return false;
+
+            if (!string.IsNullOrEmpty(category.Image))
+            {
+                try
+                {
+                    await _fileService.DeleteFileAsync(category.Image);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error deleting image {category.Image}: {ex.Message}");
+                }
+            }
 
             // Check if category has subcategories
             var hasSubCategories = await _unitOfWork.SubCategories.ExistsAsync(sc => sc.CategoryId == id);

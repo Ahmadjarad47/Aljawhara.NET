@@ -9,7 +9,9 @@ namespace Ecom.Application.Services.Interfaces
         Task<IEnumerable<CategoryDto>> GetCategoriesWithSubCategoriesAsync();
         
         Task<CategoryDto> CreateCategoryAsync(CategoryCreateDto categoryDto);
+        Task<CategoryDto> CreateCategoryWithFileAsync(CategoryCreateWithFileDto categoryDto);
         Task<CategoryDto> UpdateCategoryAsync(CategoryUpdateDto categoryDto);
+        Task<CategoryDto> UpdateCategoryWithFileAsync(CategoryUpdateWithFileDto categoryDto);
         Task<bool> DeleteCategoryAsync(int id);
 
         Task<IEnumerable<SubCategoryDto>> GetAllSubCategory();

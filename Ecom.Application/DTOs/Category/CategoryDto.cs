@@ -1,4 +1,5 @@
 using Ecom.Application.DTOs.Common;
+using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
 namespace Ecom.Application.DTOs.Category
@@ -9,6 +10,7 @@ namespace Ecom.Application.DTOs.Category
         public string NameAr { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string DescriptionAr { get; set; } = string.Empty;
+        public string? Image { get; set; }
         public List<SubCategoryDto> SubCategories { get; set; } = new();
         public int ProductCount { get; set; }
     }
@@ -48,6 +50,49 @@ namespace Ecom.Application.DTOs.Category
         
         [StringLength(500, ErrorMessage = "Arabic description cannot exceed 500 characters")]
         public string DescriptionAr { get; set; } = string.Empty;
+    }
+
+    public class CategoryCreateWithFileDto
+    {
+        [Required(ErrorMessage = "Name is required")]
+        [StringLength(100, ErrorMessage = "Name cannot exceed 100 characters")]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(100, ErrorMessage = "Arabic name cannot exceed 100 characters")]
+        public string NameAr { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Description is required")]
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
+        public string Description { get; set; } = string.Empty;
+
+        [StringLength(500, ErrorMessage = "Arabic description cannot exceed 500 characters")]
+        public string DescriptionAr { get; set; } = string.Empty;
+
+        public IFormFile? Image { get; set; }
+    }
+
+    public class CategoryUpdateWithFileDto
+    {
+        [Required(ErrorMessage = "ID is required")]
+        public int Id { get; set; }
+
+        [Required(ErrorMessage = "Name is required")]
+        [StringLength(100, ErrorMessage = "Name cannot exceed 100 characters")]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(100, ErrorMessage = "Arabic name cannot exceed 100 characters")]
+        public string NameAr { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Description is required")]
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
+        public string Description { get; set; } = string.Empty;
+
+        [StringLength(500, ErrorMessage = "Arabic description cannot exceed 500 characters")]
+        public string DescriptionAr { get; set; } = string.Empty;
+
+        public IFormFile? Image { get; set; }
+
+        public string? ImageToDelete { get; set; }
     }
 
     public class SubCategoryDto : BaseDto

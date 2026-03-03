@@ -54,7 +54,26 @@ namespace Ecom.API.Controllers
             try
             {
                 var category = await _categoryService.CreateCategoryAsync(categoryDto);
-                return Ok();
+                return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, category);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("with-image")]
+        public async Task<ActionResult<CategoryDto>> CreateCategoryWithImage([FromForm] CategoryCreateWithFileDto categoryDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var category = await _categoryService.CreateCategoryWithFileAsync(categoryDto);
+                return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, category);
             }
             catch (Exception ex)
             {
@@ -101,6 +120,30 @@ namespace Ecom.API.Controllers
             try
             {
                 var category = await _categoryService.UpdateCategoryAsync(categoryDto);
+                return Ok(category);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{id}/with-image")]
+        public async Task<ActionResult<CategoryDto>> UpdateCategoryWithImage(int id, [FromForm] CategoryUpdateWithFileDto categoryDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                categoryDto.Id = id;
+                var category = await _categoryService.UpdateCategoryWithFileAsync(categoryDto);
                 return Ok(category);
             }
             catch (ArgumentException ex)

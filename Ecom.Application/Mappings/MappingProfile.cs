@@ -95,6 +95,10 @@ namespace Ecom.Application.Mappings
 
             CreateMap<CategoryCreateDto, Category>();
             CreateMap<CategoryUpdateDto, Category>();
+            CreateMap<CategoryCreateWithFileDto, Category>()
+                .ForMember(dest => dest.Image, opt => opt.Ignore());
+            CreateMap<CategoryUpdateWithFileDto, Category>()
+                .ForMember(dest => dest.Image, opt => opt.Ignore());
 
             CreateMap<SubCategory, SubCategoryDto>()
                 .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category.Name))

@@ -1,4 +1,5 @@
 using Ecom.Application.DTOs.Carousel;
+using Ecom.Application.DTOs.Category;
 using Ecom.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,10 +10,12 @@ namespace Ecom.API.Controllers
     public class CarouselsController : ControllerBase
     {
         private readonly ICarouselService _carouselService;
+        private readonly ICategoryService _categoryService;
 
-        public CarouselsController(ICarouselService carouselService)
+        public CarouselsController(ICarouselService carouselService, ICategoryService categoryService)
         {
             _carouselService = carouselService;
+            _categoryService = categoryService;
         }
 
         [HttpGet]
@@ -51,6 +54,14 @@ namespace Ecom.API.Controllers
         {
             IEnumerable<ProductRatingSummaryDto>? reviews = await _carouselService.GetLatestThirdReviewsAsync();
             return Ok(reviews.ToList());
+        }
+
+        [HttpGet("categories-with-images")]
+        public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategoriesWithImages()
+        {
+            var categories = await _categoryService.GetAllCategoriesAsync();
+            var withImages = categories.Where(c => !string.IsNullOrWhiteSpace(c.Image)).ToList();
+            return Ok(withImages);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Ecom.Domain.comman;
+using Ecom.Domain.comman;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -11,6 +11,7 @@ namespace Ecom.Domain.Entity
         public string NameAr { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string DescriptionAr { get; set; } = string.Empty;
+        public string? Image { get; set; }
         
         public List<SubCategory> SubCategories { get; set; } = new List<SubCategory>();
     }
