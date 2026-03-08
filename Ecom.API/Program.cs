@@ -47,12 +47,14 @@ builder.Services.AddControllers(options =>
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
-//=======================================================================================================
+
+// Sadad HttpClient with base URL from configuration
+var sadadBaseUrl = builder.Configuration["Sadad:BaseUrl"] ?? "https://api.sadadpay.net";
 builder.Services.AddHttpClient("Sadad", client =>
 {
-    client.BaseAddress = new Uri("https://apisandbox.sadadpay.net"); // ���� �� ������ ������ �� ����������
+    client.BaseAddress = new Uri(sadadBaseUrl);
 });
-//?======================================================================================================
+
 // Add Entity Framework with factory to inject IServiceProvider
 // Performance: Enable connection pooling and query optimizations
 builder.Services.AddDbContext<EcomDbContext>((serviceProvider, options) =>

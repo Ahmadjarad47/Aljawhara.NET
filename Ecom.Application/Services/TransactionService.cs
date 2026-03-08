@@ -220,7 +220,7 @@ namespace Ecom.Application.Services
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Post,
-                RequestUri = new Uri("https://apisandbox.sadadpay.net/api/Invoice/insert"),
+                RequestUri = new Uri("api/Invoice/insert", UriKind.Relative),
                 Headers = { { "authorization", $"Bearer {tokens.AccessToken}" } },
                 Content = new StringContent(
                     JsonSerializer.Serialize(invoicePayload, new JsonSerializerOptions { PropertyNamingPolicy = null }),
@@ -277,7 +277,7 @@ namespace Ecom.Application.Services
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
-                RequestUri = new Uri($"https://apisandbox.sadadpay.net/api/Invoice/getbyid?id={invoiceId}"),
+                RequestUri = new Uri($"api/Invoice/getbyid?id={invoiceId}", UriKind.Relative),
                 Headers = { { "authorization", $"Bearer {accessToken}" } },
             };
 
@@ -308,7 +308,7 @@ namespace Ecom.Application.Services
                 var request = new HttpRequestMessage
                 {
                     Method = HttpMethod.Get,
-                    RequestUri = new Uri($"https://apisandbox.sadadpay.net/api/Invoice/getbyid?id={invoiceId}"),
+                    RequestUri = new Uri($"api/Invoice/getbyid?id={invoiceId}", UriKind.Relative),
                     Headers = { { "authorization", $"Bearer {tokens.AccessToken}" } },
                 };
 
@@ -425,7 +425,7 @@ namespace Ecom.Application.Services
 
             var refreshRequest = new HttpRequestMessage(
                 HttpMethod.Post,
-                "https://apisandbox.sadadpay.net/api/User/GenerateRefreshToken"
+                "api/User/GenerateRefreshToken"
             );
 
             refreshRequest.Headers.Authorization =
@@ -454,7 +454,7 @@ namespace Ecom.Application.Services
             var accessRequest = new HttpRequestMessage
             {
                 Method = HttpMethod.Post,
-                RequestUri = new Uri("https://apisandbox.sadadpay.net/api/User/GenerateAccessToken"),
+                RequestUri = new Uri("api/User/GenerateAccessToken", UriKind.Relative),
                 Headers =
                 {
                     { "accept", "application/json" },
