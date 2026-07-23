@@ -2,83 +2,133 @@ using Ecom.Domain.Entity;
 using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using System.Linq;
 
 namespace Ecom.Infrastructure.Repositories
 {
     public class ProductRepository : BaseRepository<Product>, IProductRepository
     {
-        public ProductRepository(EcomDbContext context) : base(context)
+        public ProductRepository(EcomDbContext context, IMemoryCache cache) : base(context, cache)
         {
         }
 
         public async Task<IEnumerable<Product>> GetProductsByCategoryAsync(int categoryId)
         {
-            return await _dbSet
+            var products = await _dbSet
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
-                .Where(p => p.subCategory.CategoryId == categoryId)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .Where(p => p.subCategory.CategoryId == categoryId && p.IsActive == true)
                 .ToListAsync();
+
+            return products;
         }
 
         public async Task<IEnumerable<Product>> GetProductsBySubCategoryAsync(int subCategoryId)
         {
-            return await _dbSet
+            var products = await _dbSet
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(p => p.subCategory)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
-                .Where(p => p.SubCategoryId == subCategoryId)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .Where(p => p.SubCategoryId == subCategoryId && p.IsActive == true)
                 .ToListAsync();
+
+            return products;
         }
 
         public async Task<IEnumerable<Product>> GetFeaturedProductsAsync(int count = 10)
         {
-            return await _dbSet
+            var products = await _dbSet
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .Where(p => p.IsActive == true)
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(count)
                 .ToListAsync();
+
+            return products;
         }
 
         public async Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm)
         {
-            return await _dbSet
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return Enumerable.Empty<Product>();
+
+            var tokens = searchTerm.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            IQueryable<Product> query = _dbSet
+                .Where(p => p.IsActive == true)
+                .AsNoTracking();
+
+            foreach (var token in tokens)
+            {
+                var t = token; // local copy for EF
+                query = query.Where(p =>
+                    EF.Functions.Like(p.Title, $"%{t}%") ||
+                    EF.Functions.Like(p.TitleAr, $"%{t}%") ||
+                    EF.Functions.Like(p.Description, $"%{t}%") ||
+                    EF.Functions.Like(p.DescriptionAr, $"%{t}%") ||
+                    EF.Functions.Like(p.subCategory.Name, $"%{t}%") ||
+                    EF.Functions.Like(p.subCategory.NameAr, $"%{t}%") ||
+                    EF.Functions.Like(p.subCategory.Category.Name, $"%{t}%") ||
+                    EF.Functions.Like(p.subCategory.Category.NameAr, $"%{t}%")
+                );
+            }
+            var products = await query
+                .AsSplitQuery()
                 .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
-                .Where(p => p.Title.Contains(searchTerm) || 
-                           p.Description.Contains(searchTerm) ||
-                           p.subCategory.Name.Contains(searchTerm) ||
-                           p.subCategory.Category.Name.Contains(searchTerm))
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
                 .ToListAsync();
+
+            return products;
         }
 
-        public async Task<(IEnumerable<Product> Products, int TotalCount)> GetProductsWithFiltersAsync(
-            int? categoryId = null,
-            int? subCategoryId = null,
-            decimal? minPrice = null,
-            decimal? maxPrice = null,
-            string? searchTerm = null,
-            int pageNumber = 1,
-            int pageSize = 20)
+        // Helper: Normalize text
+        public async Task<(IReadOnlyList<Product> Products, int TotalCount)>
+      GetProductsWithFiltersAsync(
+          int? categoryId = null,
+          int? subCategoryId = null,
+          decimal? minPrice = null,
+          decimal? maxPrice = null,
+          string? searchTerm = null,
+          bool? isActive = null,
+          string? sortBy = null,
+          bool? inStock = null,
+          bool? onSale = null,
+          bool? newArrival = null,
+          bool? bestDiscount = null,
+          int pageNumber = 1,
+          int pageSize = 20)
         {
-            var query = _dbSet
-                .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
-                .AsQueryable();
+            // Base query - IsDeleted is already filtered by query filter, only check IsActive
+            IQueryable<Product> query = _dbSet
+                .AsNoTracking()
+                .Where(p => p.IsActive == true);
 
             if (categoryId.HasValue)
-                query = query.Where(p => p.subCategory.CategoryId == categoryId.Value);
+                query = query.Where(p => p.subCategory.CategoryId == categoryId);
 
             if (subCategoryId.HasValue)
-                query = query.Where(p => p.SubCategoryId == subCategoryId.Value);
+                query = query.Where(p => p.SubCategoryId == subCategoryId);
 
             if (minPrice.HasValue)
                 query = query.Where(p => p.newPrice >= minPrice.Value);
@@ -86,57 +136,147 @@ namespace Ecom.Infrastructure.Repositories
             if (maxPrice.HasValue)
                 query = query.Where(p => p.newPrice <= maxPrice.Value);
 
-            if (!string.IsNullOrWhiteSpace(searchTerm))
+            if (isActive.HasValue)
+                query = query.Where(p => p.IsActive == isActive.Value);
+
+            if (inStock.HasValue && inStock.Value)
+                query = query.Where(p => p.IsInStock == true);
+
+            if (onSale.HasValue && onSale.Value)
+                query = query.Where(p => p.oldPrice > p.newPrice);
+
+            if (newArrival.HasValue && newArrival.Value)
             {
-                query = query.Where(p => p.Title.Contains(searchTerm) || 
-                                        p.Description.Contains(searchTerm));
+                var since = DateTime.UtcNow.AddDays(-30);
+                query = query.Where(p => p.CreatedAt >= since);
             }
 
-            var totalCount = await query.CountAsync();
+            if (bestDiscount.HasValue && bestDiscount.Value)
+                query = query.Where(p => p.oldPrice > p.newPrice);
 
-            var products = await query
-                .OrderBy(p => p.Title)
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                string t = searchTerm.Trim();
+                query = query.Where(p =>
+                    EF.Functions.Like(p.Title, $"%{t}%") ||
+                    EF.Functions.Like(p.TitleAr, $"%{t}%"));
+            }
+
+            // Optimized sorting - use subquery for rating averages to avoid complex CASE statements
+            query = sortBy?.ToLower() switch
+            {
+                "newest" => query.OrderByDescending(p => p.CreatedAt),
+                "oldest" => query.OrderBy(p => p.CreatedAt),
+                "highrating" => query.OrderByDescending(p =>
+                    _context.Ratings
+                        .Where(r => r.ProductId == p.Id && !r.IsDeleted)
+                        .Select(r => (double?)r.RatingNumber)
+                        .Average() ?? 0),
+                "lowrating" => query.OrderBy(p =>
+                    _context.Ratings
+                        .Where(r => r.ProductId == p.Id && !r.IsDeleted)
+                        .Select(r => (double?)r.RatingNumber)
+                        .Average() ?? 0),
+                "bestdiscount" => query.OrderByDescending(p =>
+                    (p.oldPrice > 0) ? ((p.oldPrice - p.newPrice) / p.oldPrice) : 0),
+                _ => query.OrderByDescending(p => p.Id)
+            };
+
+            // Get total count before pagination
+            int totalCount = await query.CountAsync();
+
+            // Apply pagination
+            query = query
                 .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
+                .Take(pageSize);
+
+            // Load includes BEFORE executing query - use split query for better performance
+            var result = await query
+                .AsSplitQuery()
+                .Include(p => p.subCategory)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
                 .ToListAsync();
 
-            return (products, totalCount);
+            var output = ((IReadOnlyList<Product>)result, totalCount);
+            return output;
         }
 
         public async Task<Product?> GetProductWithDetailsAsync(int productId)
         {
-            return await _dbSet
+            var product = await _dbSet
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
-                .FirstOrDefaultAsync(p => p.Id == productId);
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .FirstOrDefaultAsync(p => p.Id == productId && p.IsActive == true);
+
+            return product;
+        }
+
+        public async Task<Product?> GetProductWithDetailsForUpdateAsync(int productId)
+        {
+            var product = await _dbSet
+                .AsSplitQuery()
+                .Include(p => p.subCategory)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .FirstOrDefaultAsync(p => p.Id == productId && p.IsActive == true);
+
+            return product;
         }
 
         public async Task<IEnumerable<Product>> GetRelatedProductsAsync(int productId, int count = 5)
         {
-            var product = await _dbSet.FindAsync(productId);
+            var product = await _dbSet
+                .AsNoTracking()
+                .Select(p => new { p.Id, p.SubCategoryId })
+                .FirstOrDefaultAsync(p => p.Id == productId);
+            
             if (product == null)
                 return new List<Product>();
 
-            return await _dbSet
+            var products = await _dbSet
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
-                .Where(p => p.SubCategoryId == product.SubCategoryId && p.Id != productId)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .Where(p => p.SubCategoryId == product.SubCategoryId && p.Id != productId && p.IsActive == true)
                 .Take(count)
                 .ToListAsync();
+
+            return products;
         }
 
         public async Task<IEnumerable<Product>> GetAllProductsWithDetailsAsync()
         {
-            return await _dbSet
+            var products = await _dbSet
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(p => p.subCategory)
-                .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails)
-                .Include(p => p.Ratings)
+                    .ThenInclude(sc => sc.Category)
+                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
+                .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
+                .Where(p => p.IsActive == true)
                 .ToListAsync();
+
+            return products;
         }
     }
 }

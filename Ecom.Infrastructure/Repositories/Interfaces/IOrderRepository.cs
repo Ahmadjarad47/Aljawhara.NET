@@ -7,6 +7,7 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
     {
         Task<IEnumerable<Order>> GetOrdersByUserAsync(string userId);
         Task<Order?> GetOrderWithItemsAsync(int orderId);
+        Task<Order?> GetOrderWithItemsForUpdateAsync(int orderId);
         Task<Order?> GetOrderByNumberAsync(string orderNumber);
         Task<IEnumerable<Order>> GetOrdersByStatusAsync(OrderStatus status);
         Task<IEnumerable<Order>> GetOrdersByDateRangeAsync(DateTime startDate, DateTime endDate);

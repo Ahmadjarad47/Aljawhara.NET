@@ -1,329 +1,873 @@
-using System.ComponentModel.DataAnnotations;
-using Ecom.Application.DTOs.Auth;
-using Ecom.Application.DTOs.Order;
+﻿using Ecom.Application.DTOs.Auth;
+using Ecom.Application.Services;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 
-namespace Ecom.API.Controllers
+namespace Ecom.API.Controllers;
+
+public class SadadRefreshResponse
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AuthController : ControllerBase
+    public bool isValid { get; set; }
+    public string errorKey { get; set; }
+    public SadadRefreshData response { get; set; }
+}
+public class SadadAccessResponse
+{
+    public bool isValid { get; set; }
+    public string errorKey { get; set; }
+    public SadadAccessData response { get; set; }
+}
+
+public class SadadAccessData
+{
+    public string accessToken { get; set; }
+    public int expiredAfterSeconds { get; set; }
+}
+
+
+public class SadadRefreshData
+{
+    public string refreshToken { get; set; }
+}
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController : ControllerBase
+{
+    private readonly IUserManagerService _userManagerService;
+    private readonly IJwtService _jwtService;
+    private readonly IAddressService _addressService;
+    private readonly IConfiguration _configuration;
+    private readonly IEmailService _emailService;
+    private readonly HttpClient _httpClient;
+
+    public AuthController(
+        IUserManagerService userManagerService,
+        IJwtService jwtService,
+        IAddressService addressService,
+        IConfiguration configuration,
+        IEmailService emailService,
+        HttpClient httpClient)
     {
-        private readonly UserManager<AppUsers> _userManager;
-        private readonly SignInManager<AppUsers> _signInManager;
-        private readonly IAddressService _addressService;
-        private readonly IJwtService _jwtService;
-        private readonly IConfiguration _configuration;
+        _userManagerService = userManagerService;
+        _jwtService = jwtService;
+        _addressService = addressService;
+        _configuration = configuration;
+        _emailService = emailService;
+        _httpClient = httpClient;
+    }
+  
 
-        public AuthController(UserManager<AppUsers> userManager, SignInManager<AppUsers> signInManager, IAddressService addressService, IJwtService jwtService, IConfiguration configuration)
+    [HttpGet("isAuth")]
+    public IActionResult isAuth() => User.Identity!.IsAuthenticated ? Ok() : Unauthorized();
+    
+    [HttpGet("isAdmin")]
+    [Authorize(Roles = "Admin")]
+    public IActionResult Get()
+    {
+        return User.IsInRole("Admin") ? Ok(new { isAdmin = true }) : Unauthorized();
+    }
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
+    {
+        if (!ModelState.IsValid)
         {
-            _userManager = userManager;
-            _signInManager = signInManager;
-            _addressService = addressService;
-            _jwtService = jwtService;
-            _configuration = configuration;
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
         }
 
-        [HttpGet("isAuth")]
-        public IActionResult isAuth() => User.Identity!.IsAuthenticated ? Ok() : Unauthorized();
-        [HttpGet("isAdmin")]
-        public IActionResult Get()
+        var result = await _userManagerService.RegisterAsync(registerDto);
+        
+        if (!result.Success)
         {
-            return User.Identity!.IsAuthenticated ? Ok(new { isAdmin = true }) : Unauthorized();
+                return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = result.Message
+            });
         }
 
-
-        [HttpPost("register")]
-        public async Task<ActionResult> Register([FromBody] RegisterDto registerDto)
+        return Ok(new ApiResponseDto
         {
-            if (!ModelState.IsValid)
+            Success = true,
+            Message = result.Message
+        });
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
             {
-                return BadRequest(ModelState);
-            }
-
-            var user = new AppUsers
-            {
-                UserName = registerDto.Username,
-                Email = registerDto.Email,
-                PhoneNumber = registerDto.PhoneNumber,
-                EmailConfirmed = true // For demo purposes
-            };
-
-            var result = await _userManager.CreateAsync(user, registerDto.Password);
-
-            if (result.Succeeded)
-            {
-                return Ok(new { Message = "User registered successfully", UserId = user.Id });
-            }
-
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
-
-            return BadRequest(ModelState);
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
         }
 
-        [HttpPost("login")]
-        public async Task<ActionResult<LoginResponseDto>> Login([FromBody] LoginDto loginDto)
+        var result = await _userManagerService.LoginAsync(loginDto);
+        
+        if (!result.Success || result.User == null)
         {
-            if (!ModelState.IsValid)
+            return Unauthorized(new ApiResponseDto
             {
-                return BadRequest(ModelState);
-            }
-
-            var user = await _userManager.FindByEmailAsync(loginDto.Email);
-            if (user == null)
-            {
-                return BadRequest("Invalid email or password");
-            }
-
-            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, lockoutOnFailure: false);
-
-            if (result.Succeeded)
-            {
-                var token = _jwtService.GenerateToken(user);
-                var refreshToken = _jwtService.GenerateRefreshToken();
-                var expiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60");
-                var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
-
-                var response = new LoginResponseDto
-                {
-                    Token = token,
-                    RefreshToken = refreshToken,
-                    ExpiresAt = expiresAt,
-                    User = new UserResponseDto
-                    {
-                        Id = user.Id,
-                        Username = user.UserName ?? string.Empty,
-                        Email = user.Email ?? string.Empty,
-                        PhoneNumber = user.PhoneNumber ?? string.Empty,
-                        EmailConfirmed = user.EmailConfirmed
-                    }
-                };
-
-                return Ok(response);
-            }
-
-            return BadRequest("Invalid email or password");
+                Success = false,
+                Message = result.Message
+            });
         }
 
-        [HttpPost("logout")]
-        [Authorize]
-        public async Task<ActionResult> Logout()
+        // Generate JWT token
+        var token = await _jwtService.GenerateTokenAsync(result.User);
+        var refreshToken = _jwtService.GenerateRefreshToken();
+        var expiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60"));
+        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenDays"] ?? "7"));
+
+        // Persist refresh token to user
+        await _userManagerService.SetRefreshTokenAsync(result.User.Id, refreshToken, refreshTokenExpiresAt);
+
+        var userResponse = new UserResponseDto
         {
-            // With JWT, logout is typically handled client-side by removing the token
-            // Server-side logout would require token blacklisting which is more complex
-            return Ok(new { Message = "Logout successful" });
+            Id = result.User.Id,
+            Username = result.User.UserName ?? string.Empty,
+            Email = result.User.Email ?? string.Empty,
+            PhoneNumber = result.User.PhoneNumber ?? string.Empty,
+            EmailConfirmed = result.User.EmailConfirmed,
+            CreatedAt = result.User.CreatedAt
+        };
+
+        var loginResponse = new LoginResponseDto
+        {
+            Token = token,
+            RefreshToken = refreshToken,
+            ExpiresAt = expiresAt,
+            User = userResponse
+        };
+
+        return Ok(new ApiResponseDto<LoginResponseDto>
+        {
+            Success = true,
+            Message = result.Message,
+            Data = loginResponse
+        });
+    }
+
+    [HttpPost("verify")]
+    public async Task<IActionResult> VerifyAccount([FromBody] VerifyAccountDto verifyDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
         }
 
-        [HttpPost("refresh-token")]
-        public async Task<ActionResult<LoginResponseDto>> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+        var result = await _userManagerService.VerifyAccountAsync(verifyDto);
+        
+        if (!result.Success)
         {
-            if (!ModelState.IsValid)
+            return BadRequest(new ApiResponseDto
             {
-                return BadRequest(ModelState);
-            }
-
-            // In a real application, you would validate the refresh token against a database
-            // For now, we'll generate a new token (this is a simplified implementation)
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("Invalid refresh token");
-            }
-
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-            {
-                return Unauthorized("User not found");
-            }
-
-            var token = _jwtService.GenerateToken(user);
-            var newRefreshToken = _jwtService.GenerateRefreshToken();
-            var expiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60");
-            var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
-
-            var response = new LoginResponseDto
-            {
-                Token = token,
-                RefreshToken = newRefreshToken,
-                ExpiresAt = expiresAt,
-                User = new UserResponseDto
-                {
-                    Id = user.Id,
-                    Username = user.UserName ?? string.Empty,
-                    Email = user.Email ?? string.Empty,
-                    PhoneNumber = user.PhoneNumber ?? string.Empty,
-                    EmailConfirmed = user.EmailConfirmed
-                }
-            };
-
-            return Ok(response);
+                Success = false,
+                Message = result.Message
+            });
         }
 
-        // User's own address management endpoints
-        [HttpGet("my-addresses")]
-        [Authorize]
-        public async Task<ActionResult<IEnumerable<ShippingAddressDto>>> GetMyAddresses()
+        return Ok(new ApiResponseDto
         {
-            try
-            {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
+            Success = true,
+            Message = result.Message
+        });
+    }
 
-                var addresses = await _addressService.GetUserAddressesAsync(userId);
-                return Ok(addresses);
-            }
-            catch (Exception ex)
+    [HttpPost("resend-verification")]
+    public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationDto resendDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
             {
-                return StatusCode(500, new { Message = "An error occurred while retrieving addresses", Error = ex.Message });
-            }
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
         }
 
-        [HttpGet("my-addresses/{addressId}")]
-        [Authorize]
-        public async Task<ActionResult<ShippingAddressDto>> GetMyAddress(int addressId)
+        var result = await _userManagerService.ResendVerificationAsync(resendDto);
+        
+        if (!result.Success)
         {
-            try
+            return BadRequest(new ApiResponseDto
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                var address = await _addressService.GetAddressByIdAsync(addressId, userId);
-                if (address == null)
-                {
-                    return NotFound("Address not found");
-                }
-                return Ok(address);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "An error occurred while retrieving the address", Error = ex.Message });
-            }
+                Success = false,
+                Message = result.Message
+            });
         }
 
-        [HttpPost("my-addresses")]
-        [Authorize]
-        public async Task<ActionResult<ShippingAddressDto>> CreateMyAddress([FromBody] ShippingAddressCreateDto addressDto)
+        return Ok(new ApiResponseDto
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            Success = true,
+            Message = result.Message
+        });
+    }
 
-            try
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto changePasswordDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                var address = await _addressService.CreateAddressAsync(addressDto, userId);
-                return CreatedAtAction(nameof(GetMyAddress), new { addressId = address.Id }, address);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "An error occurred while creating the address", Error = ex.Message });
-            }
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
         }
 
-        [HttpPut("my-addresses/{addressId}")]
-        [Authorize]
-        public async Task<ActionResult<ShippingAddressDto>> UpdateMyAddress(int addressId, [FromBody] ShippingAddressUpdateDto addressDto)
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
         {
-            if (!ModelState.IsValid)
+            return Unauthorized(new ApiResponseDto
             {
-                return BadRequest(ModelState);
-            }
-
-            if (addressId != addressDto.Id)
-            {
-                return BadRequest("Address ID mismatch");
-            }
-
-            try
-            {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                var address = await _addressService.UpdateAddressAsync(addressDto, userId);
-                return Ok(address);
-            }
-            catch (ArgumentException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "An error occurred while updating the address", Error = ex.Message });
-            }
+                Success = false,
+                Message = "User not authenticated"
+            });
         }
 
-        [HttpDelete("my-addresses/{addressId}")]
-        [Authorize]
-        public async Task<ActionResult> DeleteMyAddress(int addressId)
+        var result = await _userManagerService.ChangePasswordAsync(userId, changePasswordDto);
+        
+        if (!result.Success)
         {
-            try
+            return BadRequest(new ApiResponseDto
             {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
-
-                var result = await _addressService.DeleteAddressAsync(addressId, userId);
-                if (!result)
-                {
-                    return NotFound("Address not found");
-                }
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "An error occurred while deleting the address", Error = ex.Message });
-            }
+                Success = false,
+                Message = result.Message
+            });
         }
 
-        [HttpPost("my-addresses/{addressId}/set-default")]
-        [Authorize]
-        public async Task<ActionResult> SetMyDefaultAddress(int addressId)
+        return Ok(new ApiResponseDto
         {
-            try
-            {
-                var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized();
-                }
+            Success = true,
+            Message = result.Message
+        });
+    }
 
-                var result = await _addressService.SetDefaultAddressAsync(addressId, userId);
-                if (!result)
-                {
-                    return NotFound("Address not found");
-                }
-                return Ok(new { Message = "Default address set successfully" });
-            }
-            catch (Exception ex)
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
             {
-                return StatusCode(500, new { Message = "An error occurred while setting the default address", Error = ex.Message });
-            }
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        var result = await _userManagerService.ForgotPasswordAsync(forgotPasswordDto);
+        
+        return Ok(new ApiResponseDto
+        {
+            Success = result.Success,
+            Message = result.Message
+        });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        var result = await _userManagerService.ResetPasswordAsync(resetPasswordDto);
+        
+        if (!result.Success)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = result.Message
+            });
+        }
+
+        return Ok(new ApiResponseDto
+        {
+            Success = true,
+            Message = result.Message
+        });
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        var result = await _userManagerService.LogoutAsync(userId);
+        
+        return Ok(new ApiResponseDto
+        {
+            Success = result.Success,
+            Message = result.Message
+        });
+    }
+
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> GetCurrentUser()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        var user = await _userManagerService.GetUserDetailsAsync(userId);
+        if (user == null)
+        {
+            return NotFound(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not found"
+            });
+        }
+
+        return Ok(new ApiResponseDto<UserResponseDto>
+        {
+            Success = true,
+            Message = "User details retrieved successfully",
+            Data = user
+        });
+    }
+
+    [HttpPut("me/username")]
+    [Authorize]
+    public async Task<IActionResult> UpdateUsername([FromBody] UpdateUsernameDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        var result = await _userManagerService.UpdateUsernameAsync(userId, dto.Username);
+        if (!result.Success)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = result.Message
+            });
+        }
+
+        return Ok(new ApiResponseDto
+        {
+            Success = true,
+            Message = result.Message
+        });
+    }
+
+    [HttpPut("me/phone")]
+    [Authorize]
+    public async Task<IActionResult> UpdatePhoneNumber([FromBody] UpdatePhoneNumberDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        var result = await _userManagerService.UpdatePhoneNumberAsync(userId, dto.PhoneNumber);
+        if (!result.Success)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = result.Message
+            });
+        }
+
+        return Ok(new ApiResponseDto
+        {
+            Success = true,
+            Message = result.Message
+        });
+    }
+    [HttpPost("refresh-token")]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+    {
+       
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        // Validate refresh token format early
+        if (!_jwtService.ValidateRefreshTokenFormat(refreshTokenDto.RefreshToken))
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid refresh token format"
+            });
+        }
+
+        // Lookup user by valid refresh token
+        var userId = await _userManagerService.GetUserByRefreshTokenAsync(refreshTokenDto.RefreshToken);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        // Optionally validate format of refresh token (basic sanity check)
+        if (string.IsNullOrWhiteSpace(refreshTokenDto.RefreshToken))
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Refresh token is required"
+            });
+        }
+
+        var newAccessToken = await _jwtService.GenerateTokenForUserIdAsync(userId);
+        if (string.IsNullOrEmpty(newAccessToken))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not found"
+            });
+        }
+
+        var newRefreshToken = _jwtService.GenerateRefreshToken();
+        var expiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60"));
+        var newRefreshTokenExpiresAt = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenDays"] ?? "7"));
+
+        // Rotate and persist new refresh token
+        await _userManagerService.SetRefreshTokenAsync(userId, newRefreshToken, newRefreshTokenExpiresAt);
+
+        var user = await _userManagerService.GetUserDetailsAsync(userId);
+        if (user == null)
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not found"
+            });
+        }
+
+        var response = new LoginResponseDto
+        {
+            Token = newAccessToken,
+            RefreshToken = newRefreshToken,
+            ExpiresAt = expiresAt,
+            User = user
+        };
+
+        return Ok(new ApiResponseDto<LoginResponseDto>
+        {
+            Success = true,
+            Message = "Token refreshed successfully",
+            Data = response
+        });
+    }
+
+    // Address Management Endpoints
+    [HttpGet("addresses")]
+    [Authorize]
+    public async Task<IActionResult> GetUserAddresses()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        try
+        {
+            var addresses = await _addressService.GetUserAddressesAsync(userId);
+            return Ok(new ApiResponseDto<IEnumerable<UserAddressDto>>
+            {
+                Success = true,
+                Message = "Addresses retrieved successfully",
+                Data = addresses.ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Error retrieving addresses",
+                Errors = new List<string> { ex.Message }
+            });
         }
     }
 
+    [HttpGet("addresses/{addressId}")]
+    [Authorize]
+    public async Task<IActionResult> GetAddressById(int addressId)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        try
+        {
+            var address = await _addressService.GetAddressByIdAsync(addressId, userId);
+            if (address == null)
+            {
+                return NotFound(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Address not found"
+                });
+            }
+
+            return Ok(new ApiResponseDto<UserAddressDto>
+            {
+                Success = true,
+                Message = "Address retrieved successfully",
+                Data = address
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Error retrieving address",
+                Errors = new List<string> { ex.Message }
+            });
+        }
+    }
+
+    [HttpPost("addresses")]
+    [Authorize]
+    public async Task<IActionResult> CreateAddress([FromBody] CreateAddressDto addressDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        try
+        {
+            var address = await _addressService.CreateAddressAsync(addressDto, userId);
+            return CreatedAtAction(nameof(GetAddressById), new { addressId = address.Id }, new ApiResponseDto<UserAddressDto>
+            {
+                Success = true,
+                Message = "Address created successfully",
+                Data = address
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Error creating address",
+                Errors = new List<string> { ex.Message }
+            });
+        }
+    }
+
+    [HttpPut("addresses")]
+    [Authorize]
+    public async Task<IActionResult> UpdateAddress([FromBody] UpdateAddressDto addressDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        try
+        {
+            var address = await _addressService.UpdateAddressAsync(addressDto, userId);
+            return Ok(new ApiResponseDto<UserAddressDto>
+            {
+                Success = true,
+                Message = "Address updated successfully",
+                Data = address
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(new ApiResponseDto
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Error updating address",
+                Errors = new List<string> { ex.Message }
+            });
+        }
+    }
+
+    [HttpDelete("addresses/{addressId}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteAddress(int addressId)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized(new ApiResponseDto
+            {
+                Success = false,
+                Message = "User not authenticated"
+            });
+        }
+
+        try
+        {
+            var result = await _addressService.DeleteAddressAsync(addressId, userId);
+            if (!result)
+            {
+                return NotFound(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Address not found"
+                });
+            }
+
+            return Ok(new ApiResponseDto
+            {
+                Success = true,
+                Message = "Address deleted successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Error deleting address",
+                Errors = new List<string> { ex.Message }
+            });
+        }
+    }
+
+    //[HttpPost("addresses/set-default")]
+    //[Authorize]
+    //public async Task<IActionResult> SetDefaultAddress([FromBody] SetDefaultAddressDto setDefaultDto)
+    //{
+    //    if (!ModelState.IsValid)
+    //    {
+    //        return BadRequest(new ApiResponseDto
+    //        {
+    //            Success = false,
+    //            Message = "Invalid input data",
+    //            Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+    //        });
+    //    }
+
+    //    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        return Unauthorized(new ApiResponseDto
+    //        {
+    //            Success = false,
+    //            Message = "User not authenticated"
+    //        });
+    //    }
+
+    //    try
+    //    {
+    //        var result = await _addressService.SetDefaultAddressAsync(setDefaultDto.AddressId, userId);
+    //        if (!result)
+    //        {
+    //            return NotFound(new ApiResponseDto
+    //            {
+    //                Success = false,
+    //                Message = "Address not found"
+    //            });
+    //        }
+
+    //        return Ok(new ApiResponseDto
+    //        {
+    //            Success = true,
+    //            Message = "Default address set successfully"
+    //        });
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        return BadRequest(new ApiResponseDto
+    //        {
+    //            Success = false,
+    //            Message = "Error setting default address",
+    //            Errors = new List<string> { ex.Message }
+    //        });
+    //    }
+    //}
+
+    [HttpPost("contact")]
+    public async Task<IActionResult> Contact([FromBody] ContactDto contactDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "Invalid input data",
+                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+            });
+        }
+
+        try
+        {
+            var result = await _emailService.SendContactEmailAsync(
+                contactDto.Name,
+                contactDto.Email,
+                contactDto.PhoneNumber,
+                contactDto.Subject,
+                contactDto.Message
+            );
+
+            if (!result)
+            {
+                return BadRequest(new ApiResponseDto
+                {
+                    Success = false,
+                    Message = "Failed to send contact email. Please try again later."
+                });
+            }
+
+            return Ok(new ApiResponseDto
+            {
+                Success = true,
+                Message = "Your message has been sent successfully. We will get back to you soon."
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponseDto
+            {
+                Success = false,
+                Message = "An error occurred while sending your message.",
+                Errors = new List<string> { ex.Message }
+            });
+        }
+    }
 }
 

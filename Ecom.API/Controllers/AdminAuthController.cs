@@ -80,7 +80,7 @@ namespace Ecom.API.Controllers
 
             try
             {
-                var address = await _addressService.CreateAddressAsync(addressDto, userId);
+                var address = await _addressService.CreateAddressLegacyAsync(addressDto, userId);
                 return CreatedAtAction(nameof(GetAddress), new { userId, addressId = address.Id }, address);
             }
             catch (Exception ex)
@@ -94,7 +94,7 @@ namespace Ecom.API.Controllers
         {
             try
             {
-                var addresses = await _addressService.GetUserAddressesAsync(userId);
+                var addresses = await _addressService.GetUserAddressesLegacyAsync(userId);
                 return Ok(addresses);
             }
             catch (Exception ex)
@@ -108,7 +108,7 @@ namespace Ecom.API.Controllers
         {
             try
             {
-                var address = await _addressService.GetAddressByIdAsync(addressId, userId);
+                var address = await _addressService.GetAddressByIdLegacyAsync(addressId, userId);
                 if (address == null)
                 {
                     return NotFound("Address not found");
@@ -136,7 +136,7 @@ namespace Ecom.API.Controllers
 
             try
             {
-                var address = await _addressService.UpdateAddressAsync(addressDto, userId);
+                var address = await _addressService.UpdateAddressLegacyAsync(addressDto, userId);
                 return Ok(address);
             }
             catch (ArgumentException ex)

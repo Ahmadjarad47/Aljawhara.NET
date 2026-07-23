@@ -3,20 +3,24 @@ using Ecom.Domain.constant;
 using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Ecom.Infrastructure.Repositories
 {
     public class OrderRepository : BaseRepository<Order>, IOrderRepository
     {
-        public OrderRepository(EcomDbContext context) : base(context)
+        public OrderRepository(EcomDbContext context, IMemoryCache cache) : base(context, cache)
         {
         }
 
         public async Task<IEnumerable<Order>> GetOrdersByUserAsync(string userId)
         {
             return await _dbSet
-                .Include(o => o.Items)
-                .ThenInclude(oi => oi.Product)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(o => o.AppUser)
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
+                    .ThenInclude(oi => oi.Product)
                 .Include(o => o.ShippingAddress)
                 .Where(o => o.AppUserId == userId)
                 .OrderByDescending(o => o.CreatedAt)
@@ -26,8 +30,23 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<Order?> GetOrderWithItemsAsync(int orderId)
         {
             return await _dbSet
-                .Include(o => o.Items)
-                .ThenInclude(oi => oi.Product)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
+                    .ThenInclude(oi => oi.Product)
+                .Include(o => o.ShippingAddress)
+                .Include(o => o.AppUser)
+                .Include(o => o.Coupon)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+        }
+
+        public async Task<Order?> GetOrderWithItemsForUpdateAsync(int orderId)
+        {
+            // Load with tracking enabled for update operations
+            // Don't include Product navigation property to avoid tracking conflicts
+            return await _dbSet
+                .AsSplitQuery()
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
                 .Include(o => o.ShippingAddress)
                 .Include(o => o.AppUser)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
@@ -36,8 +55,10 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<Order?> GetOrderByNumberAsync(string orderNumber)
         {
             return await _dbSet
-                .Include(o => o.Items)
-                .ThenInclude(oi => oi.Product)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
+                    .ThenInclude(oi => oi.Product)
                 .Include(o => o.ShippingAddress)
                 .Include(o => o.AppUser)
                 .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber);
@@ -46,7 +67,9 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<IEnumerable<Order>> GetOrdersByStatusAsync(OrderStatus status)
         {
             return await _dbSet
-                .Include(o => o.Items)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
                 .Include(o => o.ShippingAddress)
                 .Include(o => o.AppUser)
                 .Where(o => o.Status == status)
@@ -57,7 +80,9 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<IEnumerable<Order>> GetOrdersByDateRangeAsync(DateTime startDate, DateTime endDate)
         {
             return await _dbSet
-                .Include(o => o.Items)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
                 .Include(o => o.ShippingAddress)
                 .Include(o => o.AppUser)
                 .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate)
@@ -67,7 +92,9 @@ namespace Ecom.Infrastructure.Repositories
 
         public async Task<decimal> GetTotalSalesAsync(DateTime? startDate = null, DateTime? endDate = null)
         {
-            var query = _dbSet.AsQueryable();
+            var query = _dbSet
+                .AsNoTracking()
+                .AsQueryable();
 
             if (startDate.HasValue)
                 query = query.Where(o => o.CreatedAt >= startDate.Value);
@@ -88,7 +115,9 @@ namespace Ecom.Infrastructure.Repositories
         public async Task<IEnumerable<Order>> GetRecentOrdersAsync(int count = 10)
         {
             return await _dbSet
-                .Include(o => o.Items)
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(o => o.Items.Where(i => !i.IsDeleted))
                 .Include(o => o.ShippingAddress)
                 .Include(o => o.AppUser)
                 .OrderByDescending(o => o.CreatedAt)

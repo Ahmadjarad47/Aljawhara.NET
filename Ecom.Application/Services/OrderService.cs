@@ -1,4 +1,5 @@
 using AutoMapper;
+using Ecom.Application.DTOs.Coupon;
 using Ecom.Application.DTOs.Order;
 using Ecom.Application.Mappings;
 using Ecom.Application.Services.Interfaces;
@@ -8,16 +9,23 @@ using Ecom.Infrastructure.UnitOfWork;
 
 namespace Ecom.Application.Services
 {
-    public class OrderService : IOrderService
+    public class OrderService(
+       IUnitOfWork unitOfWork,
+       IMapper mapper,
+       ICouponService couponService,
+       IProductService productService,
+       ITransactionService transaction
+   ) : IOrderService
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
+        private readonly IUnitOfWork _unitOfWork = unitOfWork;
+        private readonly IMapper _mapper = mapper;
+        private readonly ICouponService _couponService = couponService;
+        private readonly IProductService _productService = productService;
+        private readonly ITransactionService _transaction = transaction;
 
-        public OrderService(IUnitOfWork unitOfWork, IMapper mapper)
-        {
-            _unitOfWork = unitOfWork;
-            _mapper = mapper;
-        }
+    // باقي الميثودات هنا
+
+
 
         public async Task<OrderDto?> GetOrderByIdAsync(int id)
         {
@@ -48,59 +56,144 @@ namespace Ecom.Application.Services
             var orders = await _unitOfWork.Orders.GetRecentOrdersAsync(count);
             return _mapper.Map<IEnumerable<OrderSummaryDto>>(orders);
         }
-
-        public async Task<OrderDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null)
+        public async Task<TransactionAdvancedDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null)
         {
-            await _unitOfWork.BeginTransactionAsync();
-            
-            try
-            {
-                // Create shipping address
-                var shippingAddress = _mapper.Map<ShippingAddress>(orderDto.ShippingAddress);
-                shippingAddress.AppUserId = userId;
-                await _unitOfWork.ShippingAddresses.AddAsync(shippingAddress);
-                await _unitOfWork.SaveChangesAsync();
+            var context = _unitOfWork.Context;
+            var strategy = context.Database.CreateExecutionStrategy();
 
-                // Create order
-                var order = _mapper.Map<Order>(orderDto);
-                order.AppUserId = userId;
-                order.ShippingAddressId = shippingAddress.Id;
-                order.OrderNumber = await GenerateOrderNumberAsync();
-                
-                // Calculate totals
-                decimal subtotal = 0;
-                foreach (var itemDto in orderDto.Items)
+            return await strategy.ExecuteAsync(
+                state: orderDto,
+                operation: async (db, state, token) =>
                 {
-                    subtotal += itemDto.Price * itemDto.Quantity;
-                }
-                
-                order.Subtotal = subtotal;
-                order.Shipping = CalculateShipping(subtotal);
-                order.Tax = CalculateTax(subtotal);
-                order.Total = order.Subtotal + order.Shipping + order.Tax - (order.Discount ?? 0);
+                    await _unitOfWork.BeginTransactionAsync();
 
-                await _unitOfWork.Orders.AddAsync(order);
-                await _unitOfWork.SaveChangesAsync();
+                    try
+                    {
+                        // 1️⃣ Get shipping address (prefer default, then any non-deleted address)
+                        ShippingAddress? shipping = null;
+                        if (!string.IsNullOrEmpty(userId))
+                        {
+                            shipping = await _unitOfWork.ShippingAddresses
+                                .FirstOrDefaultAsync(s => s.AppUserId == userId && s.IsDefault && !s.IsDeleted)
+                                ?? await _unitOfWork.ShippingAddresses
+                                .FirstOrDefaultAsync(s => s.AppUserId == userId && !s.IsDeleted);
+                        }
 
-                // Create order items
-                foreach (var itemDto in orderDto.Items)
-                {
-                    var orderItem = _mapper.Map<OrderItem>(itemDto);
-                    orderItem.OrderId = order.Id;
-                    await _unitOfWork.OrderItems.AddAsync(orderItem);
-                }
+                        if (shipping == null)
+                        {
+                            shipping = _mapper.Map<ShippingAddress>(state.ShippingAddress);
+                            shipping.AppUserId = userId;
+                            await _unitOfWork.ShippingAddresses.AddAsync(shipping);
+                            await _unitOfWork.SaveChangesAsync();
+                        }
 
-                await _unitOfWork.SaveChangesAsync();
-                await _unitOfWork.CommitTransactionAsync();
+                        // 2️⃣ Create order
+                        Order? order = _mapper.Map<Order>(state);
+                        order.AppUserId = userId;
+                        order.ShippingAddressId = shipping.Id;
+                        order.OrderNumber = await GenerateOrderNumberAsync();
+                        order.Items.Clear(); // Ensure Items collection is empty since we'll add them manually
 
-                var createdOrder = await _unitOfWork.Orders.GetOrderWithItemsAsync(order.Id);
-                return _mapper.Map<OrderDto>(createdOrder);
-            }
-            catch
-            {
-                await _unitOfWork.RollbackTransactionAsync();
-                throw;
-            }
+                        decimal subtotal = 0;
+                        var orderItems = new List<OrderItem>();
+
+                        // 3️⃣ Items
+                        foreach (var itemDto in state.Items)
+                        {
+                            var product = await _unitOfWork.Products.GetByIdAsync(itemDto.ProductId);
+
+                            if (product == null || product.IsDeleted)
+                                throw new ArgumentException($"Product '{itemDto.ProductId}' not found.");
+
+                            if (!product.IsInStock || product.TotalInStock < itemDto.Quantity)
+                                throw new ArgumentException($"Insufficient stock for '{product.Title}'.");
+
+                            var price = product.newPrice;
+                            subtotal += price * itemDto.Quantity;
+
+                            orderItems.Add(new OrderItem
+                            {
+                                ProductId = product.Id,
+                                Name = product.Title,
+                                Image = product.Images?.FirstOrDefault() ?? "",
+                                Price = price,
+                                Quantity = itemDto.Quantity
+                            });
+                        }
+
+                        order.Subtotal = subtotal;
+
+                        // 4️⃣ Coupon
+                        decimal discount = 0;
+                        CouponType? couponType = null;
+
+                        if (!string.IsNullOrEmpty(state.CouponCode))
+                        {
+                            var coupon = await _couponService.ApplyCouponToOrderAsync(
+                                state.CouponCode,
+                                subtotal,
+                                userId);
+
+                            order.CouponId = coupon.Id;
+                            discount = CalculateCouponDiscount(coupon, subtotal);
+                            order.CouponDiscountAmount = discount;
+                            couponType = coupon.Type;
+                        }
+
+                        // 5️⃣ Totals
+                        order.Shipping = CalculateShipping(subtotal, couponType, shipping.City);
+                        order.Tax = CalculateTax(subtotal);
+                        order.Total = subtotal + order.Shipping + order.Tax - discount;
+
+                        // 6️⃣ Save order
+                        await _unitOfWork.Orders.AddAsync(order);
+                        await _unitOfWork.SaveChangesAsync();
+
+                        // 7️⃣ Save items
+                        foreach (var item in orderItems)
+                        {
+                            item.OrderId = order.Id;
+                            await _unitOfWork.OrderItems.AddAsync(item);
+                        }
+
+                        await _unitOfWork.SaveChangesAsync();
+
+                        // 8️⃣ Stock reduction
+                        foreach (var item in orderItems)
+                        {
+                            var ok = await _productService.ReduceProductStockAsync(item.ProductId, item.Quantity);
+
+                            if (!ok)
+                                throw new InvalidOperationException($"Failed to reduce stock for {item.ProductId}");
+                        }
+
+                        // 9️⃣ Coupon usage
+                        if (order.CouponId.HasValue)
+                            await _couponService.IncrementCouponUsageAsync(order.CouponId.Value);
+
+                        // 10️⃣ Commit
+                        await _unitOfWork.CommitTransactionAsync();
+
+                        var transactionDto = new TransactionCreateAdvancedDto
+                        {
+                            OrderId = order.Id,
+                            Amount = order.Total,
+                            Status = TransactionStatus.Pending,
+                            AppUserId = string.IsNullOrWhiteSpace(userId) ? null : userId,
+                            PaymentMethod = PaymentMethod.Bank,
+                        };
+                        var result = await _transaction.CreateTransactionAsync(transactionDto);
+                        return result;
+                    }
+                    catch
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        throw;
+                    }
+                },
+                verifySucceeded: null,
+                cancellationToken: default
+            );
         }
 
         public async Task<OrderDto> UpdateOrderStatusAsync(OrderUpdateStatusDto orderUpdateDto)
@@ -119,17 +212,53 @@ namespace Ecom.Application.Services
 
         public async Task<bool> CancelOrderAsync(int orderId)
         {
-            var order = await _unitOfWork.Orders.GetByIdAsync(orderId);
-            if (order == null)
-                return false;
+            var context = _unitOfWork.Context;
+            var strategy = context.Database.CreateExecutionStrategy();
 
-            if (order.Status == OrderStatus.Shipped || order.Status == OrderStatus.Delivered)
-                throw new InvalidOperationException("Cannot cancel shipped or delivered orders.");
+            return await strategy.ExecuteAsync(
+                state: orderId,
+                operation: async (db, state, token) =>
+                {
+                    await _unitOfWork.BeginTransactionAsync();
+                    
+                    try
+                    {
+                        // Use GetOrderWithItemsForUpdateAsync to load with tracking enabled
+                        // and without Product navigation properties to avoid tracking conflicts
+                        var order = await _unitOfWork.Orders.GetOrderWithItemsForUpdateAsync(state);
+                        if (order == null)
+                            return false;
 
-            order.Status = OrderStatus.Cancelled;
-            _unitOfWork.Orders.Update(order);
-            await _unitOfWork.SaveChangesAsync();
-            return true;
+                        if (order.Status == OrderStatus.Shipped || order.Status == OrderStatus.Delivered)
+                            throw new InvalidOperationException("Cannot cancel shipped or delivered orders.");
+
+                        // Restore stock for all products in the cancelled order
+                        foreach (var orderItem in order.Items)
+                        {
+                            var stockIncreased = await _productService.IncreaseProductStockAsync(orderItem.ProductId, orderItem.Quantity);
+                            if (!stockIncreased)
+                            {
+                                throw new InvalidOperationException($"Failed to restore stock for product ID {orderItem.ProductId}");
+                            }
+                        }
+
+                        order.Status = OrderStatus.Cancelled;
+                        // Order is already tracked, just mark as modified
+                        _unitOfWork.Orders.Update(order);
+                        await _unitOfWork.SaveChangesAsync();
+                        
+                        await _unitOfWork.CommitTransactionAsync();
+                        return true;
+                    }
+                    catch
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        throw;
+                    }
+                },
+                verifySucceeded: null,
+                cancellationToken: default
+            );
         }
 
         public async Task<decimal> GetTotalSalesAsync(DateTime? startDate = null, DateTime? endDate = null)
@@ -153,18 +282,114 @@ namespace Ecom.Application.Services
         public async Task<TransactionDto> ProcessPaymentAsync(TransactionCreateDto transactionDto)
         {
             var transaction = _mapper.Map<Transaction>(transactionDto);
-            transaction.Status = "Completed"; // In real app, this would be determined by payment processor
+            transaction.Status = Domain.constant.TransactionStatus.Paid; // In real app, this would be determined by payment processor
             
             await _unitOfWork.Transactions.AddAsync(transaction);
             await _unitOfWork.SaveChangesAsync();
             
-            return _mapper.Map<TransactionDto>(transaction);
+            // Fetch with Order included for OrderNumber in response
+            var storedTransaction = await _unitOfWork.Transactions.GetTransactionWithDetailsAsync(transaction.Id);
+            return _mapper.Map<TransactionDto>(storedTransaction ?? transaction);
         }
 
         public async Task<IEnumerable<TransactionDto>> GetOrderTransactionsAsync(int orderId)
         {
-            var transactions = await _unitOfWork.Transactions.FindAsync(t => t.OrderId == orderId);
+            var transactions = await _unitOfWork.Transactions.GetTransactionsByOrderAsync(orderId);
             return _mapper.Map<IEnumerable<TransactionDto>>(transactions);
+        }
+
+        public async Task<string> GetOrderPaymentLinkAsync(int orderId)
+        {
+            var order = await _unitOfWork.Orders.GetByIdAsync(orderId);
+            if (order == null)
+                throw new ArgumentException($"Order with ID {orderId} not found.");
+
+            if (await _transaction.HasSuccessfulTransactionAsync(orderId))
+                throw new InvalidOperationException("Order already has a successful payment.");
+
+            var latestTransaction = await _transaction.GetLatestTransactionByOrderAsync(orderId);
+            if (latestTransaction != null &&
+                latestTransaction.Status == TransactionStatus.Pending &&
+                !string.IsNullOrWhiteSpace(latestTransaction.GatewayInvoiceId))
+            {
+                var existingPaymentUrl = await _transaction.GetPaymentUrlByTransactionIdAsync(latestTransaction.Id);
+                if (!string.IsNullOrWhiteSpace(existingPaymentUrl))
+                    return existingPaymentUrl;
+            }
+
+            var transactionDto = new TransactionCreateAdvancedDto
+            {
+                OrderId = order.Id,
+                Amount = order.Total,
+                Status = TransactionStatus.Pending,
+                AppUserId = string.IsNullOrWhiteSpace(order.AppUserId) ? null : order.AppUserId,
+                PaymentMethod = PaymentMethod.Bank
+            };
+
+            var createdTransaction = await _transaction.CreateTransactionAsync(transactionDto);
+            if (string.IsNullOrWhiteSpace(createdTransaction.PaymentUrl))
+                throw new InvalidOperationException("Unable to generate payment link for this order.");
+
+            return createdTransaction.PaymentUrl;
+        }
+
+        public async Task<InvoicePaymentDto?> GetInvoicePaymentDataAsync(int orderId)
+        {
+            var order = await _unitOfWork.Orders.GetOrderWithItemsAsync(orderId);
+            if (order == null)
+                return null;
+
+            var orderDto = _mapper.Map<OrderDto>(order);
+
+            foreach (var item in orderDto.Items)
+            {
+                var sourceItem = order.Items.FirstOrDefault(oi => oi.Id == item.Id);
+                if (sourceItem == null)
+                    continue;
+
+                item.Name = !string.IsNullOrWhiteSpace(sourceItem.Product?.TitleAr)
+                    ? sourceItem.Product.TitleAr
+                    : sourceItem.Name;
+            }
+            
+            var invoicePaymentDto = new InvoicePaymentDto
+            {
+                // Order Information
+                OrderId = order.Id,
+                OrderNumber = order.OrderNumber,
+                Status = order.Status,
+                OrderCreatedAt = order.CreatedAt,
+                
+                // Financial Information
+                Subtotal = order.Subtotal,
+                Shipping = order.Shipping,
+                Tax = order.Tax,
+                Total = order.Total,
+                PaymentAmount = order.Total,
+                
+                // Customer Information
+                AppUserId = order.AppUserId,
+                CustomerName = orderDto.CustomerName,
+                CustomerEmail = order.AppUser?.Email,
+                CustomerPhone = order.ShippingAddress?.Phone,
+                
+                // Coupon Information
+                CouponId = order.CouponId,
+                CouponCode = orderDto.CouponCode,
+                CouponDiscountAmount = order.CouponDiscountAmount,
+                
+                // Order Items
+                Items = orderDto.Items,
+                
+                // Shipping Address
+                ShippingAddress = orderDto.ShippingAddress,
+                
+                // Success indicator
+                Success = true,
+                Message = "تم استرجاع بيانات دفع الفاتورة بنجاح"
+            };
+
+            return invoicePaymentDto;
         }
 
         private async Task<string> GenerateOrderNumberAsync()
@@ -174,16 +399,86 @@ namespace Ecom.Application.Services
             return $"ORD-{today}-{(count + 1):D4}";
         }
 
-        private static decimal CalculateShipping(decimal subtotal)
+        private static decimal CalculateShipping(decimal subtotal, CouponType? couponType = null, string? city = null)
         {
-            // Simple shipping calculation - in real app this would be more complex
-            return subtotal > 100 ? 0 : 10;
+            // Offer: free shipping for orders with subtotal 20 or more.
+            if (subtotal >= 20)
+            {
+                return 0;
+            }
+
+            // Check if coupon provides free shipping
+            if (couponType.HasValue && couponType.Value == CouponType.FreeShipping)
+            {
+                return 0;
+            }
+
+            // Area-based delivery fees
+            if (string.IsNullOrEmpty(city))
+            {
+                return 2; // Default fee if city is not provided
+            }
+
+            // Areas with 6 KWD delivery fee
+            var highFeeAreas = new[] { "مدينة صباح الأحمد", "الخيران", "العبدلي", "الوفرة" };
+            if (highFeeAreas.Contains(city))
+            {
+                return 6;
+            }
+
+            // Areas with 3 KWD delivery fee
+            if (city == "صباح السالم"||city== "الأحمدي")
+            {
+                return 3;
+            }
+
+            // Areas with 4 KWD delivery fee
+            if (city == "المطلاع")
+            {
+                return 4;
+            }
+
+            // Default fee for all other areas: 2 KWD
+            return 2;
         }
 
         private static decimal CalculateTax(decimal subtotal)
         {
-            // Simple tax calculation - in real app this would depend on location
-            return subtotal * 0.08m; // 8% tax
+            // No tax - always return 0
+            return 0;
+        }
+
+        private static decimal CalculateCouponDiscount(CouponDto coupon, decimal subtotal)
+        {
+            decimal discountAmount = 0;
+
+            switch (coupon.Type)
+            {
+                case CouponType.Percentage:
+                    discountAmount = subtotal * (coupon.Value / 100);
+                    break;
+                case CouponType.FixedAmount:
+                    discountAmount = coupon.Value;
+                    break;
+                case CouponType.FreeShipping:
+                    // Free shipping is handled in shipping calculation
+                    discountAmount = 0;
+                    break;
+            }
+
+            // Apply maximum discount limit if specified
+            if (coupon.MaximumDiscountAmount.HasValue && discountAmount > coupon.MaximumDiscountAmount.Value)
+            {
+                discountAmount = coupon.MaximumDiscountAmount.Value;
+            }
+
+            // Ensure discount doesn't exceed order amount
+            if (discountAmount > subtotal)
+            {
+                discountAmount = subtotal;
+            }
+
+            return discountAmount;
         }
     }
 }

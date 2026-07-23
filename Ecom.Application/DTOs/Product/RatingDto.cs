@@ -9,6 +9,7 @@ namespace Ecom.Application.DTOs.Product
         public double RatingNumber { get; set; }
         public int ProductId { get; set; }
         public string ProductTitle { get; set; } = string.Empty;
+        public string RatingName { get; set; } = string.Empty;
     }
 
     public class RatingCreateDto

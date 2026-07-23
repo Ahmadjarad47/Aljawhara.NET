@@ -8,7 +8,9 @@ namespace Ecom.Domain.Entity
     public class SubCategory : BaseEntity
     {
         public string Name { get; set; } = string.Empty;
+        public string NameAr { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public string DescriptionAr { get; set; } = string.Empty;
 
         public int CategoryId { get; set; }
         public Category Category { get; set; } = null!;

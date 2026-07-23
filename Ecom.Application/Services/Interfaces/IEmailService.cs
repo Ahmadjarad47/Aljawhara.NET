@@ -1,4 +1,6 @@
+using Ecom.Application.DTOs.Order;
 using Ecom.Domain.Entity;
+using Ecom.Domain.constant;
 
 namespace Ecom.Application.Services.Interfaces
 {
@@ -9,5 +11,9 @@ namespace Ecom.Application.Services.Interfaces
         Task<bool> SendEmailChangeConfirmationAsync(AppUsers user, string newEmail, string confirmationToken);
         Task<bool> SendUserBlockedNotificationAsync(AppUsers user, string reason, DateTime? blockUntil);
         Task<bool> SendUserUnblockedNotificationAsync(AppUsers user);
+        Task<bool> SendOtpEmailAsync(AppUsers user, string otp);
+        Task<bool> SendPasswordChangeConfirmationAsync(AppUsers user);
+        Task<bool> SendContactEmailAsync(string name, string email, string? phoneNumber, string subject, string message);
+        Task<bool> SendOrderNotificationToAdminAsync(OrderDto order,string emailuser, string eventType);
     }
 }

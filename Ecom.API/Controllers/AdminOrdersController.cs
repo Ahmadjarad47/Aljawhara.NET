@@ -8,15 +8,17 @@ using Microsoft.AspNetCore.Mvc;
 namespace Ecom.API.Controllers
 {
     [ApiController]
-    [Route("api/admin/[controller]")]
-    //[Authorize(Roles = "Admin")]
+    [Route("api/admin/order")]
+    [Authorize(Roles = "Admin")]
     public class AdminOrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly IEmailService _emailService;
 
-        public AdminOrdersController(IOrderService orderService)
+        public AdminOrdersController(IOrderService orderService, IEmailService emailService)
         {
             _orderService = orderService;
+            _emailService = emailService;
         }
 
         [HttpGet]
@@ -98,6 +100,21 @@ namespace Ecom.API.Controllers
             try
             {
                 var order = await _orderService.UpdateOrderStatusAsync(orderUpdateDto);
+                
+                // Send email notification to admin
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendOrderNotificationToAdminAsync(order,order.CustomerName, "StatusUpdated");
+                    }
+                    catch
+                    {
+                        // Log error but don't fail the status update
+                        // Email sending failures shouldn't prevent status update
+                    }
+                });
+                
                 return Ok(order);
             }
             catch (ArgumentException ex)

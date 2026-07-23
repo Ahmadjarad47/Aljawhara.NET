@@ -1,0 +1,38 @@
+name: Auto Deploy Aljawhara.NET to VPS
+
+on:
+  push:
+    branches:
+      - master    # يعمل عند كل push على master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: SSH Deploy to VPS
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: 72.61.187.165             # IP السيرفر
+          username: root                  # المستخدم
+          key: ${{ secrets.SSH_PRIVATE_KEY }}   # المفتاح المخزن في GitHub Secrets
+          script: |
+            echo "===== Starting Deploy on VPS ====="
+            cd /var/www/Aljawhara.NET || { echo "Project directory not found"; exit 1; }
+
+            echo "Pulling latest code..."
+            git fetch --all
+            git reset --hard origin/master
+
+            echo "Publishing project..."
+            dotnet publish -c Release -o /var/www/Aljawhara.NET/publish
+
+            echo "Restarting service..."
+            systemctl stop aljawhara.service || true
+            cp -r /var/www/Aljawhara.NET/publish/* /var/www/Aljawhara.NET/
+            systemctl start aljawhara.service
+
+            echo "===== Deploy Finished ====="

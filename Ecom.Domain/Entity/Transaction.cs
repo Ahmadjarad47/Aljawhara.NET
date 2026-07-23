@@ -1,4 +1,4 @@
-﻿using Ecom.Domain.comman;
+using Ecom.Domain.comman;
 using Ecom.Domain.constant;
 using System;
 using System.Collections.Generic;
@@ -17,9 +17,17 @@ namespace Ecom.Domain.Entity
         public AppUsers? AppUser { get; set; }
 
         public decimal Amount { get; set; }
-        public PaymentMethod PaymentMethod { get; set; }  // e.g., CreditCard, PayPal
-        public string Status { get; set; } = string.Empty;               // e.g., Pending, Completed, Failed
+        public PaymentMethod PaymentMethod { get; set; }
+        public TransactionStatus Status { get; set; } = TransactionStatus.Pending;
         public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
-
+        public DateTime? ProcessedDate { get; set; }
+        public string? TransactionReference { get; set; }
+        public string? PaymentGatewayResponse { get; set; }
+        public string? Notes { get; set; }
+        public bool IsRefunded { get; set; } = false;
+        public decimal? RefundAmount { get; set; }
+        public DateTime? RefundDate { get; set; }
+        public string? RefundReason { get; set; }
+        public string? GatewayInvoiceId { get; set; }
     }
 }
