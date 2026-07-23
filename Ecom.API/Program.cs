@@ -37,7 +37,7 @@ builder.Services.AddIdentity<AppUsers, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // Add AutoMapper
-builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddAutoMapper(config => config.AddProfile<MappingProfile>());
 
 // Add repositories
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
@@ -150,7 +150,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
-    context.Database.EnsureCreated();
+    await context.Database.MigrateAsync();
     
     // Seed roles and admin user
     await Ecom.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider);
