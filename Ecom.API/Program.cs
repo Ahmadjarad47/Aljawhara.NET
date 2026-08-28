@@ -239,7 +239,7 @@ builder.Services.AddAuthorization(options =>
 
 // Add CORS with security best practices
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() 
-    ?? new[] { "http://localhost:4200", "https://localhost:4200", "http://aljawharaplus.com", "https://aljawharaplus.com" };
+    ?? new[] {"https://aljawharaplus.com" };
 
 builder.Services.AddCors(options =>
 {
