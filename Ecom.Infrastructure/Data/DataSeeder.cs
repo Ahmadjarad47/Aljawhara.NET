@@ -19,7 +19,7 @@ namespace Ecom.Infrastructure.Data
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
             // Ensure database is created
-            //await context.Database.EnsureCreatedAsync();
+            await context.Database.EnsureCreatedAsync();
 
             // Seed Roles
             await SeedRolesAsync(roleManager);
@@ -28,19 +28,19 @@ namespace Ecom.Infrastructure.Data
             await SeedAdminUserAsync(userManager);
 
             //// Seed all entities in order
-            //await SeedCategoriesAsync(context);
-            //await SeedSubCategoriesAsync(context);
-            //await SeedProductsAsync(context);
-            //await SeedProductDetailsAsync(context);
-            //await SeedUsersAsync(userManager);
-            //await SeedShippingAddressesAsync(context);
-            //await SeedRatingsAsync(context);
-            //await SeedCouponsAsync(context);
-            //await SeedOrdersAsync(context);
-            //await SeedOrderItemsAsync(context);
-            //await SeedTransactionsAsync(context);
-            //await SeedVisitorsAsync(context);
-            //await SeedHealthPingsAsync(context);
+            await SeedCategoriesAsync(context);
+            await SeedSubCategoriesAsync(context);
+            await SeedProductsAsync(context);
+            await SeedProductDetailsAsync(context);
+            await SeedUsersAsync(userManager);
+            await SeedShippingAddressesAsync(context);
+            await SeedRatingsAsync(context);
+            await SeedCouponsAsync(context);
+            await SeedOrdersAsync(context);
+            await SeedOrderItemsAsync(context);
+            await SeedTransactionsAsync(context);
+            await SeedVisitorsAsync(context);
+            await SeedHealthPingsAsync(context);
         }
 
         /// <summary>
