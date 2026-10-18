@@ -367,3 +367,5 @@ FodyWeavers.xsd
 *.env
 *.dump
 *.dump.partial
+/Ecom.API/appsettings.json
+/Ecom.API/appsettings.Development.json
