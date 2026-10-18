@@ -20,6 +20,7 @@
 
       "applicationUrl": "https://localhost:7130;http://localhost:5055",
       "environmentVariables": {
+        "ConnectionStrings__DefaultConnection": "Host=localhost;Port=5432;Database=ecom_migration_test;Username=postgres;Password=root",
         "ClientKey": "ck_20438_nZuxkLZbLADSAV8M7Byhtp1zbiS6sD8bSnuFB6wuj7BJNzS1BP0aZJyHcGGwwc8L",
         "clientSecret": "cs_20438_yreifa8ecq22RRHVTX80Z9TiL4ZMa5DoSOXxXfae4gg91ZCtuX36SmpAT0eLeuBw",
         "R2_KEY": "cc44f15754cab1f28139c18d454d23bd",
@@ -27,7 +28,8 @@
         "R2_ACCOUNT_ID": "9ee5c3481a066f7d5ede735a51152737",
         "R2_BUCKET_NAME": "images",
         "R2_PUBLIC_DOMAIN": "https://pub-f74e7f2ba8e642ce869f4e0826b90ff8.r2.dev",
-
+        "BootstrapAdmin__Email": "super.admin@aljawhara.com",
+        "BootstrapAdmin__Password": "Admin@123",
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }

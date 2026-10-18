@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using Ecom.Domain.Entity;
 using Ecom.Domain.constant;
 using Microsoft.AspNetCore.Identity;
@@ -13,21 +14,24 @@ namespace Ecom.Infrastructure.Data
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
+            // Demo orders and ratings must never be recreated on the live site.
+            if (serviceProvider.GetRequiredService<Microsoft.Extensions.Hosting.IHostEnvironment>()
+                .IsProduction()) return;
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUsers>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
             // Ensure database is created
-            //await context.Database.EnsureCreatedAsync();
+            await context.Database.EnsureCreatedAsync();
 
-            //// Seed Roles
+            ////// Seed Roles
             //await SeedRolesAsync(roleManager);
 
-            //// Seed Admin User
+            ////// Seed Admin User
             //await SeedAdminUserAsync(userManager);
 
-            ////// Seed all entities in order
+            //////// Seed all entities in order
             //await SeedCategoriesAsync(context);
             //await SeedSubCategoriesAsync(context);
             //await SeedProductsAsync(context);
