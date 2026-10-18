@@ -156,6 +156,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IShippingService, ShippingService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IJwtService, JwtService>();

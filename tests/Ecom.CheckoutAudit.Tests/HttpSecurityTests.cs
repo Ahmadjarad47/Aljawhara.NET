@@ -470,6 +470,7 @@ internal sealed class TestAuthenticationHandler(
         var identity = new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString()), new Claim(ClaimTypes.Name, userId.ToString())],
             SchemeName);
+        if (userId == "shipping-admin") identity.AddClaim(new Claim(ClaimTypes.Role, "Admin"));
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
     }
 }

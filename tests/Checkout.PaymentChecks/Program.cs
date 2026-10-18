@@ -70,7 +70,7 @@ var transactionService = Stub.Make<ITransactionService>((name, a) => name switch
     "GetLatestTransactionByOrderAsync" => Task.FromResult<TransactionAdvancedDto?>(cod),
     _ => throw new Exception("Unexpected service call: " + name)
 });
-var orderService = new OrderService(uow, mapper, null!, null!, transactionService);
+var orderService = new OrderService(uow, mapper, null!, null!, transactionService, null!);
 await Reject(async () => await orderService.CreateOrderAsync(new OrderCreateDto { PaymentMethod = (PaymentMethod)99 }));
 await Reject(async () => await service.CreateTransactionAsync(new TransactionCreateAdvancedDto { PaymentMethod = (PaymentMethod)99 }));
 Console.WriteLine("PASS COD: persisted pending, zero gateway calls, null URL, invalid methods rejected");

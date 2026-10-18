@@ -30,6 +30,8 @@ namespace Ecom.Infrastructure.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<ShippingAddress> ShippingAddresses { get; set; }
+        public DbSet<ShippingSettings> ShippingSettings { get; set; }
+        public DbSet<ShippingAreaRate> ShippingAreaRates { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<Rating> Ratings { get; set; }
         public DbSet<Coupon> Coupons { get; set; }
@@ -52,6 +54,39 @@ namespace Ecom.Infrastructure.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<ShippingSettings>(entity =>
+            {
+                entity.Property(e => e.Id).ValueGeneratedNever();
+                entity.Property(e => e.DefaultFee).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.FreeShippingThreshold).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.Version).IsConcurrencyToken();
+                entity.HasMany(e => e.Areas).WithOne().HasForeignKey(e => e.ShippingSettingsId).OnDelete(DeleteBehavior.Cascade);
+                entity.ToTable(table =>
+                {
+                    table.HasCheckConstraint("CK_ShippingSettings_Singleton", "\"Id\" = 1");
+                    table.HasCheckConstraint("CK_ShippingSettings_DefaultFee", "\"DefaultFee\" BETWEEN 0 AND 1000000");
+                    table.HasCheckConstraint("CK_ShippingSettings_Threshold", "\"FreeShippingThreshold\" IS NULL OR \"FreeShippingThreshold\" BETWEEN 0 AND 1000000");
+                    table.HasCheckConstraint("CK_ShippingSettings_Version", "\"Version\" > 0");
+                });
+                entity.HasData(new ShippingSettings { Id = 1, DefaultFee = 2m, FreeShippingThreshold = 20m, Version = 1 });
+            });
+            modelBuilder.Entity<ShippingAreaRate>(entity =>
+            {
+                entity.HasKey(e => new { e.ShippingSettingsId, e.CityKey });
+                entity.Property(e => e.CityKey).HasMaxLength(100);
+                entity.Property(e => e.City).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Fee).HasColumnType("decimal(18,3)");
+                entity.ToTable(table => table.HasCheckConstraint("CK_ShippingAreaRates_Fee", "\"Fee\" BETWEEN 0 AND 1000000"));
+                entity.HasData(
+                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "مدينة صباح الأحمد", City = "مدينة صباح الأحمد", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "الخيران", City = "الخيران", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "العبدلي", City = "العبدلي", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "الوفرة", City = "الوفرة", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "صباح السالم", City = "صباح السالم", Fee = 3m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "الأحمدي", City = "الأحمدي", Fee = 3m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "المطلاع", City = "المطلاع", Fee = 4m });
+            });
 
             // Configure Category
             modelBuilder.Entity<Category>(entity =>

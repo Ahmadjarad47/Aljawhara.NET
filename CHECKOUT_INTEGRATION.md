@@ -1,5 +1,10 @@
 # Checkout shipping and payment
 
+Shipping fees and free-shipping offers are now managed at `/admin/shipping`.
+Use `GET /api/shipping` for storefront estimates; see
+[dynamic shipping integration](docs/DYNAMIC_SHIPPING.md) for the admin API,
+validation rules, and deployment order.
+
 Use the existing `POST /api/Orders` endpoint. JSON fields use camelCase.
 
 ```json

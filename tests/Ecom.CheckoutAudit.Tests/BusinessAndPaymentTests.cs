@@ -70,7 +70,7 @@ public class BusinessAndPaymentTests
             "Dispose" => null,
             _ => throw new InvalidOperationException($"Unexpected UoW call: {method.Name}")
         });
-        var service = new OrderService(uow, TestMapper.Create(), null!, null!, null!);
+        var service = new OrderService(uow, TestMapper.Create(), null!, null!, null!, null!);
 
         await Assert.ThrowsAsync<NotSupportedException>(() => service.ProcessPaymentAsync(new TransactionCreateDto
         {

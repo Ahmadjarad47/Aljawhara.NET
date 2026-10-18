@@ -70,7 +70,7 @@ public class GuestAccessTests
             "Dispose" => null,
             _ => throw new InvalidOperationException($"Unexpected unit of work call: {method.Name}")
         });
-        var service = new OrderService(uow, TestMapper.Create(), null!, null!, null!);
+        var service = new OrderService(uow, TestMapper.Create(), null!, null!, null!, null!);
 
         var rawToken = await service.RotateGuestAccessTokenAsync(guest.Id);
 
@@ -95,7 +95,7 @@ public class GuestAccessTests
             "Dispose" => null,
             _ => throw new InvalidOperationException($"Unexpected unit of work call: {method.Name}")
         });
-        return new OrderService(uow, TestMapper.Create(), null!, null!, null!);
+        return new OrderService(uow, TestMapper.Create(), null!, null!, null!, null!);
     }
 
     private static string Hash(string value) =>

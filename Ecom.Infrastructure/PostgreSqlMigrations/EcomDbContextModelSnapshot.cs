@@ -1314,6 +1314,120 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.ToTable("ShippingAddresses");
                 });
 
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingAreaRate", b =>
+                {
+                    b.Property<int>("ShippingSettingsId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CityKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("Fee")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.HasKey("ShippingSettingsId", "CityKey");
+
+                    b.ToTable("ShippingAreaRates", t =>
+                        {
+                            t.HasCheckConstraint("CK_ShippingAreaRates_Fee", "\"Fee\" BETWEEN 0 AND 1000000");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            CityKey = "مدينة صباح الأحمد",
+                            City = "مدينة صباح الأحمد",
+                            Fee = 6m
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            CityKey = "الخيران",
+                            City = "الخيران",
+                            Fee = 6m
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            CityKey = "العبدلي",
+                            City = "العبدلي",
+                            Fee = 6m
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            CityKey = "الوفرة",
+                            City = "الوفرة",
+                            Fee = 6m
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            CityKey = "صباح السالم",
+                            City = "صباح السالم",
+                            Fee = 3m
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            CityKey = "الأحمدي",
+                            City = "الأحمدي",
+                            Fee = 3m
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            CityKey = "المطلاع",
+                            City = "المطلاع",
+                            Fee = 4m
+                        });
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("DefaultFee")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal?>("FreeShippingThreshold")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ShippingSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_ShippingSettings_DefaultFee", "\"DefaultFee\" BETWEEN 0 AND 1000000");
+
+                            t.HasCheckConstraint("CK_ShippingSettings_Singleton", "\"Id\" = 1");
+
+                            t.HasCheckConstraint("CK_ShippingSettings_Threshold", "\"FreeShippingThreshold\" IS NULL OR \"FreeShippingThreshold\" BETWEEN 0 AND 1000000");
+
+                            t.HasCheckConstraint("CK_ShippingSettings_Version", "\"Version\" > 0");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            DefaultFee = 2m,
+                            FreeShippingThreshold = 20m,
+                            Version = 1L
+                        });
+                });
+
             modelBuilder.Entity("Ecom.Domain.Entity.SubCategory", b =>
                 {
                     b.Property<int>("Id")
@@ -1831,6 +1945,15 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Navigation("AppUser");
                 });
 
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingAreaRate", b =>
+                {
+                    b.HasOne("Ecom.Domain.Entity.ShippingSettings", null)
+                        .WithMany("Areas")
+                        .HasForeignKey("ShippingSettingsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Ecom.Domain.Entity.SubCategory", b =>
                 {
                     b.HasOne("Ecom.Domain.Entity.Category", "Category")
@@ -1951,6 +2074,11 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
             modelBuilder.Entity("Ecom.Domain.Entity.ProductVariant", b =>
                 {
                     b.Navigation("Values");
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingSettings", b =>
+                {
+                    b.Navigation("Areas");
                 });
 
             modelBuilder.Entity("Ecom.Domain.Entity.SubCategory", b =>

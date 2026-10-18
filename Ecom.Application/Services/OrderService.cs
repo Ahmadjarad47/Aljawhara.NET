@@ -23,6 +23,7 @@ namespace Ecom.Application.Services
        ICouponService couponService,
        IProductService productService,
        ITransactionService transaction,
+       IShippingService shippingService,
        IConfiguration? configuration = null
    ) : IOrderService
     {
@@ -160,7 +161,7 @@ namespace Ecom.Application.Services
                             order.CouponDiscountAmount = discount;
                             couponType = coupon.Type;
                         }
-                        order.Shipping = KwdMoney.Round(CalculateShipping(order.Subtotal, couponType, shipping.City));
+                        order.Shipping = KwdMoney.Round(await shippingService.CalculateAsync(order.Subtotal, couponType, shipping.City));
                         order.Tax = KwdMoney.Round(CalculateTax(order.Subtotal));
                         order.Total = KwdMoney.Round(order.Subtotal + order.Shipping + order.Tax - discount);
 
@@ -726,49 +727,6 @@ namespace Ecom.Application.Services
 
         private static string HashGuestAccessToken(string token) =>
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-
-        private static decimal CalculateShipping(decimal subtotal, CouponType? couponType = null, string? city = null)
-        {
-            // Offer: free shipping for orders with subtotal 20 or more.
-            if (subtotal >= 20)
-            {
-                return 0;
-            }
-
-            // Check if coupon provides free shipping
-            if (couponType.HasValue && couponType.Value == CouponType.FreeShipping)
-            {
-                return 0;
-            }
-
-            // Area-based delivery fees
-            if (string.IsNullOrEmpty(city))
-            {
-                return 2; // Default fee if city is not provided
-            }
-
-            // Areas with 6 KWD delivery fee
-            var highFeeAreas = new[] { "مدينة صباح الأحمد", "الخيران", "العبدلي", "الوفرة" };
-            if (highFeeAreas.Contains(city))
-            {
-                return 6;
-            }
-
-            // Areas with 3 KWD delivery fee
-            if (city == "صباح السالم"||city== "الأحمدي")
-            {
-                return 3;
-            }
-
-            // Areas with 4 KWD delivery fee
-            if (city == "المطلاع")
-            {
-                return 4;
-            }
-
-            // Default fee for all other areas: 2 KWD
-            return 2;
-        }
 
         private static decimal CalculateTax(decimal subtotal)
         {
