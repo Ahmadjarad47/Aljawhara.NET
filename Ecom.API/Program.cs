@@ -59,14 +59,20 @@ builder.Services.AddHttpClient("Sadad", client =>
 // Performance: Enable connection pooling and query optimizations
 builder.Services.AddDbContext<EcomDbContext>((serviceProvider, options) =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    options.UseSqlServer(connectionString, sqlOptions =>
+    var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException(
+            "Database connection is not configured. Set the ConnectionStrings__DefaultConnection environment variable.");
+    }
+
+    options.UseNpgsql(connectionString, sqlOptions =>
     {
         // Performance: Enable connection resiliency
         sqlOptions.EnableRetryOnFailure(
             maxRetryCount: 3,
             maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null);
+            errorCodesToAdd: null);
         // Performance: Enable query splitting for better performance
         sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
     });
@@ -171,6 +177,17 @@ builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<ICarouselService, CarouselService>();
+
+if (builder.Environment.IsProduction() && builder.Configuration.GetValue("DatabaseBackup:Enabled", true))
+{
+    builder.Services.AddOptions<DatabaseBackupOptions>()
+        .Bind(builder.Configuration.GetSection("DatabaseBackup"))
+        .Validate(o => Path.IsPathFullyQualified(o.Directory), "DatabaseBackup:Directory must be an absolute path.")
+        .Validate(o => o.HourUtc is >= 0 and <= 23, "DatabaseBackup:HourUtc must be between 0 and 23.")
+        .Validate(o => o.RetentionDays >= 1 && o.TimeoutMinutes >= 1, "Backup retention and timeout must be positive.")
+        .ValidateOnStart();
+    builder.Services.AddHostedService<PostgresBackupService>();
+}
 
 // Add Memory Cache for OTP storage
 builder.Services.AddMemoryCache(options =>

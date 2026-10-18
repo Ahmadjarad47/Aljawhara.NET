@@ -31,5 +31,5 @@ public class PaymentAttempt : BaseEntity
     public string? LastErrorCode { get; set; }
     public string? LeaseOwner { get; set; }
     public DateTime? LeaseUntilUtc { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public uint RowVersion { get; set; }
 }

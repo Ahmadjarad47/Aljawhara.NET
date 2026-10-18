@@ -370,7 +370,7 @@ public class BusinessAndPaymentTests
     public void Production_transaction_model_has_no_idempotency_or_concurrency_key()
     {
         var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Ecom.Infrastructure.Data.EcomDbContext>()
-            .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=metadata-only;Trusted_Connection=True")
+            .UseNpgsql("Host=localhost;Database=metadata-only;Username=unused")
             .Options;
         using var context = new Ecom.Infrastructure.Data.EcomDbContext(options);
         var entity = context.Model.FindEntityType(typeof(Transaction))!;

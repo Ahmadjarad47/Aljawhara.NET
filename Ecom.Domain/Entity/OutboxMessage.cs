@@ -15,5 +15,5 @@ public class OutboxMessage : BaseEntity
     public DateTime? LeaseUntilUtc { get; set; }
     public DateTime? ProcessedAtUtc { get; set; }
     public string? LastErrorCode { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public uint RowVersion { get; set; }
 }

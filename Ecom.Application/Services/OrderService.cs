@@ -614,7 +614,12 @@ namespace Ecom.Application.Services
                 await connection.OpenAsync();
             await using var command = connection.CreateCommand();
             command.Transaction = context.Database.CurrentTransaction?.GetDbTransaction();
-            command.CommandText = "MERGE [OrderNumberCounters] WITH (HOLDLOCK) AS target USING (SELECT @dateKey AS [DateKey]) AS source ON target.[DateKey]=source.[DateKey] WHEN MATCHED THEN UPDATE SET [NextValue]=target.[NextValue]+1 WHEN NOT MATCHED THEN INSERT ([DateKey],[NextValue]) VALUES (@dateKey,1) OUTPUT inserted.[NextValue];";
+            command.CommandText = """
+                INSERT INTO "OrderNumberCounters" ("DateKey", "NextValue") VALUES (@dateKey, 1)
+                ON CONFLICT ("DateKey") DO UPDATE
+                SET "NextValue" = "OrderNumberCounters"."NextValue" + 1
+                RETURNING "NextValue";
+                """;
             var parameter = command.CreateParameter();
             parameter.ParameterName = "@dateKey";
             parameter.Value = dateKey;

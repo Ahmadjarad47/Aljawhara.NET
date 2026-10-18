@@ -6,10 +6,10 @@ using Ecom.Infrastructure.Repositories;
 
 namespace Ecom.CheckoutAudit.Tests;
 
-public class SqlServerIntegrationTests : IAsyncLifetime
+public class PostgresIntegrationTests : IAsyncLifetime
 {
     private readonly string _databaseName = $"EcomCheckoutAudit_{Guid.NewGuid():N}";
-    private string ConnectionString => $"Server=(localdb)\\MSSQLLocalDB;Database={_databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+    private string ConnectionString => PostgresTestDatabase.ConnectionString(_databaseName);
 
     public async ValueTask InitializeAsync()
     {
@@ -135,7 +135,7 @@ public class SqlServerIntegrationTests : IAsyncLifetime
     private EcomDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<EcomDbContext>()
-            .UseSqlServer(ConnectionString)
+            .UseNpgsql(ConnectionString)
             .EnableSensitiveDataLogging(false)
             .Options;
         return new EcomDbContext(options);

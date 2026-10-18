@@ -28,7 +28,7 @@ jobs:
             git reset --hard origin/master
 
             echo "Publishing project..."
-            dotnet publish -c Release -o /var/www/Aljawhara.NET/publish
+            dotnet publish Ecom.API/Ecom.API.csproj -c Release -o /var/www/Aljawhara.NET/publish
 
             echo "Restarting service..."
             systemctl stop aljawhara.service || true

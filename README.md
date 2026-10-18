@@ -23,7 +23,7 @@ This solution follows **Clean Architecture** pattern with clear separation of co
 ### Technical Features
 - **Repository Pattern** with Unit of Work
 - **AutoMapper** for object mapping
-- **Entity Framework Core** with SQL Server
+- **Entity Framework Core** with PostgreSQL
 - **ASP.NET Core Identity** for authentication
 - **Swagger/OpenAPI** documentation
 - **Clean Architecture** principles
@@ -31,7 +31,7 @@ This solution follows **Clean Architecture** pattern with clear separation of co
 ## 📋 Prerequisites
 
 - .NET 10.0 SDK or later
-- SQL Server (LocalDB or full SQL Server)
+- PostgreSQL with matching `pg_dump` / `pg_restore` tools for production backups
 - Visual Studio 2024+ or VS Code
 
 ## 🔧 Setup Instructions
@@ -44,16 +44,42 @@ dotnet restore
 ```
 
 ### 2. Database Setup
-The application is configured to use LocalDB by default. The connection string in `appsettings.json`:
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=EcomTaaniDb;Trusted_Connection=true;MultipleActiveResultSets=true"
-  }
-}
+Set the database connection through the `ConnectionStrings__DefaultConnection`
+environment variable before running the API or Entity Framework migrations.
+For example, in PowerShell:
+
+```powershell
+$env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5432;Database=EcomTaaniDb;Username=aljawhara;Password=your-password'
 ```
 
-### 3. Build and Run
+For deployments, supply this variable through the service environment or secret
+store with your PostgreSQL connection string. Do not commit database credentials
+to configuration files. The API and migration tool report a configuration error
+when no connection string is supplied.
+
+For your Ubuntu VPS, existing SQL Server data transfer, systemd environment setup,
+daily production backups and restore instructions, follow
+[the PostgreSQL deployment guide](docs/POSTGRESQL_UBUNTU.md) before deploying.
+
+### 3. Local development secrets
+
+The API loads .NET User Secrets in Development. Before the first run, generate
+two independent random keys and store them outside the repository (PowerShell):
+
+```powershell
+$guestKey = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+$jwtKey = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+dotnet user-secrets set "CheckoutSecurity:GuestTokenDerivationKey" $guestKey --project Ecom.API
+dotnet user-secrets set "JwtSettings:SecretKey" $jwtKey --project Ecom.API
+```
+
+Keep these keys stable between runs. Regenerating them invalidates existing JWTs
+and affects recovery of existing guest checkouts. User Secrets are for local
+development; deployments must supply `CheckoutSecurity__GuestTokenDerivationKey`
+and `JwtSettings__SecretKey` through their secret store or environment variables.
+Both values must contain at least 32 UTF-8 bytes.
+
+### 4. Build and Run
 ```bash
 # Build the solution
 dotnet build

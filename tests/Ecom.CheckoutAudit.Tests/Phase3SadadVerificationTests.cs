@@ -15,7 +15,7 @@ namespace Ecom.CheckoutAudit.Tests;
 public sealed class Phase3SadadVerificationTests : IAsyncLifetime
 {
     private readonly string _databaseName = $"EcomPhase3_{Guid.NewGuid():N}";
-    private string ConnectionString => $"Server=(localdb)\\MSSQLLocalDB;Database={_databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+    private string ConnectionString => PostgresTestDatabase.ConnectionString(_databaseName);
 
     public async ValueTask InitializeAsync()
     {
@@ -220,7 +220,7 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
             await db.PaymentAttempts.Select(a => a.Status).SingleAsync(TestContext.Current.CancellationToken));
     }
 
-    private EcomDbContext CreateContext() => new(new DbContextOptionsBuilder<EcomDbContext>().UseSqlServer(ConnectionString).Options);
+    private EcomDbContext CreateContext() => new(new DbContextOptionsBuilder<EcomDbContext>().UseNpgsql(ConnectionString).Options);
 
     private IConfiguration Configuration(bool getAllCertified = true) => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
     {

@@ -3,6 +3,7 @@
 	  <TargetFramework>net10.0</TargetFramework>
 	  <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>d94c41cf-dacc-40d9-8fa7-373cdf20f209</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />

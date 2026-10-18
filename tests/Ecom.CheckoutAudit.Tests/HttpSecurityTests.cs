@@ -16,6 +16,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Ecom.CheckoutAudit.Tests;
 
@@ -50,7 +52,7 @@ public sealed class HttpSecurityTests : IAsyncLifetime
     }
 
     private string ConnectionString =>
-        $"Server=(localdb)\\MSSQLLocalDB;Database={_databaseName};Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+        PostgresTestDatabase.ConnectionString(_databaseName);
 
     [Fact]
     public async Task Legacy_fake_paid_attempt_is_rejected_at_http_boundary()
@@ -426,6 +428,10 @@ internal sealed class CheckoutApiFactory(string connectionString) : WebApplicati
             }));
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<DbContextOptions<EcomDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<EcomDbContext>>();
+            services.AddDbContext<EcomDbContext>(options => options.UseNpgsql(connectionString));
+
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;

@@ -43,6 +43,12 @@ namespace Ecom.Infrastructure.Data
         public DbSet<PaymentTransitionAudit> PaymentTransitionAudits { get; set; }
         public DbSet<OrderNumberCounter> OrderNumberCounters { get; set; }
 
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            base.ConfigureConventions(configurationBuilder);
+            configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -160,7 +166,7 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Image).HasMaxLength(500);
                 entity.Property(e => e.Price).HasColumnType("decimal(18,3)");
-                entity.ToTable(table => table.HasCheckConstraint("CK_OrderItems_Quantity_Positive", "[Quantity] > 0"));
+                entity.ToTable(table => table.HasCheckConstraint("CK_OrderItems_Quantity_Positive", "\"Quantity\" > 0"));
                 entity.HasOne(e => e.Order)
                       .WithMany(e => e.Items)
                       .HasForeignKey(e => e.OrderId)
@@ -239,8 +245,8 @@ namespace Ecom.Infrastructure.Data
                       .OnDelete(DeleteBehavior.SetNull);
                 entity.ToTable(table =>
                 {
-                    table.HasCheckConstraint("CK_Coupons_UsedCount_NonNegative", "[UsedCount] >= 0");
-                    table.HasCheckConstraint("CK_Coupons_UsageLimit", "[UsageLimit] IS NULL OR ([UsageLimit] >= 0 AND [UsedCount] <= [UsageLimit])");
+                    table.HasCheckConstraint("CK_Coupons_UsedCount_NonNegative", "\"UsedCount\" >= 0");
+                    table.HasCheckConstraint("CK_Coupons_UsageLimit", "\"UsageLimit\" IS NULL OR (\"UsageLimit\" >= 0 AND \"UsedCount\" <= \"UsageLimit\")");
                 });
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
@@ -250,7 +256,7 @@ namespace Ecom.Infrastructure.Data
                 .HasIndex(p => p.SubCategoryId);
 
             modelBuilder.Entity<Product>()
-                .ToTable(table => table.HasCheckConstraint("CK_Products_TotalInStock_NonNegative", "[TotalInStock] >= 0"));
+                .ToTable(table => table.HasCheckConstraint("CK_Products_TotalInStock_NonNegative", "\"TotalInStock\" >= 0"));
 
             modelBuilder.Entity<Order>()
                 .HasIndex(o => o.AppUserId);
@@ -262,7 +268,7 @@ namespace Ecom.Infrastructure.Data
             modelBuilder.Entity<Order>()
                 .HasIndex(o => o.CheckoutIdempotencyKeyHash)
                 .IsUnique()
-                .HasFilter("[CheckoutIdempotencyKeyHash] IS NOT NULL");
+                .HasFilter("\"CheckoutIdempotencyKeyHash\" IS NOT NULL");
 
             modelBuilder.Entity<Coupon>()
                 .HasIndex(c => c.Code)
@@ -333,14 +339,14 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.RowVersion).IsRowVersion();
                 entity.HasIndex(e => e.IdempotencyKeyHash).IsUnique();
                 entity.HasIndex(e => e.MerchantReference).IsUnique();
-                entity.HasIndex(e => e.OrderId).IsUnique().HasFilter("[Status] IN (0, 1, 2, 3)");
-                entity.HasIndex(e => e.GatewayInvoiceId).IsUnique().HasFilter("[GatewayInvoiceId] IS NOT NULL");
+                entity.HasIndex(e => e.OrderId).IsUnique().HasFilter("\"Status\" IN (0, 1, 2, 3)");
+                entity.HasIndex(e => e.GatewayInvoiceId).IsUnique().HasFilter("\"GatewayInvoiceId\" IS NOT NULL");
                 entity.HasOne(e => e.Order).WithMany(e => e.PaymentAttempts).HasForeignKey(e => e.OrderId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.Transaction).WithOne().HasForeignKey<PaymentAttempt>(e => e.TransactionId).OnDelete(DeleteBehavior.Restrict);
                 entity.ToTable(table =>
                 {
-                    table.HasCheckConstraint("CK_PaymentAttempts_Amount_Positive", "[Amount] > 0");
-                    table.HasCheckConstraint("CK_PaymentAttempts_Currency_KWD", "[Currency] = 'KWD'");
+                    table.HasCheckConstraint("CK_PaymentAttempts_Amount_Positive", "\"Amount\" > 0");
+                    table.HasCheckConstraint("CK_PaymentAttempts_Currency_KWD", "\"Currency\" = 'KWD'");
                 });
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
@@ -349,7 +355,7 @@ namespace Ecom.Infrastructure.Data
             {
                 entity.Property(e => e.RowVersion).IsRowVersion();
                 entity.HasIndex(e => new { e.OrderId, e.ProductId }).IsUnique();
-                entity.ToTable(table => table.HasCheckConstraint("CK_InventoryReservations_Quantity_Positive", "[Quantity] > 0"));
+                entity.ToTable(table => table.HasCheckConstraint("CK_InventoryReservations_Quantity_Positive", "\"Quantity\" > 0"));
                 entity.HasOne(e => e.Order).WithMany(e => e.InventoryReservations).HasForeignKey(e => e.OrderId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.Product).WithMany().HasForeignKey(e => e.ProductId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasQueryFilter(e => !e.IsDeleted);
@@ -373,7 +379,7 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.RowVersion).IsRowVersion();
                 entity.HasIndex(e => e.DeduplicationKey).IsUnique();
                 entity.HasIndex(e => new { e.Status, e.NextAttemptAtUtc });
-                entity.ToTable(table => table.HasCheckConstraint("CK_OutboxMessages_AttemptCount_NonNegative", "[AttemptCount] >= 0"));
+                entity.ToTable(table => table.HasCheckConstraint("CK_OutboxMessages_AttemptCount_NonNegative", "\"AttemptCount\" >= 0"));
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
@@ -390,7 +396,7 @@ namespace Ecom.Infrastructure.Data
             {
                 entity.HasKey(e => e.DateKey);
                 entity.Property(e => e.DateKey).ValueGeneratedNever();
-                entity.ToTable(table => table.HasCheckConstraint("CK_OrderNumberCounters_NextValue_Positive", "[NextValue] > 0"));
+                entity.ToTable(table => table.HasCheckConstraint("CK_OrderNumberCounters_NextValue_Positive", "\"NextValue\" > 0"));
             });
         }
 

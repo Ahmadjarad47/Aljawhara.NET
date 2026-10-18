@@ -14,5 +14,5 @@ public class InventoryReservation : BaseEntity
     public DateTime ExpiresAtUtc { get; set; }
     public DateTime? ConfirmedAtUtc { get; set; }
     public DateTime? ReleasedAtUtc { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public uint RowVersion { get; set; }
 }
