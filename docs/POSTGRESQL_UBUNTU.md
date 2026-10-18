@@ -49,12 +49,12 @@ SQL Server backup process and keep a copy away from the VPS. Back up the old
 application release and environment configuration too. Keep SQL Server available
 for rollback; this transfer tool never changes its data.
 
-First rehearse the transfer against a restored copy of production. The source must
-be at the schema represented by the archived SQL Server migrations, including the
-Phase3 verification migration. Apply any missing migrations with the old SQL Server
-release, after taking its backup. The transfer intentionally fails on missing
-tables/columns, invalid constraints, or a populated PostgreSQL target.
-
+The utility supports the actual six-migration legacy schema directly. Do not apply
+archived migrations automatically. See [the legacy migration report](../LEGACY_SQLSERVER_TO_POSTGRESQL_REPORT.md)
+for the mapping, tested VPS results, precision archive and exact rehearsal commands.
+Import is currently restricted to `dbOfEcom_migration_source` -> `ecom_migration_test`.
+Production cutover is a separate reviewed operation; do not stop production services
+merely to rehearse a restored copy. Read-only `--preflight` reports schema/data differences.
 Confirm the existing SQL Server datetime values represent UTC. Existing code uses
 UTC, and the transfer preserves these clock values as UTC timestamps. If any legacy
 data represents a different timezone, correct that conversion in a rehearsed import
@@ -74,7 +74,7 @@ Build the separate transfer tool locally with the .NET 10 SDK and copy its outpu
 to a private maintenance directory on the VPS:
 
 ```bash
-dotnet publish tools/Ecom.DatabaseTransfer -c Release -o artifacts/database-transfer
+dotnet publish tools/Ecom.DatabaseTransfer -c Release -r linux-x64 --self-contained true -o artifacts/database-transfer/linux-x64
 ```
 
 The tool uses two environment variables:
@@ -95,20 +95,19 @@ dotnet /path/to/private/database-transfer/Ecom.DatabaseTransfer.dll --source-tim
 unset SQLSERVER_SOURCE_CONNECTION ConnectionStrings__DefaultConnection
 ```
 
-Do not start the API to create the PostgreSQL database schema: the tool applies the
-PostgreSQL baseline itself, **without seeding**. The tool then:
+Provision the empty test target schema separately without seeding. The importer never applies EF migrations or creates databases. The tool then:
 
 1. Locks and checks that every target application table is empty.
 2. Holds read-only SQL Server table locks to prevent source changes during import.
 3. Streams all application tables using binary COPY, preserving
-   IDs, users, password hashes, orders, payments, inventory, reservations and audits.
+   IDs, users, password hashes, orders, payments and current inventory. New legacy-missing reservation/evidence/outbox tables remain empty; exact submicrosecond timestamps are archived separately.
    Foreign keys are temporarily deferred inside the target transaction to handle
    the existing user/address relationship cycle, then checked and restored before
    commit. Custom source tables/columns cause the tool to stop for review.
-4. Verifies each table's row count, advances identity sequences, and reconciles
+4. Verifies row counts, complete-row fingerprints and financial/inventory totals, advances identity sequences transactionally, and reconciles
    daily order counters. PostgreSQL creates new concurrency tokens (`xmin`).
 5. Commits target data as one transaction. A failure rolls back target data;
-   the empty schema may remain and can be reused for a corrected retry.
+   schema changes, timestamp archives and sequence changes roll back too.
 
 Compare row counts, stock totals, coupon usage, order totals, payment statuses,
 Arabic text and representative timestamps against the source. Test existing user

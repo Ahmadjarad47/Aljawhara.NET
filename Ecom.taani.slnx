@@ -7,8 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ecom.CheckoutAudit.Tests/Ecom.CheckoutAudit.Tests.csproj" />
-  </Folder>
-  <Folder Name="/tools/">
-    <Project Path="tools/Ecom.DatabaseTransfer/Ecom.DatabaseTransfer.csproj" />
+    <Project Path="tests/Ecom.DatabaseTransfer.Tests/Ecom.DatabaseTransfer.Tests.csproj" />
   </Folder>
 </Solution>

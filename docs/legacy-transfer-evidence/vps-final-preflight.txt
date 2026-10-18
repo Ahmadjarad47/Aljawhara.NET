@@ -1,0 +1,663 @@
+COLUMN AspNetRoleClaims.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN AspNetRoleClaims.RoleId: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetRoleClaims.ClaimType: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetRoleClaims.ClaimValue: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetRoles.Id: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetRoles.Name: SQL nvarchar length=512 precision=0 scale=0 nullable=True identity=False -> character varying(256)
+COLUMN AspNetRoles.NormalizedName: SQL nvarchar length=512 precision=0 scale=0 nullable=True identity=False -> character varying(256)
+COLUMN AspNetRoles.ConcurrencyStamp: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUserClaims.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN AspNetUserClaims.UserId: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserClaims.ClaimType: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUserClaims.ClaimValue: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUserLogins.LoginProvider: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserLogins.ProviderKey: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserLogins.ProviderDisplayName: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUserLogins.UserId: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserRoles.UserId: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserRoles.RoleId: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUsers.Id: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUsers.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN AspNetUsers.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN AspNetUsers.ShippingAddressesId: SQL int length=4 precision=10 scale=0 nullable=True identity=False -> integer
+COLUMN AspNetUsers.RefreshToken: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUsers.RefreshTokenExpiresAtUtc: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN AspNetUsers.UserName: SQL nvarchar length=512 precision=0 scale=0 nullable=True identity=False -> character varying(256)
+COLUMN AspNetUsers.NormalizedUserName: SQL nvarchar length=512 precision=0 scale=0 nullable=True identity=False -> character varying(256)
+COLUMN AspNetUsers.Email: SQL nvarchar length=512 precision=0 scale=0 nullable=True identity=False -> character varying(256)
+COLUMN AspNetUsers.NormalizedEmail: SQL nvarchar length=512 precision=0 scale=0 nullable=True identity=False -> character varying(256)
+COLUMN AspNetUsers.EmailConfirmed: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN AspNetUsers.PasswordHash: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUsers.SecurityStamp: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUsers.ConcurrencyStamp: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUsers.PhoneNumber: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN AspNetUsers.PhoneNumberConfirmed: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN AspNetUsers.TwoFactorEnabled: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN AspNetUsers.LockoutEnd: SQL datetimeoffset length=10 precision=34 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN AspNetUsers.LockoutEnabled: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN AspNetUsers.AccessFailedCount: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN AspNetUserTokens.UserId: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserTokens.LoginProvider: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserTokens.Name: SQL nvarchar length=900 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN AspNetUserTokens.Value: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Carousels.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Carousels.Title: SQL nvarchar length=400 precision=0 scale=0 nullable=False identity=False -> character varying(200)
+COLUMN Carousels.Description: SQL nvarchar length=2000 precision=0 scale=0 nullable=False identity=False -> character varying(1000)
+COLUMN Carousels.Price: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Carousels.Image: SQL nvarchar length=1000 precision=0 scale=0 nullable=False identity=False -> character varying(500)
+COLUMN Carousels.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Carousels.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Carousels.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Carousels.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Carousels.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Carousels.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Carousels.DescriptionAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Carousels.TitleAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Carousels.ProductUrl: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Categories.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Categories.Name: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN Categories.NameAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Categories.Description: SQL nvarchar length=1000 precision=0 scale=0 nullable=False identity=False -> character varying(500)
+COLUMN Categories.DescriptionAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Categories.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Categories.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Categories.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Categories.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Categories.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Categories.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Categories.Image: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Coupons.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Coupons.Code: SQL nvarchar length=100 precision=0 scale=0 nullable=False identity=False -> character varying(50)
+COLUMN Coupons.Description: SQL nvarchar length=1000 precision=0 scale=0 nullable=False identity=False -> character varying(500)
+COLUMN Coupons.Type: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Coupons.Value: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Coupons.MinimumOrderAmount: SQL decimal length=9 precision=18 scale=2 nullable=True identity=False -> numeric(18,3)
+COLUMN Coupons.MaximumDiscountAmount: SQL decimal length=9 precision=18 scale=2 nullable=True identity=False -> numeric(18,3)
+COLUMN Coupons.StartDate: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Coupons.EndDate: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Coupons.UsageLimit: SQL int length=4 precision=10 scale=0 nullable=True identity=False -> integer
+COLUMN Coupons.UsedCount: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Coupons.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Coupons.IsSingleUse: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Coupons.AppUserId: SQL nvarchar length=900 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Coupons.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Coupons.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Coupons.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Coupons.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Coupons.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN HealthPings.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN HealthPings.IsHealthy: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN HealthPings.Status: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN HealthPings.Error: SQL nvarchar length=2048 precision=0 scale=0 nullable=True identity=False -> character varying(1024)
+COLUMN HealthPings.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN HealthPings.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN HealthPings.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN HealthPings.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN HealthPings.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN HealthPings.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN OrderItems.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN OrderItems.ProductId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN OrderItems.OrderId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN OrderItems.Name: SQL nvarchar length=400 precision=0 scale=0 nullable=False identity=False -> character varying(200)
+COLUMN OrderItems.Image: SQL nvarchar length=1000 precision=0 scale=0 nullable=False identity=False -> character varying(500)
+COLUMN OrderItems.Price: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN OrderItems.Quantity: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN OrderItems.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN OrderItems.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN OrderItems.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN OrderItems.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN OrderItems.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN OrderItems.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Orders.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Orders.OrderNumber: SQL nvarchar length=100 precision=0 scale=0 nullable=False identity=False -> character varying(50)
+COLUMN Orders.Status: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Orders.Subtotal: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Orders.Shipping: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Orders.Tax: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Orders.Total: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Orders.CouponId: SQL int length=4 precision=10 scale=0 nullable=True identity=False -> integer
+COLUMN Orders.CouponDiscountAmount: SQL decimal length=9 precision=18 scale=2 nullable=True identity=False -> numeric(18,3)
+COLUMN Orders.ShippingAddressId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Orders.AppUserId: SQL nvarchar length=900 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Orders.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Orders.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Orders.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Orders.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Orders.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Orders.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ProductDetails.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN ProductDetails.Label: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ProductDetails.LabelAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ProductDetails.Value: SQL nvarchar length=1000 precision=0 scale=0 nullable=False identity=False -> character varying(500)
+COLUMN ProductDetails.ValueAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ProductDetails.ProductId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN ProductDetails.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN ProductDetails.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN ProductDetails.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ProductDetails.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ProductDetails.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ProductDetails.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Products.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Products.Title: SQL nvarchar length=400 precision=0 scale=0 nullable=False identity=False -> character varying(200)
+COLUMN Products.TitleAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Products.Description: SQL nvarchar length=4000 precision=0 scale=0 nullable=False identity=False -> character varying(2000)
+COLUMN Products.DescriptionAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Products.oldPrice: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Products.newPrice: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Products.IsInStock: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Products.TotalInStock: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Products.Images: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text[]
+COLUMN Products.SubCategoryId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Products.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Products.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Products.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Products.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Products.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Products.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ProductVariants.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN ProductVariants.Name: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ProductVariants.NameAr: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ProductVariants.ProductId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN ProductVariants.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN ProductVariants.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN ProductVariants.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ProductVariants.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ProductVariants.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ProductVariants.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ProductVariantValues.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN ProductVariantValues.Value: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ProductVariantValues.ValueAr: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ProductVariantValues.Price: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN ProductVariantValues.ProductVariantId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN ProductVariantValues.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN ProductVariantValues.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN ProductVariantValues.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ProductVariantValues.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ProductVariantValues.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ProductVariantValues.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Ratings.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Ratings.Content: SQL nvarchar length=2000 precision=0 scale=0 nullable=False identity=False -> character varying(1000)
+COLUMN Ratings.RatingNumber: SQL decimal length=5 precision=2 scale=1 nullable=False identity=False -> numeric(2,1)
+COLUMN Ratings.ProductId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Ratings.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Ratings.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Ratings.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Ratings.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Ratings.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Ratings.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ShippingAddresses.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN ShippingAddresses.FullName: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ShippingAddresses.PhoneNumber: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ShippingAddresses.AddressLine1: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ShippingAddresses.AddressLine2: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.City: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ShippingAddresses.State: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ShippingAddresses.PostalCode: SQL nvarchar length=40 precision=0 scale=0 nullable=False identity=False -> character varying(20)
+COLUMN ShippingAddresses.Country: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN ShippingAddresses.IsDefault: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ShippingAddresses.AppUserId: SQL nvarchar length=900 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.Phone: SQL nvarchar length=40 precision=0 scale=0 nullable=False identity=False -> character varying(20)
+COLUMN ShippingAddresses.Street: SQL nvarchar length=400 precision=0 scale=0 nullable=False identity=False -> character varying(200)
+COLUMN ShippingAddresses.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN ShippingAddresses.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN ShippingAddresses.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN ShippingAddresses.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ShippingAddresses.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN ShippingAddresses.AlDor: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.AlJada: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.AlManzil: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.AlQataa: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.AlShakka: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN ShippingAddresses.AlSharee: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN SubCategories.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN SubCategories.Name: SQL nvarchar length=200 precision=0 scale=0 nullable=False identity=False -> character varying(100)
+COLUMN SubCategories.NameAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN SubCategories.Description: SQL nvarchar length=1000 precision=0 scale=0 nullable=False identity=False -> character varying(500)
+COLUMN SubCategories.DescriptionAr: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN SubCategories.CategoryId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN SubCategories.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN SubCategories.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN SubCategories.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN SubCategories.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN SubCategories.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN SubCategories.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Transactions.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Transactions.OrderId: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Transactions.AppUserId: SQL nvarchar length=900 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Transactions.Amount: SQL decimal length=9 precision=18 scale=2 nullable=False identity=False -> numeric(18,3)
+COLUMN Transactions.PaymentMethod: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Transactions.TransactionDate: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Transactions.ProcessedDate: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Transactions.TransactionReference: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Transactions.PaymentGatewayResponse: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Transactions.Notes: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Transactions.IsRefunded: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Transactions.RefundAmount: SQL decimal length=9 precision=18 scale=2 nullable=True identity=False -> numeric(18,3)
+COLUMN Transactions.RefundDate: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Transactions.RefundReason: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Transactions.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Transactions.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Transactions.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Transactions.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Transactions.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Transactions.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Transactions.GatewayInvoiceId: SQL nvarchar length=200 precision=0 scale=0 nullable=True identity=False -> character varying(100)
+COLUMN Transactions.Status: SQL int length=4 precision=10 scale=0 nullable=False identity=False -> integer
+COLUMN Visitors.Id: SQL int length=4 precision=10 scale=0 nullable=False identity=True -> integer
+COLUMN Visitors.IpAddress: SQL nvarchar length=200 precision=0 scale=0 nullable=True identity=False -> character varying(100)
+COLUMN Visitors.UserAgent: SQL nvarchar length=2048 precision=0 scale=0 nullable=True identity=False -> character varying(1024)
+COLUMN Visitors.Path: SQL nvarchar length=1024 precision=0 scale=0 nullable=True identity=False -> character varying(512)
+COLUMN Visitors.VisitedAtUtc: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Visitors.CreatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=False identity=False -> timestamp with time zone
+COLUMN Visitors.UpdatedAt: SQL datetime2 length=8 precision=27 scale=7 nullable=True identity=False -> timestamp with time zone
+COLUMN Visitors.CreatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=False identity=False -> text
+COLUMN Visitors.UpdatedBy: SQL nvarchar length=-1 precision=0 scale=0 nullable=True identity=False -> text
+COLUMN Visitors.IsDeleted: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+COLUMN Visitors.IsActive: SQL bit length=1 precision=1 scale=0 nullable=False identity=False -> boolean
+SOURCE FK Transactions.OrderId->Orders.Id
+SOURCE FK Transactions.AppUserId->AspNetUsers.Id
+SOURCE FK AspNetRoleClaims.RoleId->AspNetRoles.Id
+SOURCE FK SubCategories.CategoryId->Categories.Id
+SOURCE FK Products.SubCategoryId->SubCategories.Id
+SOURCE FK ProductDetails.ProductId->Products.Id
+SOURCE FK ProductVariants.ProductId->Products.Id
+SOURCE FK Ratings.ProductId->Products.Id
+SOURCE FK ProductVariantValues.ProductVariantId->ProductVariants.Id
+SOURCE FK AspNetUserClaims.UserId->AspNetUsers.Id
+SOURCE FK AspNetUserLogins.UserId->AspNetUsers.Id
+SOURCE FK AspNetUserRoles.UserId->AspNetUsers.Id
+SOURCE FK AspNetUserRoles.RoleId->AspNetRoles.Id
+SOURCE FK AspNetUsers.ShippingAddressesId->ShippingAddresses.Id
+SOURCE FK AspNetUserTokens.UserId->AspNetUsers.Id
+SOURCE FK Coupons.AppUserId->AspNetUsers.Id
+SOURCE FK ShippingAddresses.AppUserId->AspNetUsers.Id
+SOURCE FK Orders.CouponId->Coupons.Id
+SOURCE FK Orders.ShippingAddressId->ShippingAddresses.Id
+SOURCE FK Orders.AppUserId->AspNetUsers.Id
+SOURCE FK OrderItems.ProductId->Products.Id
+SOURCE FK OrderItems.OrderId->Orders.Id
+MAPPED NEW FK CouponReservations.CouponId->Coupons.Id
+MAPPED NEW FK CouponReservations.OrderId->Orders.Id
+MAPPED NEW FK InventoryReservations.OrderId->Orders.Id
+MAPPED NEW FK InventoryReservations.ProductId->Products.Id
+MAPPED NEW FK PaymentAttempts.OrderId->Orders.Id
+MAPPED NEW FK PaymentAttempts.TransactionId->Transactions.Id
+MAPPED NEW FK PaymentTransitionAudits.PaymentAttemptId->PaymentAttempts.Id
+MAPPED NEW INDEX CouponReservations.IX_CouponReservations_CouponId
+MAPPED NEW INDEX CouponReservations.IX_CouponReservations_OrderId
+MAPPED NEW INDEX InventoryReservations.IX_InventoryReservations_ProductId
+MAPPED NEW INDEX InventoryReservations.IX_InventoryReservations_OrderId_ProductId
+MAPPED NEW INDEX Orders.IX_Orders_CheckoutIdempotencyKeyHash
+MAPPED NEW INDEX OutboxMessages.IX_OutboxMessages_DeduplicationKey
+MAPPED NEW INDEX OutboxMessages.IX_OutboxMessages_Status_NextAttemptAtUtc
+MAPPED NEW INDEX PaymentAttempts.IX_PaymentAttempts_GatewayInvoiceId
+MAPPED NEW INDEX PaymentAttempts.IX_PaymentAttempts_IdempotencyKeyHash
+MAPPED NEW INDEX PaymentAttempts.IX_PaymentAttempts_MerchantReference
+MAPPED NEW INDEX PaymentAttempts.IX_PaymentAttempts_OrderId
+MAPPED NEW INDEX PaymentAttempts.IX_PaymentAttempts_TransactionId
+MAPPED NEW INDEX PaymentTransitionAudits.IX_PaymentTransitionAudits_EventKey
+MAPPED NEW INDEX PaymentTransitionAudits.IX_PaymentTransitionAudits_PaymentAttemptId
+MAPPED EMPTY: missing table CouponReservations
+MAPPED EMPTY: missing table InventoryReservations
+MAPPED NULL: missing column Orders.CheckoutIdempotencyKeyHash
+MAPPED NULL: missing column Orders.CheckoutRequestHash
+MAPPED NULL: missing column Orders.GuestAccessExpiresAtUtc
+MAPPED NULL: missing column Orders.GuestAccessRevokedAtUtc
+MAPPED NULL: missing column Orders.GuestAccessTokenHash
+MAPPED NULL: missing column Orders.GuestTokenDerivationNonce
+MAPPED NULL: missing column Orders.ReservationExpiresAtUtc
+MAPPED EMPTY: missing table OrderNumberCounters
+MAPPED EMPTY: missing table OutboxMessages
+MAPPED EMPTY: missing table PaymentAttempts
+MAPPED EMPTY: missing table PaymentTransitionAudits
+MAPPED NULL: missing column Transactions.GatewayVerifiedAtUtc
+Source migration: 20251126130951_intital
+Source migration: 20251126152743_intital2
+Source migration: 20251126154433_intital3
+Source migration: 20251202205433_update shipping address
+Source migration: 20260212113603_UpdateTransactionStatusAndGatewayInvoiceId
+Source migration: 20260303220508_intital category
+TIMESTAMP ARCHIVE AspNetUsers.CreatedAt: 2 exact tick records required
+TIMESTAMP ARCHIVE AspNetUsers.RefreshTokenExpiresAtUtc: 3 exact tick records required
+TIMESTAMP ARCHIVE Carousels.CreatedAt: 5 exact tick records required
+TIMESTAMP ARCHIVE Carousels.UpdatedAt: 0 exact tick records required
+TIMESTAMP ARCHIVE Categories.CreatedAt: 15 exact tick records required
+TIMESTAMP ARCHIVE Categories.UpdatedAt: 14 exact tick records required
+TIMESTAMP ARCHIVE Coupons.CreatedAt: 14 exact tick records required
+TIMESTAMP ARCHIVE Coupons.EndDate: 1 exact tick records required
+TIMESTAMP ARCHIVE Coupons.StartDate: 1 exact tick records required
+TIMESTAMP ARCHIVE Coupons.UpdatedAt: 0 exact tick records required
+TIMESTAMP ARCHIVE HealthPings.CreatedAt: 9 exact tick records required
+TIMESTAMP ARCHIVE HealthPings.UpdatedAt: 0 exact tick records required
+TIMESTAMP ARCHIVE Orders.CreatedAt: 96 exact tick records required
+TIMESTAMP ARCHIVE Orders.UpdatedAt: 22 exact tick records required
+TIMESTAMP ARCHIVE OrderItems.CreatedAt: 118 exact tick records required
+TIMESTAMP ARCHIVE OrderItems.UpdatedAt: 0 exact tick records required
+TIMESTAMP ARCHIVE Products.CreatedAt: 535 exact tick records required
+TIMESTAMP ARCHIVE Products.UpdatedAt: 143 exact tick records required
+TIMESTAMP ARCHIVE ProductDetails.CreatedAt: 11 exact tick records required
+TIMESTAMP ARCHIVE ProductDetails.UpdatedAt: 0 exact tick records required
+TIMESTAMP ARCHIVE ProductVariants.CreatedAt: 40 exact tick records required
+TIMESTAMP ARCHIVE ProductVariants.UpdatedAt: 27 exact tick records required
+TIMESTAMP ARCHIVE ProductVariantValues.CreatedAt: 50 exact tick records required
+TIMESTAMP ARCHIVE ProductVariantValues.UpdatedAt: 32 exact tick records required
+TIMESTAMP ARCHIVE Ratings.CreatedAt: 2594 exact tick records required
+TIMESTAMP ARCHIVE Ratings.UpdatedAt: 0 exact tick records required
+TIMESTAMP ARCHIVE ShippingAddresses.CreatedAt: 59 exact tick records required
+TIMESTAMP ARCHIVE ShippingAddresses.UpdatedAt: 2 exact tick records required
+TIMESTAMP ARCHIVE SubCategories.CreatedAt: 34 exact tick records required
+TIMESTAMP ARCHIVE SubCategories.UpdatedAt: 4 exact tick records required
+TIMESTAMP ARCHIVE Transactions.CreatedAt: 45 exact tick records required
+TIMESTAMP ARCHIVE Transactions.ProcessedDate: 13 exact tick records required
+TIMESTAMP ARCHIVE Transactions.RefundDate: 0 exact tick records required
+TIMESTAMP ARCHIVE Transactions.TransactionDate: 45 exact tick records required
+TIMESTAMP ARCHIVE Transactions.UpdatedAt: 13 exact tick records required
+TIMESTAMP ARCHIVE Visitors.CreatedAt: 1159 exact tick records required
+TIMESTAMP ARCHIVE Visitors.UpdatedAt: 0 exact tick records required
+TIMESTAMP ARCHIVE Visitors.VisitedAtUtc: 0 exact tick records required
+TARGET CONSTRAINT __EFMigrationsHistory_MigrationId_not_null: NOT NULL "MigrationId"
+TARGET CONSTRAINT __EFMigrationsHistory_ProductVersion_not_null: NOT NULL "ProductVersion"
+TARGET CONSTRAINT PK___EFMigrationsHistory: PRIMARY KEY ("MigrationId")
+TARGET CONSTRAINT AspNetRoles_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT PK_AspNetRoles: PRIMARY KEY ("Id")
+TARGET CONSTRAINT Carousels_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Carousels_Title_not_null: NOT NULL "Title"
+TARGET CONSTRAINT Carousels_TitleAr_not_null: NOT NULL "TitleAr"
+TARGET CONSTRAINT Carousels_Description_not_null: NOT NULL "Description"
+TARGET CONSTRAINT Carousels_DescriptionAr_not_null: NOT NULL "DescriptionAr"
+TARGET CONSTRAINT Carousels_Price_not_null: NOT NULL "Price"
+TARGET CONSTRAINT Carousels_Image_not_null: NOT NULL "Image"
+TARGET CONSTRAINT Carousels_ProductUrl_not_null: NOT NULL "ProductUrl"
+TARGET CONSTRAINT Carousels_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Carousels_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Carousels_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT Carousels_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_Carousels: PRIMARY KEY ("Id")
+TARGET CONSTRAINT Categories_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Categories_Name_not_null: NOT NULL "Name"
+TARGET CONSTRAINT Categories_NameAr_not_null: NOT NULL "NameAr"
+TARGET CONSTRAINT Categories_Description_not_null: NOT NULL "Description"
+TARGET CONSTRAINT Categories_DescriptionAr_not_null: NOT NULL "DescriptionAr"
+TARGET CONSTRAINT Categories_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Categories_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Categories_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT Categories_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_Categories: PRIMARY KEY ("Id")
+TARGET CONSTRAINT HealthPings_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT HealthPings_IsHealthy_not_null: NOT NULL "IsHealthy"
+TARGET CONSTRAINT HealthPings_Status_not_null: NOT NULL "Status"
+TARGET CONSTRAINT HealthPings_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT HealthPings_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT HealthPings_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT HealthPings_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_HealthPings: PRIMARY KEY ("Id")
+TARGET CONSTRAINT CK_OrderNumberCounters_NextValue_Positive: CHECK (("NextValue" > 0))
+TARGET CONSTRAINT OrderNumberCounters_DateKey_not_null: NOT NULL "DateKey"
+TARGET CONSTRAINT OrderNumberCounters_NextValue_not_null: NOT NULL "NextValue"
+TARGET CONSTRAINT PK_OrderNumberCounters: PRIMARY KEY ("DateKey")
+TARGET CONSTRAINT CK_OutboxMessages_AttemptCount_NonNegative: CHECK (("AttemptCount" >= 0))
+TARGET CONSTRAINT OutboxMessages_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT OutboxMessages_Type_not_null: NOT NULL "Type"
+TARGET CONSTRAINT OutboxMessages_DeduplicationKey_not_null: NOT NULL "DeduplicationKey"
+TARGET CONSTRAINT OutboxMessages_Payload_not_null: NOT NULL "Payload"
+TARGET CONSTRAINT OutboxMessages_Status_not_null: NOT NULL "Status"
+TARGET CONSTRAINT OutboxMessages_AttemptCount_not_null: NOT NULL "AttemptCount"
+TARGET CONSTRAINT OutboxMessages_NextAttemptAtUtc_not_null: NOT NULL "NextAttemptAtUtc"
+TARGET CONSTRAINT OutboxMessages_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT OutboxMessages_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT OutboxMessages_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT OutboxMessages_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_OutboxMessages: PRIMARY KEY ("Id")
+TARGET CONSTRAINT Visitors_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Visitors_VisitedAtUtc_not_null: NOT NULL "VisitedAtUtc"
+TARGET CONSTRAINT Visitors_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Visitors_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Visitors_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT Visitors_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_Visitors: PRIMARY KEY ("Id")
+TARGET CONSTRAINT AspNetRoleClaims_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT AspNetRoleClaims_RoleId_not_null: NOT NULL "RoleId"
+TARGET CONSTRAINT PK_AspNetRoleClaims: PRIMARY KEY ("Id")
+TARGET CONSTRAINT SubCategories_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT SubCategories_Name_not_null: NOT NULL "Name"
+TARGET CONSTRAINT SubCategories_NameAr_not_null: NOT NULL "NameAr"
+TARGET CONSTRAINT SubCategories_Description_not_null: NOT NULL "Description"
+TARGET CONSTRAINT SubCategories_DescriptionAr_not_null: NOT NULL "DescriptionAr"
+TARGET CONSTRAINT SubCategories_CategoryId_not_null: NOT NULL "CategoryId"
+TARGET CONSTRAINT SubCategories_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT SubCategories_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT SubCategories_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT SubCategories_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_SubCategories: PRIMARY KEY ("Id")
+TARGET CONSTRAINT CK_Products_TotalInStock_NonNegative: CHECK (("TotalInStock" >= 0))
+TARGET CONSTRAINT Products_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Products_Title_not_null: NOT NULL "Title"
+TARGET CONSTRAINT Products_TitleAr_not_null: NOT NULL "TitleAr"
+TARGET CONSTRAINT Products_Description_not_null: NOT NULL "Description"
+TARGET CONSTRAINT Products_DescriptionAr_not_null: NOT NULL "DescriptionAr"
+TARGET CONSTRAINT Products_oldPrice_not_null: NOT NULL "oldPrice"
+TARGET CONSTRAINT Products_newPrice_not_null: NOT NULL "newPrice"
+TARGET CONSTRAINT Products_IsInStock_not_null: NOT NULL "IsInStock"
+TARGET CONSTRAINT Products_TotalInStock_not_null: NOT NULL "TotalInStock"
+TARGET CONSTRAINT Products_Images_not_null: NOT NULL "Images"
+TARGET CONSTRAINT Products_SubCategoryId_not_null: NOT NULL "SubCategoryId"
+TARGET CONSTRAINT Products_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Products_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Products_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT Products_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_Products: PRIMARY KEY ("Id")
+TARGET CONSTRAINT ProductDetails_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT ProductDetails_Label_not_null: NOT NULL "Label"
+TARGET CONSTRAINT ProductDetails_LabelAr_not_null: NOT NULL "LabelAr"
+TARGET CONSTRAINT ProductDetails_Value_not_null: NOT NULL "Value"
+TARGET CONSTRAINT ProductDetails_ValueAr_not_null: NOT NULL "ValueAr"
+TARGET CONSTRAINT ProductDetails_ProductId_not_null: NOT NULL "ProductId"
+TARGET CONSTRAINT ProductDetails_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT ProductDetails_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT ProductDetails_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT ProductDetails_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_ProductDetails: PRIMARY KEY ("Id")
+TARGET CONSTRAINT ProductVariants_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT ProductVariants_Name_not_null: NOT NULL "Name"
+TARGET CONSTRAINT ProductVariants_NameAr_not_null: NOT NULL "NameAr"
+TARGET CONSTRAINT ProductVariants_ProductId_not_null: NOT NULL "ProductId"
+TARGET CONSTRAINT ProductVariants_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT ProductVariants_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT ProductVariants_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT ProductVariants_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_ProductVariants: PRIMARY KEY ("Id")
+TARGET CONSTRAINT Ratings_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Ratings_Content_not_null: NOT NULL "Content"
+TARGET CONSTRAINT Ratings_RatingNumber_not_null: NOT NULL "RatingNumber"
+TARGET CONSTRAINT Ratings_ProductId_not_null: NOT NULL "ProductId"
+TARGET CONSTRAINT Ratings_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Ratings_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Ratings_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT Ratings_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_Ratings: PRIMARY KEY ("Id")
+TARGET CONSTRAINT ProductVariantValues_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT ProductVariantValues_Value_not_null: NOT NULL "Value"
+TARGET CONSTRAINT ProductVariantValues_ValueAr_not_null: NOT NULL "ValueAr"
+TARGET CONSTRAINT ProductVariantValues_Price_not_null: NOT NULL "Price"
+TARGET CONSTRAINT ProductVariantValues_ProductVariantId_not_null: NOT NULL "ProductVariantId"
+TARGET CONSTRAINT ProductVariantValues_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT ProductVariantValues_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT ProductVariantValues_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT ProductVariantValues_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_ProductVariantValues: PRIMARY KEY ("Id")
+TARGET CONSTRAINT AspNetUserClaims_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT AspNetUserClaims_UserId_not_null: NOT NULL "UserId"
+TARGET CONSTRAINT PK_AspNetUserClaims: PRIMARY KEY ("Id")
+TARGET CONSTRAINT AspNetUserLogins_LoginProvider_not_null: NOT NULL "LoginProvider"
+TARGET CONSTRAINT AspNetUserLogins_ProviderKey_not_null: NOT NULL "ProviderKey"
+TARGET CONSTRAINT AspNetUserLogins_UserId_not_null: NOT NULL "UserId"
+TARGET CONSTRAINT PK_AspNetUserLogins: PRIMARY KEY ("LoginProvider", "ProviderKey")
+TARGET CONSTRAINT AspNetUserRoles_UserId_not_null: NOT NULL "UserId"
+TARGET CONSTRAINT AspNetUserRoles_RoleId_not_null: NOT NULL "RoleId"
+TARGET CONSTRAINT PK_AspNetUserRoles: PRIMARY KEY ("UserId", "RoleId")
+TARGET CONSTRAINT AspNetUsers_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT AspNetUsers_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT AspNetUsers_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT AspNetUsers_EmailConfirmed_not_null: NOT NULL "EmailConfirmed"
+TARGET CONSTRAINT AspNetUsers_PhoneNumberConfirmed_not_null: NOT NULL "PhoneNumberConfirmed"
+TARGET CONSTRAINT AspNetUsers_TwoFactorEnabled_not_null: NOT NULL "TwoFactorEnabled"
+TARGET CONSTRAINT AspNetUsers_LockoutEnabled_not_null: NOT NULL "LockoutEnabled"
+TARGET CONSTRAINT AspNetUsers_AccessFailedCount_not_null: NOT NULL "AccessFailedCount"
+TARGET CONSTRAINT PK_AspNetUsers: PRIMARY KEY ("Id")
+TARGET CONSTRAINT AspNetUserTokens_UserId_not_null: NOT NULL "UserId"
+TARGET CONSTRAINT AspNetUserTokens_LoginProvider_not_null: NOT NULL "LoginProvider"
+TARGET CONSTRAINT AspNetUserTokens_Name_not_null: NOT NULL "Name"
+TARGET CONSTRAINT PK_AspNetUserTokens: PRIMARY KEY ("UserId", "LoginProvider", "Name")
+TARGET CONSTRAINT CK_Coupons_UsageLimit: CHECK ((("UsageLimit" IS NULL) OR (("UsageLimit" >= 0) AND ("UsedCount" <= "UsageLimit"))))
+TARGET CONSTRAINT CK_Coupons_UsedCount_NonNegative: CHECK (("UsedCount" >= 0))
+TARGET CONSTRAINT Coupons_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Coupons_Code_not_null: NOT NULL "Code"
+TARGET CONSTRAINT Coupons_Description_not_null: NOT NULL "Description"
+TARGET CONSTRAINT Coupons_Type_not_null: NOT NULL "Type"
+TARGET CONSTRAINT Coupons_Value_not_null: NOT NULL "Value"
+TARGET CONSTRAINT Coupons_StartDate_not_null: NOT NULL "StartDate"
+TARGET CONSTRAINT Coupons_EndDate_not_null: NOT NULL "EndDate"
+TARGET CONSTRAINT Coupons_UsedCount_not_null: NOT NULL "UsedCount"
+TARGET CONSTRAINT Coupons_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT Coupons_IsSingleUse_not_null: NOT NULL "IsSingleUse"
+TARGET CONSTRAINT Coupons_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Coupons_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Coupons_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT PK_Coupons: PRIMARY KEY ("Id")
+TARGET CONSTRAINT ShippingAddresses_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT ShippingAddresses_FullName_not_null: NOT NULL "FullName"
+TARGET CONSTRAINT ShippingAddresses_PhoneNumber_not_null: NOT NULL "PhoneNumber"
+TARGET CONSTRAINT ShippingAddresses_AddressLine1_not_null: NOT NULL "AddressLine1"
+TARGET CONSTRAINT ShippingAddresses_IsDefault_not_null: NOT NULL "IsDefault"
+TARGET CONSTRAINT ShippingAddresses_Phone_not_null: NOT NULL "Phone"
+TARGET CONSTRAINT ShippingAddresses_Street_not_null: NOT NULL "Street"
+TARGET CONSTRAINT ShippingAddresses_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT ShippingAddresses_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT ShippingAddresses_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT ShippingAddresses_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_ShippingAddresses: PRIMARY KEY ("Id")
+TARGET CONSTRAINT Orders_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Orders_OrderNumber_not_null: NOT NULL "OrderNumber"
+TARGET CONSTRAINT Orders_Status_not_null: NOT NULL "Status"
+TARGET CONSTRAINT Orders_Subtotal_not_null: NOT NULL "Subtotal"
+TARGET CONSTRAINT Orders_Shipping_not_null: NOT NULL "Shipping"
+TARGET CONSTRAINT Orders_Tax_not_null: NOT NULL "Tax"
+TARGET CONSTRAINT Orders_Total_not_null: NOT NULL "Total"
+TARGET CONSTRAINT Orders_ShippingAddressId_not_null: NOT NULL "ShippingAddressId"
+TARGET CONSTRAINT Orders_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Orders_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Orders_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT Orders_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_Orders: PRIMARY KEY ("Id")
+TARGET CONSTRAINT CouponReservations_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT CouponReservations_OrderId_not_null: NOT NULL "OrderId"
+TARGET CONSTRAINT CouponReservations_CouponId_not_null: NOT NULL "CouponId"
+TARGET CONSTRAINT CouponReservations_Status_not_null: NOT NULL "Status"
+TARGET CONSTRAINT CouponReservations_ExpiresAtUtc_not_null: NOT NULL "ExpiresAtUtc"
+TARGET CONSTRAINT CouponReservations_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT CouponReservations_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT CouponReservations_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT CouponReservations_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_CouponReservations: PRIMARY KEY ("Id")
+TARGET CONSTRAINT CK_InventoryReservations_Quantity_Positive: CHECK (("Quantity" > 0))
+TARGET CONSTRAINT InventoryReservations_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT InventoryReservations_OrderId_not_null: NOT NULL "OrderId"
+TARGET CONSTRAINT InventoryReservations_ProductId_not_null: NOT NULL "ProductId"
+TARGET CONSTRAINT InventoryReservations_Quantity_not_null: NOT NULL "Quantity"
+TARGET CONSTRAINT InventoryReservations_Status_not_null: NOT NULL "Status"
+TARGET CONSTRAINT InventoryReservations_ExpiresAtUtc_not_null: NOT NULL "ExpiresAtUtc"
+TARGET CONSTRAINT InventoryReservations_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT InventoryReservations_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT InventoryReservations_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT InventoryReservations_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_InventoryReservations: PRIMARY KEY ("Id")
+TARGET CONSTRAINT CK_OrderItems_Quantity_Positive: CHECK (("Quantity" > 0))
+TARGET CONSTRAINT OrderItems_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT OrderItems_ProductId_not_null: NOT NULL "ProductId"
+TARGET CONSTRAINT OrderItems_OrderId_not_null: NOT NULL "OrderId"
+TARGET CONSTRAINT OrderItems_Name_not_null: NOT NULL "Name"
+TARGET CONSTRAINT OrderItems_Image_not_null: NOT NULL "Image"
+TARGET CONSTRAINT OrderItems_Price_not_null: NOT NULL "Price"
+TARGET CONSTRAINT OrderItems_Quantity_not_null: NOT NULL "Quantity"
+TARGET CONSTRAINT OrderItems_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT OrderItems_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT OrderItems_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT OrderItems_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_OrderItems: PRIMARY KEY ("Id")
+TARGET CONSTRAINT Transactions_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT Transactions_OrderId_not_null: NOT NULL "OrderId"
+TARGET CONSTRAINT Transactions_Amount_not_null: NOT NULL "Amount"
+TARGET CONSTRAINT Transactions_PaymentMethod_not_null: NOT NULL "PaymentMethod"
+TARGET CONSTRAINT Transactions_Status_not_null: NOT NULL "Status"
+TARGET CONSTRAINT Transactions_TransactionDate_not_null: NOT NULL "TransactionDate"
+TARGET CONSTRAINT Transactions_IsRefunded_not_null: NOT NULL "IsRefunded"
+TARGET CONSTRAINT Transactions_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT Transactions_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT Transactions_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT Transactions_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_Transactions: PRIMARY KEY ("Id")
+TARGET CONSTRAINT CK_PaymentAttempts_Amount_Positive: CHECK (("Amount" > (0)::numeric))
+TARGET CONSTRAINT CK_PaymentAttempts_Currency_KWD: CHECK ((("Currency")::text = 'KWD'::text))
+TARGET CONSTRAINT PaymentAttempts_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT PaymentAttempts_OrderId_not_null: NOT NULL "OrderId"
+TARGET CONSTRAINT PaymentAttempts_TransactionId_not_null: NOT NULL "TransactionId"
+TARGET CONSTRAINT PaymentAttempts_IdempotencyKeyHash_not_null: NOT NULL "IdempotencyKeyHash"
+TARGET CONSTRAINT PaymentAttempts_RequestHash_not_null: NOT NULL "RequestHash"
+TARGET CONSTRAINT PaymentAttempts_MerchantReference_not_null: NOT NULL "MerchantReference"
+TARGET CONSTRAINT PaymentAttempts_Amount_not_null: NOT NULL "Amount"
+TARGET CONSTRAINT PaymentAttempts_Currency_not_null: NOT NULL "Currency"
+TARGET CONSTRAINT PaymentAttempts_Status_not_null: NOT NULL "Status"
+TARGET CONSTRAINT PaymentAttempts_DispatchCount_not_null: NOT NULL "DispatchCount"
+TARGET CONSTRAINT PaymentAttempts_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT PaymentAttempts_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT PaymentAttempts_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT PaymentAttempts_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_PaymentAttempts: PRIMARY KEY ("Id")
+TARGET CONSTRAINT PaymentTransitionAudits_Id_not_null: NOT NULL "Id"
+TARGET CONSTRAINT PaymentTransitionAudits_PaymentAttemptId_not_null: NOT NULL "PaymentAttemptId"
+TARGET CONSTRAINT PaymentTransitionAudits_FromStatus_not_null: NOT NULL "FromStatus"
+TARGET CONSTRAINT PaymentTransitionAudits_ToStatus_not_null: NOT NULL "ToStatus"
+TARGET CONSTRAINT PaymentTransitionAudits_EventKey_not_null: NOT NULL "EventKey"
+TARGET CONSTRAINT PaymentTransitionAudits_ReasonCode_not_null: NOT NULL "ReasonCode"
+TARGET CONSTRAINT PaymentTransitionAudits_CreatedAt_not_null: NOT NULL "CreatedAt"
+TARGET CONSTRAINT PaymentTransitionAudits_CreatedBy_not_null: NOT NULL "CreatedBy"
+TARGET CONSTRAINT PaymentTransitionAudits_IsDeleted_not_null: NOT NULL "IsDeleted"
+TARGET CONSTRAINT PaymentTransitionAudits_IsActive_not_null: NOT NULL "IsActive"
+TARGET CONSTRAINT PK_PaymentTransitionAudits: PRIMARY KEY ("Id")
+TARGET CONSTRAINT FK_PaymentAttempts_Orders_OrderId: FOREIGN KEY ("OrderId") REFERENCES "Orders"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_PaymentAttempts_Transactions_TransactionId: FOREIGN KEY ("TransactionId") REFERENCES "Transactions"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_PaymentTransitionAudits_PaymentAttempts_PaymentAttemptId: FOREIGN KEY ("PaymentAttemptId") REFERENCES "PaymentAttempts"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_AspNetUserClaims_AspNetUsers_UserId: FOREIGN KEY ("UserId") REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_AspNetUserLogins_AspNetUsers_UserId: FOREIGN KEY ("UserId") REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_AspNetUserRoles_AspNetUsers_UserId: FOREIGN KEY ("UserId") REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT __LegacyTimestampPrecision_TableName_not_null: NOT NULL "TableName"
+TARGET CONSTRAINT __LegacyTimestampPrecision_RowKey_not_null: NOT NULL "RowKey"
+TARGET CONSTRAINT __LegacyTimestampPrecision_ColumnName_not_null: NOT NULL "ColumnName"
+TARGET CONSTRAINT __LegacyTimestampPrecision_OriginalTicks_not_null: NOT NULL "OriginalTicks"
+TARGET CONSTRAINT __LegacyTimestampPrecision_pkey: PRIMARY KEY ("TableName", "RowKey", "ColumnName")
+TARGET CONSTRAINT FK_AspNetRoleClaims_AspNetRoles_RoleId: FOREIGN KEY ("RoleId") REFERENCES "AspNetRoles"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_SubCategories_Categories_CategoryId: FOREIGN KEY ("CategoryId") REFERENCES "Categories"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_Products_SubCategories_SubCategoryId: FOREIGN KEY ("SubCategoryId") REFERENCES "SubCategories"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_ProductDetails_Products_ProductId: FOREIGN KEY ("ProductId") REFERENCES "Products"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_ProductVariants_Products_ProductId: FOREIGN KEY ("ProductId") REFERENCES "Products"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_Ratings_Products_ProductId: FOREIGN KEY ("ProductId") REFERENCES "Products"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_ProductVariantValues_ProductVariants_ProductVariantId: FOREIGN KEY ("ProductVariantId") REFERENCES "ProductVariants"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_AspNetUserRoles_AspNetRoles_RoleId: FOREIGN KEY ("RoleId") REFERENCES "AspNetRoles"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_AspNetUserTokens_AspNetUsers_UserId: FOREIGN KEY ("UserId") REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_Coupons_AspNetUsers_AppUserId: FOREIGN KEY ("AppUserId") REFERENCES "AspNetUsers"("Id") ON DELETE SET NULL
+TARGET CONSTRAINT FK_ShippingAddresses_AspNetUsers_AppUserId: FOREIGN KEY ("AppUserId") REFERENCES "AspNetUsers"("Id") ON DELETE SET NULL
+TARGET CONSTRAINT FK_Orders_AspNetUsers_AppUserId: FOREIGN KEY ("AppUserId") REFERENCES "AspNetUsers"("Id") ON DELETE SET NULL
+TARGET CONSTRAINT FK_Orders_Coupons_CouponId: FOREIGN KEY ("CouponId") REFERENCES "Coupons"("Id") ON DELETE SET NULL
+TARGET CONSTRAINT FK_Orders_ShippingAddresses_ShippingAddressId: FOREIGN KEY ("ShippingAddressId") REFERENCES "ShippingAddresses"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_CouponReservations_Coupons_CouponId: FOREIGN KEY ("CouponId") REFERENCES "Coupons"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_CouponReservations_Orders_OrderId: FOREIGN KEY ("OrderId") REFERENCES "Orders"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_InventoryReservations_Orders_OrderId: FOREIGN KEY ("OrderId") REFERENCES "Orders"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_InventoryReservations_Products_ProductId: FOREIGN KEY ("ProductId") REFERENCES "Products"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_OrderItems_Orders_OrderId: FOREIGN KEY ("OrderId") REFERENCES "Orders"("Id") ON DELETE CASCADE
+TARGET CONSTRAINT FK_OrderItems_Products_ProductId: FOREIGN KEY ("ProductId") REFERENCES "Products"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_Transactions_AspNetUsers_AppUserId: FOREIGN KEY ("AppUserId") REFERENCES "AspNetUsers"("Id") ON DELETE SET NULL
+TARGET CONSTRAINT FK_Transactions_Orders_OrderId: FOREIGN KEY ("OrderId") REFERENCES "Orders"("Id") ON DELETE RESTRICT
+TARGET CONSTRAINT FK_AspNetUsers_ShippingAddresses_ShippingAddressesId: FOREIGN KEY ("ShippingAddressesId") REFERENCES "ShippingAddresses"("Id")
+Target column types, nullability, primary keys and foreign keys checked read-only.
+Read-only preflight completed.
