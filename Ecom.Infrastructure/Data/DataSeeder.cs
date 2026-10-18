@@ -26,10 +26,10 @@ namespace Ecom.Infrastructure.Data
             await context.Database.EnsureCreatedAsync();
 
             ////// Seed Roles
-            //await SeedRolesAsync(roleManager);
+            await SeedRolesAsync(roleManager);
 
             ////// Seed Admin User
-            //await SeedAdminUserAsync(userManager);
+            await SeedAdminUserAsync(userManager);
 
             //////// Seed all entities in order
             //await SeedCategoriesAsync(context);
@@ -44,7 +44,7 @@ namespace Ecom.Infrastructure.Data
             //await SeedOrderItemsAsync(context);
             //await SeedTransactionsAsync(context);
             //await SeedVisitorsAsync(context);
-            //await SeedHealthPingsAsync(context);
+            await SeedHealthPingsAsync(context);
         }
 
         /// <summary>
