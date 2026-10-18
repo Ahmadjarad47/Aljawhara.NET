@@ -73,6 +73,28 @@ namespace Ecom.Infrastructure.Repositories
             }
         }
 
+        public async Task<bool> TryReserveUsageAsync(int couponId, DateTime utcNow)
+        {
+            var affected = await _context.Coupons
+                .Where(c => c.Id == couponId && !c.IsDeleted && c.IsActive &&
+                            c.StartDate <= utcNow && c.EndDate >= utcNow &&
+                            (!c.UsageLimit.HasValue || c.UsedCount < c.UsageLimit.Value))
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(c => c.UsedCount, c => c.UsedCount + 1)
+                    .SetProperty(c => c.UpdatedAt, utcNow));
+            return affected == 1;
+        }
+
+        public async Task<bool> ReleaseReservedUsageAsync(int couponId)
+        {
+            var affected = await _context.Coupons
+                .Where(c => c.Id == couponId && c.UsedCount > 0)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(c => c.UsedCount, c => c.UsedCount - 1)
+                    .SetProperty(c => c.UpdatedAt, DateTime.UtcNow));
+            return affected == 1;
+        }
+
         public async Task<Coupon?> GetCouponWithDetailsAsync(int id)
         {
             return await _context.Coupons

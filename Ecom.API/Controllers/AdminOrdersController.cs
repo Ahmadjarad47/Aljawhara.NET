@@ -100,21 +100,6 @@ namespace Ecom.API.Controllers
             try
             {
                 var order = await _orderService.UpdateOrderStatusAsync(orderUpdateDto);
-                
-                // Send email notification to admin
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _emailService.SendOrderNotificationToAdminAsync(order,order.CustomerName, "StatusUpdated");
-                    }
-                    catch
-                    {
-                        // Log error but don't fail the status update
-                        // Email sending failures shouldn't prevent status update
-                    }
-                });
-                
                 return Ok(order);
             }
             catch (ArgumentException ex)

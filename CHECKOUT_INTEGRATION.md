@@ -35,3 +35,16 @@ For account address endpoints, use `addressLine1` and `phoneNumber` instead of c
 Apply `20261017161057_MakeShippingLocationFieldsOptional` to each deployed database. The existing API startup applies pending migrations. Payment selection uses the existing transaction column and requires no additional migration.
 
 Run payment regression checks with `dotnet run --project tests/Checkout.PaymentChecks/PaymentChecks.csproj --configuration Release`. These checks use repository doubles and a mocked HTTP gateway; they do not create real orders or contact Sadad.
+# Phase 2 retry and asynchronous payment initialization
+
+Clients should attach a high-entropy `Idempotency-Key` to `POST /api/orders`. Retrying the same body with the same key returns the same logical checkout; changing the body returns HTTP 409. Existing clients without the header still work but do not receive retry deduplication.
+
+Electronic checkout is asynchronous. The response retains existing transaction fields and adds `paymentAttemptId`, `merchantReference`, `paymentInitializationStatus`, and `reservationExpiresAtUtc`. Poll `GET /api/orders/{id}/payment-status`; authenticated owners use their JWT and guests use `X-Guest-Order-Token`. A URL is returned only after the durable worker has safely stored it. `RequiresReconciliation` must be shown as pending/manual review, never as paid.
+
+After a terminal attempt failure, retry with `POST /api/orders/{id}/payment-attempts`, a new `Idempotency-Key`, and the same owner/guest authorization. Do not retry while the status is pending, dispatching, awaiting payment, or reconciliation.
+
+# Phase 3 verified payment completion
+
+`paymentInitializationStatus` now includes `Paid = 5`. The complete numeric mapping is `NotApplicable=0`, `Pending=1`, `Ready=2`, `RequiresReconciliation=3`, `Failed=4`, `Paid=5`. Never infer paid state from a browser query parameter or webhook payload; the API confirms it only after authenticated Sadad GetById verification.
+
+After returning from Sadad, call `GET /api/orders/payment-callback?invoice_id={id}&payment={value}` only as a verification trigger, then poll the protected order payment-status endpoint. HTTP 200 means verified/already Paid, 202 means verification is pending or requires reconciliation, 400 means rejected, and 404 means unknown invoice. Frontend details are in `docs/checkout-audit/PHASE3_FRONTEND_HANDOFF.md`.

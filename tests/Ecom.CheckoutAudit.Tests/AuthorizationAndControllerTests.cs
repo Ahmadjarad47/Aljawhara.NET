@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Ecom.API.Controllers;
 using Ecom.Application.DTOs.Order;
+using Ecom.Application.Payments;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.constant;
 using Microsoft.AspNetCore.Authorization;
@@ -12,23 +13,23 @@ namespace Ecom.CheckoutAudit.Tests;
 
 public class AuthorizationAndControllerTests
 {
-    public static TheoryData<string> AnonymousSensitiveActions => new()
+    public static TheoryData<string> GuestCompatibleActions => new()
     {
+        nameof(OrdersController.GetOrder),
         nameof(OrdersController.GetOrderByNumber),
-        nameof(OrdersController.ProcessPayment),
         nameof(OrdersController.GetOrderTransactions),
         nameof(OrdersController.GetInvoicePaymentData),
-        nameof(OrdersController.PaymentCallback)
+        nameof(OrdersController.GetOrderPaymentLink),
+        nameof(OrdersController.CancelOrder)
     };
 
     [Theory]
-    [MemberData(nameof(AnonymousSensitiveActions))]
-    public void Sensitive_order_action_has_no_authorization_requirement(string actionName)
+    [MemberData(nameof(GuestCompatibleActions))]
+    public void Guest_order_actions_remain_anonymous_at_transport_boundary(string actionName)
     {
         var method = typeof(OrdersController).GetMethod(actionName)!;
 
-        Assert.Empty(method.GetCustomAttributes(typeof(AuthorizeAttribute), true));
-        Assert.Empty(typeof(OrdersController).GetCustomAttributes(typeof(AuthorizeAttribute), true));
+        Assert.NotEmpty(method.GetCustomAttributes(typeof(AllowAnonymousAttribute), true));
     }
 
     [Fact]
@@ -40,7 +41,7 @@ public class AuthorizationAndControllerTests
     }
 
     [Fact]
-    public async Task Anonymous_order_number_lookup_returns_guest_personal_data()
+    public async Task Anonymous_order_number_lookup_without_capability_returns_not_found()
     {
         var exposed = new OrderDto
         {
@@ -54,27 +55,27 @@ public class AuthorizationAndControllerTests
                 Street = "Synthetic Street"
             }
         };
-        var orderService = OrderServiceStub((method, _) => method.Name == "GetOrderByNumberAsync"
-            ? Task.FromResult<OrderDto?>(exposed)
-            : throw Unexpected(method));
+        var orderService = OrderServiceStub((method, _) => method.Name switch
+        {
+            "GetOrderByNumberAsync" => Task.FromResult<OrderDto?>(exposed),
+            "CanAccessOrderAsync" => Task.FromResult(false),
+            _ => throw Unexpected(method)
+        });
         var controller = Controller(orderService);
 
         var response = await controller.GetOrderByNumber(exposed.OrderNumber);
 
-        var ok = Assert.IsType<OkObjectResult>(response.Result);
-        var returned = Assert.IsType<OrderDto>(ok.Value);
-        Assert.Equal("customer-b", returned.AppUserId);
-        Assert.Equal("00000000", returned.ShippingAddress.Phone);
-        Assert.Equal("Synthetic Street", returned.ShippingAddress.Street);
+        Assert.IsType<NotFoundResult>(response.Result);
     }
 
     [Fact]
-    public async Task Authenticated_user_can_cancel_an_unowned_guest_order()
+    public async Task Authenticated_user_cannot_cancel_an_unowned_guest_order()
     {
         var cancelCalled = false;
         var orderService = OrderServiceStub((method, _) => method.Name switch
         {
             "GetOrderByIdAsync" => Task.FromResult<OrderDto?>(new OrderDto { Id = 77, AppUserId = null }),
+            "CanAccessOrderAsync" => Task.FromResult(false),
             "CancelOrderAsync" => Cancel(),
             _ => throw Unexpected(method)
         });
@@ -83,16 +84,17 @@ public class AuthorizationAndControllerTests
 
         var response = await controller.CancelOrder(77);
 
-        Assert.IsType<NoContentResult>(response);
-        Assert.True(cancelCalled);
+        Assert.IsType<NotFoundResult>(response);
+        Assert.False(cancelCalled);
     }
 
     [Fact]
-    public async Task Authenticated_user_can_retrieve_an_unowned_guest_payment_link()
+    public async Task Authenticated_user_cannot_retrieve_an_unowned_guest_payment_link()
     {
         var orderService = OrderServiceStub((method, _) => method.Name switch
         {
             "GetOrderByIdAsync" => Task.FromResult<OrderDto?>(new OrderDto { Id = 78, AppUserId = null }),
+            "CanAccessOrderAsync" => Task.FromResult(false),
             "GetOrderPaymentLinkAsync" => Task.FromResult("https://sadad.test/pay/private"),
             _ => throw Unexpected(method)
         });
@@ -100,7 +102,7 @@ public class AuthorizationAndControllerTests
 
         var response = await controller.GetOrderPaymentLink(78);
 
-        Assert.IsType<OkObjectResult>(response);
+        Assert.IsType<NotFoundResult>(response);
     }
 
     [Fact]
@@ -127,7 +129,7 @@ public class AuthorizationAndControllerTests
     }
 
     [Fact]
-    public async Task Controller_returns_internal_exception_text_to_anonymous_client()
+    public async Task Controller_returns_generic_problem_without_internal_exception_text()
     {
         const string internalDetail = "Sadad invoice creation failed (500): upstream-internal-detail";
         var orderService = OrderServiceStub((method, _) => method.Name switch
@@ -139,24 +141,60 @@ public class AuthorizationAndControllerTests
 
         var response = await controller.CreateOrder(new OrderCreateDto());
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
-        Assert.Equal(internalDetail, badRequest.Value);
+        var problem = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status502BadGateway, problem.StatusCode);
+        Assert.DoesNotContain(internalDetail, problem.Value!.ToString(), StringComparison.Ordinal);
     }
 
-    private static OrdersController Controller(IOrderService orderService, string? userId = null)
+    [Fact]
+    public void Legacy_payment_endpoint_is_hard_disabled()
+    {
+        var controller = Controller(OrderServiceStub((method, _) => throw Unexpected(method)));
+
+        var response = controller.ProcessPayment(1, new TransactionCreateDto
+        {
+            OrderId = 1,
+            Amount = 1,
+            Status = TransactionStatus.Paid
+        });
+
+        var disabled = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status410Gone, disabled.StatusCode);
+    }
+
+    [Fact]
+    public async Task Guest_capability_allows_only_the_scoped_order()
+    {
+        var order = new OrderDto { Id = 91, OrderNumber = "ORD-91" };
+        var orderService = OrderServiceStub((method, args) => method.Name switch
+        {
+            "GetOrderByIdAsync" => Task.FromResult<OrderDto?>(order),
+            "CanAccessOrderAsync" => Task.FromResult((int)args![0]! == 91 && (string?)args[2] == "valid-order-secret"),
+            _ => throw Unexpected(method)
+        });
+        var controller = Controller(orderService, guestToken: "valid-order-secret");
+
+        var response = await controller.GetOrder(91);
+
+        Assert.IsType<OkObjectResult>(response.Result);
+    }
+
+    private static OrdersController Controller(IOrderService orderService, string? userId = null, string? guestToken = null)
     {
         var email = InterfaceStub.Create<IEmailService>((method, _) => method.Name switch
         {
             "SendOrderNotificationToAdminAsync" => Task.CompletedTask,
             _ => throw Unexpected(method)
         });
-        var transactions = InterfaceStub.Create<ITransactionService>((method, _) => throw Unexpected(method));
-        var controller = new OrdersController(orderService, email, transactions, NullLogger<OrdersController>.Instance);
+        var verification = InterfaceStub.Create<ISadadPaymentVerificationService>((method, _) => throw Unexpected(method));
+        var controller = new OrdersController(orderService, email, verification, NullLogger<OrdersController>.Instance);
         var claims = userId == null ? [] : new[] { new Claim(ClaimTypes.NameIdentifier, userId) };
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, userId == null ? null : "test")) }
         };
+        if (guestToken != null)
+            controller.Request.Headers["X-Guest-Order-Token"] = guestToken;
         return controller;
     }
 

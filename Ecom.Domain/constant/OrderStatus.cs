@@ -11,6 +11,8 @@ namespace Ecom.Domain.constant
         Shipped,
         Delivered,
         Cancelled,
-        Refunded
+        Refunded,
+        Expired,
+        RequiresReconciliation
     }
 }

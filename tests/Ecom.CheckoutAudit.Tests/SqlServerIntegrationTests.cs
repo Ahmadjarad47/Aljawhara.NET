@@ -1,6 +1,8 @@
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Ecom.Infrastructure.Repositories;
 
 namespace Ecom.CheckoutAudit.Tests;
 
@@ -37,7 +39,7 @@ public class SqlServerIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Kuwaiti_three_decimal_amount_is_rounded_by_two_decimal_database_schema()
+    public async Task Kuwaiti_three_decimal_amount_is_stored_without_precision_loss()
     {
         var seeded = await SeedOrderAsync(12.345m);
         await using (var context = CreateContext())
@@ -54,27 +56,80 @@ public class SqlServerIntegrationTests : IAsyncLifetime
 
         await using var verification = CreateContext();
         var amount = await verification.Transactions.Select(transaction => transaction.Amount).SingleAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(12.35m, amount);
+        Assert.Equal(12.345m, amount);
     }
 
     [Fact]
-    public async Task Two_buyers_can_both_commit_the_same_final_stock_unit()
+    public async Task Twenty_concurrent_stock_decrements_allow_only_one_buyer_for_the_final_unit()
     {
         var seeded = await SeedOrderAsync(1m);
-        await using var first = CreateContext();
-        await using var second = CreateContext();
-        var firstView = await first.Products.SingleAsync(product => product.Id == seeded.ProductId, TestContext.Current.CancellationToken);
-        var secondView = await second.Products.SingleAsync(product => product.Id == seeded.ProductId, TestContext.Current.CancellationToken);
-        Assert.Equal(1, firstView.TotalInStock);
-        Assert.Equal(1, secondView.TotalInStock);
+        var contexts = Enumerable.Range(0, 20).Select(_ => CreateContext()).ToList();
+        var caches = Enumerable.Range(0, 20).Select(_ => new MemoryCache(new MemoryCacheOptions())).ToList();
+        try
+        {
+            var attempts = await Task.WhenAll(contexts.Select((context, index) =>
+                new ProductRepository(context, caches[index]).TryReduceStockAsync(seeded.ProductId, 1)));
 
-        firstView.TotalInStock -= 1;
-        secondView.TotalInStock -= 1;
-        await first.SaveChangesAsync(TestContext.Current.CancellationToken);
-        await second.SaveChangesAsync(TestContext.Current.CancellationToken);
+            await using var verification = CreateContext();
+            Assert.Single(attempts, succeeded => succeeded);
+            Assert.Equal(0, await verification.Products.Where(product => product.Id == seeded.ProductId).Select(product => product.TotalInStock).SingleAsync(TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            foreach (var context in contexts)
+                await context.DisposeAsync();
+            foreach (var cache in caches)
+                cache.Dispose();
+        }
+    }
 
-        await using var verification = CreateContext();
-        Assert.Equal(0, await verification.Products.Where(product => product.Id == seeded.ProductId).Select(product => product.TotalInStock).SingleAsync(TestContext.Current.CancellationToken));
+    [Fact]
+    public async Task Concurrent_coupon_claims_cannot_exceed_the_final_usage_limit()
+    {
+        int couponId;
+        await using (var seed = CreateContext())
+        {
+            var coupon = new Coupon { Code = $"FINAL-{Guid.NewGuid():N}", Description = "Final use", Type = Ecom.Domain.constant.CouponType.FixedAmount, Value = 1m, StartDate = DateTime.UtcNow.AddDays(-1), EndDate = DateTime.UtcNow.AddDays(1), UsageLimit = 1 };
+            seed.Coupons.Add(coupon);
+            await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
+            couponId = coupon.Id;
+        }
+        var contexts = Enumerable.Range(0, 20).Select(_ => CreateContext()).ToList();
+        var caches = Enumerable.Range(0, 20).Select(_ => new MemoryCache(new MemoryCacheOptions())).ToList();
+        try
+        {
+            var results = await Task.WhenAll(contexts.Select((db, index) => new CouponRepository(db, caches[index]).TryReserveUsageAsync(couponId, DateTime.UtcNow)));
+            Assert.Single(results, result => result);
+            await using var verification = CreateContext();
+            Assert.Equal(1, await verification.Coupons.Where(c => c.Id == couponId).Select(c => c.UsedCount).SingleAsync(TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            foreach (var db in contexts) await db.DisposeAsync();
+            foreach (var cache in caches) cache.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Database_constraints_reject_non_positive_quantity_and_negative_stock()
+    {
+        var seeded = await SeedOrderAsync(1m);
+        await using var context = CreateContext();
+        context.OrderItems.Add(new OrderItem
+        {
+            OrderId = seeded.OrderId,
+            ProductId = seeded.ProductId,
+            Name = "Invalid",
+            Price = 1m,
+            Quantity = 0
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync(TestContext.Current.CancellationToken));
+        context.ChangeTracker.Clear();
+
+        var product = await context.Products.SingleAsync(item => item.Id == seeded.ProductId, TestContext.Current.CancellationToken);
+        product.TotalInStock = -1;
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync(TestContext.Current.CancellationToken));
     }
 
     private EcomDbContext CreateContext()

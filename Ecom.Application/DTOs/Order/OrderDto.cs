@@ -26,7 +26,11 @@ namespace Ecom.Application.DTOs.Order
 
     public class OrderCreateDto
     {
+        [Required]
+        [MinLength(1, ErrorMessage = "At least one order item is required.")]
         public List<OrderItemCreateDto> Items { get; set; } = new();
+
+        [Required]
         public ShippingAddressCreateDto ShippingAddress { get; set; } = new();
         public string? CouponCode { get; set; }
 

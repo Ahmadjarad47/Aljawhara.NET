@@ -124,26 +124,14 @@ namespace Ecom.API.Controllers
         /// Create a new transaction
         /// </summary>
         [HttpPost]
-        public async Task<ActionResult<TransactionAdvancedDto>> CreateTransaction([FromBody] TransactionCreateAdvancedDto transactionDto)
+        public ActionResult<TransactionAdvancedDto> CreateTransaction([FromBody] TransactionCreateAdvancedDto transactionDto)
         {
-            try
+            return StatusCode(StatusCodes.Status410Gone, new ProblemDetails
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                var transaction = await _transactionService.CreateTransactionAsync(transactionDto);
-                return CreatedAtAction(nameof(GetTransaction), new { id = transaction.Id }, transaction);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Error creating transaction: {ex.Message}");
-            }
+                Status = StatusCodes.Status410Gone,
+                Title = "Direct transaction creation is disabled.",
+                Detail = "Use checkout payment orchestration so idempotency, reservations, and recovery are enforced."
+            });
         }
 
         /// <summary>
@@ -202,30 +190,14 @@ namespace Ecom.API.Controllers
         /// Process payment for an order
         /// </summary>
         [HttpPost("process-payment")]
-        public async Task<ActionResult<TransactionAdvancedDto>> ProcessPayment([FromBody] PaymentProcessingDto paymentDto)
+        public ActionResult<TransactionAdvancedDto> ProcessPayment([FromBody] PaymentProcessingDto paymentDto)
         {
-            try
+            return StatusCode(StatusCodes.Status410Gone, new ProblemDetails
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                var transaction = await _transactionService.ProcessPaymentAsync(paymentDto);
-                return Ok(transaction);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Error processing payment: {ex.Message}");
-            }
+                Status = StatusCodes.Status410Gone,
+                Title = "Direct payment processing is disabled.",
+                Detail = "Use checkout payment orchestration so gateway verification remains authoritative."
+            });
         }
 
         /// <summary>

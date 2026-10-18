@@ -14,6 +14,7 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
         Task<decimal> GetTotalSalesAsync(DateTime? startDate = null, DateTime? endDate = null);
         Task<int> GetOrderCountByStatusAsync(OrderStatus status);
         Task<IEnumerable<Order>> GetRecentOrdersAsync(int count = 10);
+        Task<bool> TryCancelOrderAsync(int orderId, OrderStatus expectedStatus, DateTime revokedAtUtc);
     }
 }
 

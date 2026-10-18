@@ -29,5 +29,6 @@ namespace Ecom.Domain.Entity
         public DateTime? RefundDate { get; set; }
         public string? RefundReason { get; set; }
         public string? GatewayInvoiceId { get; set; }
+        public DateTime? GatewayVerifiedAtUtc { get; set; }
     }
 }

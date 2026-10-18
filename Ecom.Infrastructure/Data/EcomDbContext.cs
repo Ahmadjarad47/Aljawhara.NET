@@ -36,6 +36,12 @@ namespace Ecom.Infrastructure.Data
         public DbSet<Visitor> Visitors { get; set; }
         public DbSet<HealthPing> HealthPings { get; set; }
         public DbSet<Carousel> Carousels { get; set; }
+        public DbSet<PaymentAttempt> PaymentAttempts { get; set; }
+        public DbSet<InventoryReservation> InventoryReservations { get; set; }
+        public DbSet<CouponReservation> CouponReservations { get; set; }
+        public DbSet<OutboxMessage> OutboxMessages { get; set; }
+        public DbSet<PaymentTransitionAudit> PaymentTransitionAudits { get; set; }
+        public DbSet<OrderNumberCounter> OrderNumberCounters { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -69,8 +75,8 @@ namespace Ecom.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Description).HasMaxLength(2000);
-                entity.Property(e => e.oldPrice).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.newPrice).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.oldPrice).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.newPrice).HasColumnType("decimal(18,3)");
                 entity.HasOne(e => e.subCategory)
                       .WithMany(e => e.Products)
                       .HasForeignKey(e => e.SubCategoryId)
@@ -110,7 +116,7 @@ namespace Ecom.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Value).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.ValueAr).HasMaxLength(100);
-                entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Price).HasColumnType("decimal(18,3)");
                 entity.HasOne(e => e.ProductVariant)
                       .WithMany(e => e.Values)
                       .HasForeignKey(e => e.ProductVariantId)
@@ -123,10 +129,14 @@ namespace Ecom.Infrastructure.Data
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.OrderNumber).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.Shipping).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.Tax).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.Total).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Subtotal).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.Shipping).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.Tax).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.Total).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.GuestAccessTokenHash).HasMaxLength(64);
+                entity.Property(e => e.CheckoutIdempotencyKeyHash).HasMaxLength(64);
+                entity.Property(e => e.CheckoutRequestHash).HasMaxLength(64);
+                entity.Property(e => e.GuestTokenDerivationNonce).HasMaxLength(64);
                 entity.HasOne(e => e.AppUser)
                       .WithMany(e => e.Orders)
                       .HasForeignKey(e => e.AppUserId)
@@ -139,7 +149,7 @@ namespace Ecom.Infrastructure.Data
                       .WithMany(e => e.Orders)
                       .HasForeignKey(e => e.CouponId)
                       .OnDelete(DeleteBehavior.SetNull);
-                entity.Property(e => e.CouponDiscountAmount).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.CouponDiscountAmount).HasColumnType("decimal(18,3)");
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
@@ -149,7 +159,8 @@ namespace Ecom.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Image).HasMaxLength(500);
-                entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Price).HasColumnType("decimal(18,3)");
+                entity.ToTable(table => table.HasCheckConstraint("CK_OrderItems_Quantity_Positive", "[Quantity] > 0"));
                 entity.HasOne(e => e.Order)
                       .WithMany(e => e.Items)
                       .HasForeignKey(e => e.OrderId)
@@ -183,7 +194,8 @@ namespace Ecom.Infrastructure.Data
             modelBuilder.Entity<Transaction>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Amount).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.RefundAmount).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.Status).HasConversion<int>();
                 entity.Property(e => e.GatewayInvoiceId).HasMaxLength(100);
                 entity.HasOne(e => e.Order)
@@ -216,15 +228,20 @@ namespace Ecom.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Description).HasMaxLength(500);
-                entity.Property(e => e.Value).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.MinimumOrderAmount).HasColumnType("decimal(18,2)");
-                entity.Property(e => e.MaximumDiscountAmount).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Value).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.MinimumOrderAmount).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.MaximumDiscountAmount).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.StartDate).IsRequired();
                 entity.Property(e => e.EndDate).IsRequired();
                 entity.HasOne(e => e.AppUser)
                       .WithMany()
                       .HasForeignKey(e => e.AppUserId)
                       .OnDelete(DeleteBehavior.SetNull);
+                entity.ToTable(table =>
+                {
+                    table.HasCheckConstraint("CK_Coupons_UsedCount_NonNegative", "[UsedCount] >= 0");
+                    table.HasCheckConstraint("CK_Coupons_UsageLimit", "[UsageLimit] IS NULL OR ([UsageLimit] >= 0 AND [UsedCount] <= [UsageLimit])");
+                });
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
@@ -232,12 +249,20 @@ namespace Ecom.Infrastructure.Data
             modelBuilder.Entity<Product>()
                 .HasIndex(p => p.SubCategoryId);
 
+            modelBuilder.Entity<Product>()
+                .ToTable(table => table.HasCheckConstraint("CK_Products_TotalInStock_NonNegative", "[TotalInStock] >= 0"));
+
             modelBuilder.Entity<Order>()
                 .HasIndex(o => o.AppUserId);
 
             modelBuilder.Entity<Order>()
                 .HasIndex(o => o.OrderNumber)
                 .IsUnique();
+
+            modelBuilder.Entity<Order>()
+                .HasIndex(o => o.CheckoutIdempotencyKeyHash)
+                .IsUnique()
+                .HasFilter("[CheckoutIdempotencyKeyHash] IS NOT NULL");
 
             modelBuilder.Entity<Coupon>()
                 .HasIndex(c => c.Code)
@@ -283,9 +308,89 @@ namespace Ecom.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Description).HasMaxLength(1000);
-                entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Price).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.Image).HasMaxLength(500);
                 entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<PaymentAttempt>(entity =>
+            {
+                entity.Property(e => e.Amount).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.Currency).HasMaxLength(3);
+                entity.Property(e => e.IdempotencyKeyHash).HasMaxLength(64);
+                entity.Property(e => e.RequestHash).HasMaxLength(64);
+                entity.Property(e => e.MerchantReference).HasMaxLength(80);
+                entity.Property(e => e.GatewayInvoiceId).HasMaxLength(100);
+                entity.Property(e => e.VerificationEvidenceId).HasMaxLength(64);
+                entity.Property(e => e.GatewayTransactionId).HasMaxLength(200);
+                entity.Property(e => e.VerifiedAmount).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.VerifiedTotal).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.VerifiedSubtotal).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.VerifiedRefundedAmount).HasColumnType("decimal(18,3)");
+                entity.Property(e => e.PaymentUrl).HasMaxLength(2048);
+                entity.Property(e => e.LeaseOwner).HasMaxLength(100);
+                entity.Property(e => e.LastErrorCode).HasMaxLength(100);
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.HasIndex(e => e.IdempotencyKeyHash).IsUnique();
+                entity.HasIndex(e => e.MerchantReference).IsUnique();
+                entity.HasIndex(e => e.OrderId).IsUnique().HasFilter("[Status] IN (0, 1, 2, 3)");
+                entity.HasIndex(e => e.GatewayInvoiceId).IsUnique().HasFilter("[GatewayInvoiceId] IS NOT NULL");
+                entity.HasOne(e => e.Order).WithMany(e => e.PaymentAttempts).HasForeignKey(e => e.OrderId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Transaction).WithOne().HasForeignKey<PaymentAttempt>(e => e.TransactionId).OnDelete(DeleteBehavior.Restrict);
+                entity.ToTable(table =>
+                {
+                    table.HasCheckConstraint("CK_PaymentAttempts_Amount_Positive", "[Amount] > 0");
+                    table.HasCheckConstraint("CK_PaymentAttempts_Currency_KWD", "[Currency] = 'KWD'");
+                });
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<InventoryReservation>(entity =>
+            {
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.HasIndex(e => new { e.OrderId, e.ProductId }).IsUnique();
+                entity.ToTable(table => table.HasCheckConstraint("CK_InventoryReservations_Quantity_Positive", "[Quantity] > 0"));
+                entity.HasOne(e => e.Order).WithMany(e => e.InventoryReservations).HasForeignKey(e => e.OrderId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Product).WithMany().HasForeignKey(e => e.ProductId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<CouponReservation>(entity =>
+            {
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.HasIndex(e => e.OrderId).IsUnique();
+                entity.HasOne(e => e.Order).WithOne(e => e.CouponReservation).HasForeignKey<CouponReservation>(e => e.OrderId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Coupon).WithMany().HasForeignKey(e => e.CouponId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<OutboxMessage>(entity =>
+            {
+                entity.Property(e => e.Type).HasMaxLength(100);
+                entity.Property(e => e.DeduplicationKey).HasMaxLength(200);
+                entity.Property(e => e.LeaseOwner).HasMaxLength(100);
+                entity.Property(e => e.LastErrorCode).HasMaxLength(100);
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.HasIndex(e => e.DeduplicationKey).IsUnique();
+                entity.HasIndex(e => new { e.Status, e.NextAttemptAtUtc });
+                entity.ToTable(table => table.HasCheckConstraint("CK_OutboxMessages_AttemptCount_NonNegative", "[AttemptCount] >= 0"));
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<PaymentTransitionAudit>(entity =>
+            {
+                entity.Property(e => e.EventKey).HasMaxLength(200);
+                entity.Property(e => e.ReasonCode).HasMaxLength(100);
+                entity.HasIndex(e => e.EventKey).IsUnique();
+                entity.HasOne(e => e.PaymentAttempt).WithMany().HasForeignKey(e => e.PaymentAttemptId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<OrderNumberCounter>(entity =>
+            {
+                entity.HasKey(e => e.DateKey);
+                entity.Property(e => e.DateKey).ValueGeneratedNever();
+                entity.ToTable(table => table.HasCheckConstraint("CK_OrderNumberCounters_NextValue_Positive", "[NextValue] > 0"));
             });
         }
 

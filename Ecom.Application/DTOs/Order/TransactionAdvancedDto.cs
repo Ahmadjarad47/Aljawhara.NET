@@ -1,5 +1,6 @@
 using Ecom.Domain.constant;
 using System.ComponentModel.DataAnnotations;
+using Ecom.Application.Payments;
 
 namespace Ecom.Application.DTOs.Order
 {
@@ -25,8 +26,15 @@ namespace Ecom.Application.DTOs.Order
         public DateTime? RefundDate { get; set; }
         public string? RefundReason { get; set; }
         public string? GatewayInvoiceId { get; set; }
+        public DateTime? GatewayVerifiedAtUtc { get; set; }
         public string? PaymentUrl { get; set; }
+        public string? GuestAccessToken { get; set; }
+        public DateTime? GuestAccessExpiresAtUtc { get; set; }
         public bool IsActive { get; set; }
+        public int? PaymentAttemptId { get; set; }
+        public string? MerchantReference { get; set; }
+        public PaymentInitializationStatus PaymentInitializationStatus { get; set; }
+        public DateTime? ReservationExpiresAtUtc { get; set; }
     }
 
     public class TransactionCreateAdvancedDto

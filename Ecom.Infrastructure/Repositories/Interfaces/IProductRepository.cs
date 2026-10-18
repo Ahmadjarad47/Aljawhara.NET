@@ -27,6 +27,8 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
         Task<Product?> GetProductWithDetailsForUpdateAsync(int productId);
         Task<IEnumerable<Product>> GetRelatedProductsAsync(int productId, int count = 5);
         Task<IEnumerable<Product>> GetAllProductsWithDetailsAsync();
+        Task<bool> TryReduceStockAsync(int productId, int quantity);
+        Task<bool> TryIncreaseStockAsync(int productId, int quantity);
     }
 }
 

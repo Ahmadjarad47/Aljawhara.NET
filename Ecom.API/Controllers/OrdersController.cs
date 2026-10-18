@@ -5,6 +5,7 @@ using Ecom.Domain.constant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Ecom.Application.Payments;
 
 namespace Ecom.API.Controllers
 {
@@ -12,47 +13,48 @@ namespace Ecom.API.Controllers
     [Route("api/[controller]")]
     public class OrdersController : ControllerBase
     {
+        private const string GuestAccessHeader = "X-Guest-Order-Token";
         private readonly IOrderService _orderService;
         private readonly IEmailService _emailService;
-        private readonly ITransactionService _transactionService;
+        private readonly ISadadPaymentVerificationService _paymentVerification;
         private readonly ILogger<OrdersController> _logger;
 
-        public OrdersController(IOrderService orderService, IEmailService emailService, ITransactionService transactionService, ILogger<OrdersController> logger)
+        public OrdersController(IOrderService orderService, IEmailService emailService, ISadadPaymentVerificationService paymentVerification, ILogger<OrdersController> logger)
         {
             _orderService = orderService;
             _emailService = emailService;
-            _transactionService = transactionService;
+            _paymentVerification = paymentVerification;
             _logger = logger;
         }
 
 
         [HttpGet("{id}")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<ActionResult<OrderDto>> GetOrder(int id)
         {
             var order = await _orderService.GetOrderByIdAsync(id);
             if (order == null)
             {
-                return NotFound($"Order with ID {id} not found.");
+                return NotFound();
             }
-            
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!string.IsNullOrEmpty(userId) && userId != order.AppUserId)
-            {
-                return Unauthorized();
-            }
+
+            if (!await HasOrderAccessAsync(id))
+                return NotFound();
             
             return Ok(order);
         }
 
         [HttpGet("number/{orderNumber}")]
+        [AllowAnonymous]
         public async Task<ActionResult<OrderDto>> GetOrderByNumber(string orderNumber)
         {
             var order = await _orderService.GetOrderByNumberAsync(orderNumber);
             if (order == null)
             {
-                return NotFound($"Order with number {orderNumber} not found.");
+                return NotFound();
             }
+            if (!await HasOrderAccessAsync(order.Id))
+                return NotFound();
             return Ok(order);
         }
 
@@ -72,6 +74,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<ActionResult<TransactionAdvancedDto>> CreateOrder([FromBody] OrderCreateDto orderDto)
         {
             if (!ModelState.IsValid)
@@ -82,25 +85,14 @@ namespace Ecom.API.Controllers
             try
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var transaction = await _orderService.CreateOrderAsync(orderDto, userId);
-
-                // Send email notification to admin
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var order = await _orderService.GetOrderByIdAsync(transaction.OrderId);
-                        if (order != null)
-                            await _emailService.SendOrderNotificationToAdminAsync(order, transaction.CustomerName ?? order.CustomerName, "Created");
-                    }
-                    catch
-                    {
-                        // Log error but don't fail the order creation
-                        // Email sending failures shouldn't prevent order creation
-                    }
-                });
+                var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
+                var transaction = await _orderService.CreateOrderAsync(orderDto, userId, idempotencyKey);
 
                 return CreatedAtAction(nameof(GetOrder), new { id = transaction.OrderId }, transaction);
+            }
+            catch (IdempotencyConflictException ex)
+            {
+                return Conflict(new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "Idempotency conflict", Detail = ex.Message });
             }
             catch (ArgumentException ex)
             {
@@ -108,13 +100,45 @@ namespace Ecom.API.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "Checkout failed. TraceId={TraceId}", HttpContext.TraceIdentifier);
+                return Problem(
+                    statusCode: StatusCodes.Status502BadGateway,
+                    title: "Checkout could not be completed.",
+                    detail: "The payment service is temporarily unavailable.");
             }
+        }
+
+        [HttpGet("{id}/payment-status")]
+        [AllowAnonymous]
+        public async Task<ActionResult<PaymentStatusDto>> GetPaymentStatus(int id)
+        {
+            if (!await HasOrderAccessAsync(id))
+                return NotFound();
+            return Ok(await _orderService.GetOrderPaymentStatusAsync(id));
+        }
+
+        [HttpPost("{id}/payment-attempts")]
+        [AllowAnonymous]
+        public async Task<ActionResult<PaymentStatusDto>> RetryPayment(int id)
+        {
+            if (!await HasOrderAccessAsync(id))
+                return NotFound();
+            try
+            {
+                var result = await _orderService.RetryPaymentAsync(id, Request.Headers["Idempotency-Key"].FirstOrDefault() ?? string.Empty);
+                return AcceptedAtAction(nameof(GetPaymentStatus), new { id }, result);
+            }
+            catch (IdempotencyConflictException ex)
+            {
+                return Conflict(new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "Idempotency conflict", Detail = ex.Message });
+            }
+            catch (ArgumentException ex) { return BadRequest(ex.Message); }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
         }
 
 
         [HttpPut("{id}/cancel")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<ActionResult> CancelOrder(int id)
         {
             try
@@ -122,14 +146,10 @@ namespace Ecom.API.Controllers
                 var order = await _orderService.GetOrderByIdAsync(id);
                 if (order == null)
                 {
-                    return NotFound($"Order with ID {id} not found.");
+                    return NotFound();
                 }
-
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (!string.IsNullOrWhiteSpace(order.AppUserId) && !string.Equals(order.AppUserId, userId, StringComparison.Ordinal))
-                {
-                    return Unauthorized();
-                }
+                if (!await HasOrderAccessAsync(id))
+                    return NotFound();
                 var result = await _orderService.CancelOrderAsync(id);
                 if (!result)
                 {
@@ -143,52 +163,43 @@ namespace Ecom.API.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "Order cancellation failed for OrderId={OrderId}. TraceId={TraceId}", id, HttpContext.TraceIdentifier);
+                return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Order cancellation failed.");
             }
         }
 
 
         [HttpPost("{id}/payment")]
-        public async Task<ActionResult<TransactionDto>> ProcessPayment(int id, [FromBody] TransactionCreateDto transactionDto)
+        [AllowAnonymous]
+        public ActionResult<TransactionDto> ProcessPayment(int id, [FromBody] TransactionCreateDto transactionDto)
         {
-            if (id != transactionDto.OrderId)
-            {
-                return BadRequest("Order ID mismatch.");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                var transaction = await _orderService.ProcessPaymentAsync(transactionDto);
-                return Ok(transaction);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            return StatusCode(StatusCodes.Status410Gone,
+                new ProblemDetails { Status = StatusCodes.Status410Gone, Title = "Legacy payment endpoint is disabled." });
         }
 
         [HttpGet("{id}/transactions")]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<TransactionDto>>> GetOrderTransactions(int id)
         {
+            if (!await HasOrderAccessAsync(id))
+                return NotFound();
             var transactions = await _orderService.GetOrderTransactionsAsync(id);
             return Ok(transactions);
         }
 
         [HttpGet("{id}/invoice-payment")]
+        [AllowAnonymous]
         public async Task<ActionResult<InvoicePaymentDto>> GetInvoicePaymentData(int id)
         {
+            if (!await HasOrderAccessAsync(id))
+                return NotFound();
             var invoicePaymentData = await _orderService.GetInvoicePaymentDataAsync(id);
             if (invoicePaymentData == null)
             {
                 return NotFound(new InvoicePaymentDto 
                 { 
                     Success = false, 
-                    Message = $"الطلب بالرقم {id} غير موجود."
+                    Message = "الطلب غير موجود."
                 });
             }
             
@@ -196,7 +207,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPost("{id}/payment-link")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<ActionResult> GetOrderPaymentLink(int id)
         {
             try
@@ -204,20 +215,20 @@ namespace Ecom.API.Controllers
                 var order = await _orderService.GetOrderByIdAsync(id);
                 if (order == null)
                 {
-                    return NotFound($"Order with ID {id} not found.");
+                    return NotFound();
                 }
-
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (!string.IsNullOrWhiteSpace(order.AppUserId) && !string.Equals(order.AppUserId, userId, StringComparison.Ordinal))
-                {
-                    return Unauthorized();
-                }
+                if (!await HasOrderAccessAsync(id))
+                    return NotFound();
 
                 var paymentLink = await _orderService.GetOrderPaymentLinkAsync(id);
+                var rotatedGuestToken = string.IsNullOrWhiteSpace(order.AppUserId)
+                    ? await _orderService.RotateGuestAccessTokenAsync(id)
+                    : null;
                 return Ok(new
                 {
                     OrderId = id,
-                    PaymentLink = paymentLink
+                    PaymentLink = paymentLink,
+                    GuestAccessToken = rotatedGuestToken
                 });
             }
             catch (InvalidOperationException ex)
@@ -230,7 +241,8 @@ namespace Ecom.API.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "Payment-link recovery failed for OrderId={OrderId}. TraceId={TraceId}", id, HttpContext.TraceIdentifier);
+                return Problem(statusCode: StatusCodes.Status502BadGateway, title: "Payment link could not be generated.");
             }
         }
 
@@ -275,19 +287,22 @@ namespace Ecom.API.Controllers
                 _logger.LogWarning("[Sadad Webhook] Step 2 failed: Missing invoiceId. Payload: {Payload}", payload == null ? "null" : "empty invoiceId");
                 return BadRequest("Invalid webhook payload: missing invoiceId.");
             }
-            _logger.LogInformation("[Sadad Webhook] Step 2 OK: Parsed payload. InvoiceId={InvoiceId}, Status={Status}", payload.InvoiceId, payload.Status);
+            _logger.LogInformation("Sadad webhook payload parsed.");
 
-            _logger.LogInformation("[Sadad Webhook] Step 3: Calling HandleSadadPaidWebhookAsync for InvoiceId={InvoiceId}.", payload.InvoiceId);
-            var success = await _transactionService.HandleSadadPaidWebhookAsync(payload);
+            _logger.LogInformation("Using Sadad webhook only as a trigger for authenticated GetById verification.");
+            var result = await _paymentVerification.VerifyByInvoiceIdAsync(
+                payload.InvoiceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                $"webhook:{HttpContext.TraceIdentifier}",
+                HttpContext.RequestAborted);
 
-            if (success)
+            return result.Outcome switch
             {
-                _logger.LogInformation("[Sadad Webhook] Step 3 OK: Webhook processed successfully for InvoiceId={InvoiceId}.", payload.InvoiceId);
-                return Ok();
-            }
-
-            _logger.LogWarning("[Sadad Webhook] Step 3 failed: HandleSadadPaidWebhookAsync returned false for InvoiceId={InvoiceId}.", payload.InvoiceId);
-            return BadRequest("Webhook processing failed.");
+                PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid or PaymentVerificationOutcome.NotPaid => Ok(),
+                PaymentVerificationOutcome.Busy => StatusCode(StatusCodes.Status409Conflict),
+                PaymentVerificationOutcome.RequiresReconciliation => StatusCode(StatusCodes.Status202Accepted),
+                PaymentVerificationOutcome.NotFound => NotFound(),
+                _ => BadRequest("Webhook trigger rejected by server-to-server verification.")
+            };
         }
 
         [HttpGet("payment-callback")]
@@ -307,42 +322,34 @@ namespace Ecom.API.Controllers
                 });
             }
 
-            if (!string.Equals(payment, "success", StringComparison.OrdinalIgnoreCase))
-            {
-                return BadRequest(new
-                {
-                    InvoiceId = invoiceId,
-                    Payment = payment,
-                    Updated = false,
-                    Message = "Payment is not marked as success."
-                });
-            }
+            // The browser-provided payment value is informational only. It never
+            // authorizes a Paid transition; GetById is always called server-to-server.
+            var result = await _paymentVerification.VerifyByInvoiceIdAsync(
+                invoiceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                $"callback:{HttpContext.TraceIdentifier}",
+                HttpContext.RequestAborted);
 
-            var payload = new SadadWebhookDto
-            {
-                InvoiceId = invoiceId,
-                Status = "Paid"
-            };
-
-            var updated = await _transactionService.HandleSadadPaidWebhookAsync(payload);
-            if (!updated)
-            {
-                return BadRequest(new
-                {
-                    InvoiceId = invoiceId,
-                    Payment = payment,
-                    Updated = false,
-                    Message = "Payment verification or status update failed."
-                });
-            }
-
-            return Ok(new
+            var response = new
             {
                 InvoiceId = invoiceId,
                 Payment = payment,
-                Updated = true,
-                Message = "Payment verified and order status updated."
-            });
+                Updated = result.Outcome is PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid,
+                VerificationStatus = result.Outcome.ToString()
+            };
+            return result.Outcome switch
+            {
+                PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid => Ok(response),
+                PaymentVerificationOutcome.NotFound => NotFound(response),
+                PaymentVerificationOutcome.Rejected => BadRequest(response),
+                _ => Accepted(response)
+            };
+        }
+
+        private Task<bool> HasOrderAccessAsync(int orderId)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var guestToken = Request.Headers[GuestAccessHeader].FirstOrDefault();
+            return _orderService.CanAccessOrderAsync(orderId, userId, guestToken, User.IsInRole("Admin"));
         }
 
     }

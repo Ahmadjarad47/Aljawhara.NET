@@ -1,10 +1,9 @@
-using Ecom.Application.Services.Interfaces;
+using Ecom.Application.Payments;
 
 namespace Ecom.API.HostedServices;
 
 /// <summary>
-/// Background service that runs every 5 minutes to check pending Sadad transactions
-/// and update their status if payment was completed.
+/// Polls Sadad through the same strict verification path used by callbacks and webhooks.
 /// </summary>
 public class SadadPaymentStatusCheckerService : BackgroundService
 {
@@ -31,10 +30,10 @@ public class SadadPaymentStatusCheckerService : BackgroundService
                 
 
                 using var scope = _serviceProvider.CreateScope();
-                var transactionService = scope.ServiceProvider.GetRequiredService<ITransactionService>();
+                var verification = scope.ServiceProvider.GetRequiredService<ISadadPaymentVerificationService>();
 
                 _logger.LogInformation("[Sadad Status Checker] Running pending payments check.");
-                await transactionService.CheckPendingSadadPaymentsAsync();
+                await verification.VerifyPendingBatchAsync($"status-{Environment.MachineName}", 50, stoppingToken);
                 _logger.LogInformation("[Sadad Status Checker] Pending payments check completed.");
                 await Task.Delay(Interval, stoppingToken);
             }

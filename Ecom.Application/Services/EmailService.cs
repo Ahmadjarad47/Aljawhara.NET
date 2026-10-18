@@ -664,8 +664,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                 await SendEmailAsync(email, subject, body);
-                return await SendEmailAsync("Bader.kh94@gmail.com", subject, body);
+                return await SendEmailAsync(email, subject, body);
             }
             catch (Exception ex)
             {

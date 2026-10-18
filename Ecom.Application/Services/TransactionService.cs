@@ -159,6 +159,15 @@ namespace Ecom.Application.Services
             if (order == null)
                 throw new ArgumentException($"Order with ID {transactionDto.OrderId} not found.");
 
+            if (order.Total <= 0)
+                throw new InvalidOperationException("The order total must be positive before payment can be initiated.");
+
+            // Financial values and state are server-owned. Callers may request a
+            // payment method, but cannot choose the amount or create a Paid row.
+            transaction.Amount = order.Total;
+            transaction.Status = TransactionStatus.Pending;
+            transaction.GatewayVerifiedAtUtc = null;
+
             if (transaction.PaymentMethod == PaymentMethod.Cod)
             {
                 transaction.Status = TransactionStatus.Pending;
@@ -178,6 +187,8 @@ namespace Ecom.Application.Services
             var customerMobile = order.ShippingAddress?.Phone ?? "0000000";
 
             var hasCoupon = order.CouponId.HasValue && order.CouponDiscountAmount.HasValue && order.CouponDiscountAmount > 0;
+            if (hasCoupon && order.Coupon == null)
+                throw new InvalidOperationException("The order discount cannot be verified for payment initiation.");
 
             var tokens = await GenerateTokens();
 
@@ -191,7 +202,7 @@ namespace Ecom.Application.Services
                     {
                         ["name"] = item.Name ?? "Item",
                         ["quantity"] = item.Quantity,
-                        ["amount"] = (double)item.Price
+                        ["amount"] = decimal.Round(item.Price, 3, MidpointRounding.AwayFromZero)
                     });
                 }
             }
@@ -200,11 +211,11 @@ namespace Ecom.Application.Services
             var itemsTotal = (order.Items?.Sum(i => i.Price * i.Quantity) ?? 0) + order.Shipping + order.Tax;
             if (order.Shipping > 0)
             {
-                invoiceItems.Add(new Dictionary<string, object> { ["name"] = "Shipping", ["quantity"] = 1, ["amount"] = (double)order.Shipping });
+                invoiceItems.Add(new Dictionary<string, object> { ["name"] = "Shipping", ["quantity"] = 1, ["amount"] = decimal.Round(order.Shipping, 3, MidpointRounding.AwayFromZero) });
             }
             if (order.Tax > 0)
             {
-                invoiceItems.Add(new Dictionary<string, object> { ["name"] = "Tax", ["quantity"] = 1, ["amount"] = (double)order.Tax });
+                invoiceItems.Add(new Dictionary<string, object> { ["name"] = "Tax", ["quantity"] = 1, ["amount"] = decimal.Round(order.Tax, 3, MidpointRounding.AwayFromZero) });
             }
 
             // Sadad requires: invoice amount = sum of (item.amount * item.quantity). With discount, charge = amount - discount.
@@ -213,7 +224,7 @@ namespace Ecom.Application.Services
             var invoice = new Dictionary<string, object>
             {
                 ["ref_Number"] = order.Id.ToString(),
-                ["amount"] = invoiceAmount.ToString("F3"),
+                ["amount"] = decimal.Round(invoiceAmount, 3, MidpointRounding.AwayFromZero),
                 ["customer_Name"] = customerName,
                 ["customer_Mobile"] = customerMobile,
                 ["customer_Email"] = customerEmail,
@@ -250,17 +261,23 @@ namespace Ecom.Application.Services
             var body = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException($"Sadad invoice creation failed ({(int)response.StatusCode}): {body}");
+            {
+                _logger.LogWarning("Sadad invoice creation failed with HTTP status {StatusCode}.", (int)response.StatusCode);
+                throw new InvalidOperationException("Payment gateway invoice creation failed.");
+            }
 
             var insertResponse = JsonSerializer.Deserialize<SadadInvoiceInsertResponse>(body);
             if (insertResponse == null || !insertResponse.isValid)
-                throw new InvalidOperationException($"Sadad invoice response invalid: {insertResponse?.errorKey ?? body}");
-
-            if (insertResponse.response?.invoiceId != null)
             {
-                transaction.GatewayInvoiceId = insertResponse.response.invoiceId;
-                transaction.PaymentGatewayResponse = body;
+                _logger.LogWarning("Sadad returned an invalid invoice creation response.");
+                throw new InvalidOperationException("Payment gateway invoice creation failed.");
             }
+
+            if (string.IsNullOrWhiteSpace(insertResponse.response?.invoiceId))
+                throw new InvalidOperationException("Payment gateway did not return an invoice identifier.");
+
+            transaction.GatewayInvoiceId = insertResponse.response.invoiceId;
+            transaction.PaymentGatewayResponse = "InvoiceCreated";
 
             transaction.Status = TransactionStatus.Pending;
 
@@ -315,39 +332,17 @@ namespace Ecom.Application.Services
         /// <summary>
         /// Verifies invoice payment status via Sadad API. MANDATORY before updating order/transaction.
         /// </summary>
-        private async Task<(bool IsPaid, string? RawResponse)> VerifySadadInvoicePaymentAsync(string invoiceId)
+        private Task<bool> VerifySadadInvoicePaymentAsync(string invoiceId)
         {
             if (string.IsNullOrWhiteSpace(invoiceId))
-                return (false, null);
-            try
-            {
-                var tokens = await GenerateTokens();
-                var request = new HttpRequestMessage
-                {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"api/Invoice/getbyid?id={invoiceId}", UriKind.Relative),
-                    Headers = { { "authorization", $"Bearer {tokens.AccessToken}" } },
-                };
+                return Task.FromResult(false);
 
-                var httpClient = _httpClientFactory.CreateClient("Sadad");
-                using var response = await httpClient.SendAsync(request);
-                var body = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                    return (false, body);
-
-                var getByIdResponse = JsonSerializer.Deserialize<SadadInvoiceGetByIdResponse>(body);
-                if (getByIdResponse == null || !getByIdResponse.isValid || getByIdResponse.response == null)
-                    return (false, body);
-
-                var status = getByIdResponse.response.status?.Trim();
-                var isPaid = string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
-                return (isPaid, body);
-            }
-            catch (Exception)
-            {
-                return (false, null);
-            }
+            // Fail closed: the public Sadad contract available to this project does
+            // not document an authoritative response schema for amount, currency,
+            // merchant reference, merchant identity, or final payment status. A
+            // guessed schema must never be used to create financial truth.
+            _logger.LogWarning("Sadad payment confirmation is disabled until the authoritative merchant verification contract is configured.");
+            return Task.FromResult(false);
         }
 
         public async Task<bool> HandleSadadPaidWebhookAsync(SadadWebhookDto webhookPayload)
@@ -358,34 +353,19 @@ namespace Ecom.Application.Services
             if (!string.Equals(webhookPayload.Status, "Paid", StringComparison.OrdinalIgnoreCase))
                 return false;
 
-            // MANDATORY: Verify with Sadad API before any action
-            var (isPaid, rawResponse) = await VerifySadadInvoicePaymentAsync(webhookPayload.InvoiceId.ToString());
-            if (!isPaid)
-                return false;
-
             var transaction = await _unitOfWork.Transactions.GetTransactionByGatewayInvoiceIdAsync(webhookPayload.InvoiceId);
             if (transaction == null)
                 return false;
 
-            // Idempotent: already paid
             if (transaction.Status == TransactionStatus.Paid)
-                return true;
+                return transaction.GatewayVerifiedAtUtc is not null;
 
-            // Update transaction
-            transaction.Status = TransactionStatus.Paid;
-            transaction.ProcessedDate = DateTime.UtcNow;
-            transaction.PaymentGatewayResponse = rawResponse ?? JsonSerializer.Serialize(webhookPayload);
+            // MANDATORY: Verify with Sadad API before any action
+            var isPaid = await VerifySadadInvoicePaymentAsync(webhookPayload.InvoiceId.ToString());
+            if (!isPaid)
+                return false;
 
-            // Update order status
-            if (transaction.Order != null && transaction.Order.Status != OrderStatus.Processing && transaction.Order.Status != OrderStatus.Shipped && transaction.Order.Status != OrderStatus.Delivered)
-            {
-                transaction.Order.Status = OrderStatus.Processing;
-                _unitOfWork.Orders.Update(transaction.Order);
-            }
-
-            _unitOfWork.Transactions.Update(transaction);
-            await _unitOfWork.SaveChangesAsync();
-            return true;
+            return await ApplyVerifiedElectronicPaymentAsync(transaction);
         }
 
         /// <summary>
@@ -401,23 +381,14 @@ namespace Ecom.Application.Services
                     continue;
                 try
                 {
-                    var (isPaid, rawResponse) = await VerifySadadInvoicePaymentAsync(transaction.GatewayInvoiceId);
+                    var isPaid = await VerifySadadInvoicePaymentAsync(transaction.GatewayInvoiceId);
                     if (!isPaid)
                         continue;
-                    transaction.Status = TransactionStatus.Paid;
-                    transaction.ProcessedDate = DateTime.UtcNow;
-                    transaction.PaymentGatewayResponse = rawResponse ?? transaction.PaymentGatewayResponse;
-                    if (transaction.Order != null && transaction.Order.Status != OrderStatus.Processing && transaction.Order.Status != OrderStatus.Shipped && transaction.Order.Status != OrderStatus.Delivered)
-                    {
-                        transaction.Order.Status = OrderStatus.Processing;
-                        _unitOfWork.Orders.Update(transaction.Order);
-                    }
-                    _unitOfWork.Transactions.Update(transaction);
-                    await _unitOfWork.SaveChangesAsync();
+                    await ApplyVerifiedElectronicPaymentAsync(transaction);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "[Sadad Status Check] Failed for Transaction {TransactionId} (InvoiceId={InvoiceId})", transaction.Id, transaction.GatewayInvoiceId);
+                    _logger.LogWarning(ex, "Sadad status check failed for TransactionId={TransactionId}.", transaction.Id);
                 }
             }
         }
@@ -452,12 +423,12 @@ namespace Ecom.Application.Services
             var refreshContent = await refreshResponse.Content.ReadAsStringAsync();
 
             if (!refreshResponse.IsSuccessStatusCode)
-                throw new InvalidOperationException($"Sadad refresh token request failed ({(int)refreshResponse.StatusCode}): {refreshContent}");
+                throw new InvalidOperationException("Payment gateway authentication failed.");
 
             var refreshObj = JsonSerializer.Deserialize<SadadRefreshResponse>(refreshContent);
 
             if (refreshObj == null || !refreshObj.isValid || refreshObj.response == null)
-                throw new InvalidOperationException($"Sadad refresh token response invalid: {refreshContent}");
+                throw new InvalidOperationException("Payment gateway authentication failed.");
 
             var refreshToken = refreshObj.response.refreshToken;
 
@@ -488,12 +459,12 @@ namespace Ecom.Application.Services
             var accessContent = await accessResponse.Content.ReadAsStringAsync();
 
             if (!accessResponse.IsSuccessStatusCode)
-                throw new InvalidOperationException($"Sadad access token request failed ({(int)accessResponse.StatusCode}): {accessContent}");
+                throw new InvalidOperationException("Payment gateway authentication failed.");
 
             var accessObj = JsonSerializer.Deserialize<SadadAccessResponse>(accessContent);
 
             if (accessObj == null || !accessObj.isValid || accessObj.response == null)
-                throw new InvalidOperationException($"Sadad access token response invalid: {accessContent}");
+                throw new InvalidOperationException("Payment gateway authentication failed.");
 
             return new TokenResponse
             {
@@ -513,13 +484,15 @@ namespace Ecom.Application.Services
             if (transaction == null)
                 throw new ArgumentException($"Transaction with ID {transactionDto.Id} not found.");
 
+            EnsureAdministrativeStatusTransitionAllowed(transaction, transactionDto.Status);
+
             transaction.Status = transactionDto.Status;
             transaction.TransactionReference = transactionDto.TransactionReference ?? transaction.TransactionReference;
             transaction.PaymentGatewayResponse = transactionDto.PaymentGatewayResponse ?? transaction.PaymentGatewayResponse;
             transaction.Notes = transactionDto.Notes ?? transaction.Notes;
             transaction.GatewayInvoiceId = transactionDto.GatewayInvoiceId ?? transaction.GatewayInvoiceId;
 
-            if (transactionDto.Status == TransactionStatus.Paid)
+            if (transactionDto.Status == TransactionStatus.Collected)
                 transaction.ProcessedDate = DateTime.UtcNow;
 
             _unitOfWork.Transactions.Update(transaction);
@@ -591,31 +564,15 @@ namespace Ecom.Application.Services
                 });
             }
 
-            // Simulate payment processing (in real app, integrate with payment gateway)
-            var isSuccessful = await ProcessPaymentWithGateway(paymentDto);
-
-            var transactionDto = new TransactionCreateAdvancedDto
+            return await CreateTransactionAsync(new TransactionCreateAdvancedDto
             {
                 OrderId = paymentDto.OrderId,
                 Amount = order.Total,
                 PaymentMethod = paymentDto.PaymentMethod,
-                Status = isSuccessful ? TransactionStatus.Paid : TransactionStatus.Failed,
+                Status = TransactionStatus.Pending,
                 TransactionReference = GenerateTransactionReference(),
-                PaymentGatewayResponse = isSuccessful ? "Payment processed successfully" : "Payment failed",
                 Notes = paymentDto.Notes
-            };
-
-            var transaction = await CreateTransactionAsync(transactionDto);
-
-            // Update order status if payment successful
-            if (isSuccessful)
-            {
-                order.Status = OrderStatus.Processing;
-                _unitOfWork.Orders.Update(order);
-                await _unitOfWork.SaveChangesAsync();
-            }
-
-            return transaction;
+            });
         }
 
         public async Task<TransactionAdvancedDto> ProcessRefundAsync(TransactionRefundDto refundDto)
@@ -658,11 +615,13 @@ namespace Ecom.Application.Services
             if (transaction == null)
                 return false;
 
+            EnsureAdministrativeStatusTransitionAllowed(transaction, status);
+
             transaction.Status = status;
             if (!string.IsNullOrEmpty(gatewayResponse))
                 transaction.PaymentGatewayResponse = gatewayResponse;
 
-            if (status == TransactionStatus.Paid)
+            if (status == TransactionStatus.Collected)
                 transaction.ProcessedDate = DateTime.UtcNow;
 
             _unitOfWork.Transactions.Update(transaction);
@@ -794,7 +753,18 @@ namespace Ecom.Application.Services
 
         public async Task<bool> MarkTransactionAsCompletedAsync(int transactionId, string? reference = null)
         {
-            return await UpdateTransactionStatusAsync(transactionId, TransactionStatus.Paid, reference);
+            var transaction = await _unitOfWork.Transactions.GetByIdAsync(transactionId);
+            if (transaction == null)
+                return false;
+            if (transaction.PaymentMethod != PaymentMethod.Cod)
+                throw new InvalidOperationException("Electronic payments can only be completed by verified gateway confirmation.");
+
+            transaction.Status = TransactionStatus.Collected;
+            transaction.ProcessedDate = DateTime.UtcNow;
+            transaction.TransactionReference = reference ?? transaction.TransactionReference;
+            _unitOfWork.Transactions.Update(transaction);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> MarkTransactionAsFailedAsync(int transactionId, string reason)
@@ -913,6 +883,35 @@ namespace Ecom.Application.Services
                 CouponType.FreeShipping => "FreeShipping",
                 _ => "Fixed"
             };
+        }
+
+        private async Task<bool> ApplyVerifiedElectronicPaymentAsync(Transaction transaction)
+        {
+            if (transaction.PaymentMethod == PaymentMethod.Cod || string.IsNullOrWhiteSpace(transaction.GatewayInvoiceId))
+                return false;
+
+            transaction.Status = TransactionStatus.Paid;
+            transaction.ProcessedDate = DateTime.UtcNow;
+            transaction.GatewayVerifiedAtUtc = DateTime.UtcNow;
+            transaction.PaymentGatewayResponse = "Verified";
+
+            if (transaction.Order != null && transaction.Order.Status == OrderStatus.Pending)
+            {
+                transaction.Order.Status = OrderStatus.Processing;
+                _unitOfWork.Orders.Update(transaction.Order);
+            }
+
+            _unitOfWork.Transactions.Update(transaction);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        private static void EnsureAdministrativeStatusTransitionAllowed(Transaction transaction, TransactionStatus status)
+        {
+            if (status == TransactionStatus.Paid)
+                throw new InvalidOperationException("Paid status requires verified gateway confirmation.");
+            if (status == TransactionStatus.Collected && transaction.PaymentMethod != PaymentMethod.Cod)
+                throw new InvalidOperationException("Collected status is only valid for cash-on-delivery transactions.");
         }
 
         private async Task<bool> ProcessPaymentWithGateway(PaymentProcessingDto paymentDto)

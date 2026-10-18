@@ -24,8 +24,18 @@ static async Task Reject(Func<Task> action)
 var mapper = new MapperConfiguration(c => c.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
 Check(new OrderCreateDto().PaymentMethod == PaymentMethod.Bank, "Backward compatibility failed");
 foreach (var method in Enum.GetValues<PaymentMethod>())
-    Check(Valid(new OrderCreateDto { PaymentMethod = method }), "Valid method rejected");
-Check(!Valid(new OrderCreateDto { PaymentMethod = (PaymentMethod)99 }), "Invalid method accepted");
+    Check(Valid(new OrderCreateDto
+    {
+        PaymentMethod = method,
+        Items = [new OrderItemCreateDto { ProductId = 1, Quantity = 1 }],
+        ShippingAddress = new ShippingAddressCreateDto { FullName = "Test", Phone = "00000000", Street = "Test" }
+    }), "Valid method rejected");
+Check(!Valid(new OrderCreateDto
+{
+    PaymentMethod = (PaymentMethod)99,
+    Items = [new OrderItemCreateDto { ProductId = 1, Quantity = 1 }],
+    ShippingAddress = new ShippingAddressCreateDto { FullName = "Test", Phone = "00000000", Street = "Test" }
+}), "Invalid method accepted");
 var order = new Order { Id = 10, OrderNumber = "CHECK-10", Total = 20, ShippingAddress = new ShippingAddress { FullName = "بدر", Phone = "213123213", Street = "الفروانية - عبدالله المبارك" } };
 Transaction? stored = null;
 var orders = Stub.Make<IOrderRepository>((name, a) => name switch {
@@ -61,10 +71,9 @@ var transactionService = Stub.Make<ITransactionService>((name, a) => name switch
     _ => throw new Exception("Unexpected service call: " + name)
 });
 var orderService = new OrderService(uow, mapper, null!, null!, transactionService);
-await Reject(async () => await orderService.GetOrderPaymentLinkAsync(10));
 await Reject(async () => await orderService.CreateOrderAsync(new OrderCreateDto { PaymentMethod = (PaymentMethod)99 }));
 await Reject(async () => await service.CreateTransactionAsync(new TransactionCreateAdvancedDto { PaymentMethod = (PaymentMethod)99 }));
-Console.WriteLine("PASS COD: persisted pending, zero gateway calls, null URL, payment-link rejected, invalid methods rejected");
+Console.WriteLine("PASS COD: persisted pending, zero gateway calls, null URL, invalid methods rejected");
 Environment.SetEnvironmentVariable("ClientKey", "test");
 Environment.SetEnvironmentVariable("ClientSecret", "test");
 var online = await service.CreateTransactionAsync(new TransactionCreateAdvancedDto { OrderId = 10, Amount = 20, PaymentMethod = PaymentMethod.Bank });

@@ -20,7 +20,9 @@ namespace Ecom.Application.DTOs.Order
 
     public class TransactionCreateDto
     {
+        [System.ComponentModel.DataAnnotations.Range(1, int.MaxValue)]
         public int OrderId { get; set; }
+        [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0.001", "999999999999999.999")]
         public decimal Amount { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
         public TransactionStatus Status { get; set; } = TransactionStatus.Pending;

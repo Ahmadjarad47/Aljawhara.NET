@@ -2,6 +2,7 @@ using Ecom.API.HostedServices;
 using Ecom.Application.Mappings;
 using Ecom.Application.Services;
 using Ecom.Application.Services.Interfaces;
+using Ecom.Application.Payments;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.Repositories;
@@ -156,7 +157,16 @@ builder.Services.AddScoped<IFileService, CloudflareR2Service>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserManagerService, UserManagerService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
-builder.Services.AddHostedService<SadadPaymentStatusCheckerService>();
+builder.Services.AddScoped<ISadadInvoiceGateway, SadadInvoiceGateway>();
+builder.Services.AddScoped<PaymentOrchestrationService>();
+builder.Services.AddScoped<IPaymentOrchestrationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());
+builder.Services.AddScoped<IPaymentFinalizationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());
+builder.Services.AddScoped<ISadadPaymentVerificationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService<SadadPaymentStatusCheckerService>();
+    builder.Services.AddHostedService<PaymentOrchestrationWorker>();
+}
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
@@ -197,7 +207,12 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"];
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    var guestDerivationKey = builder.Configuration["CheckoutSecurity:GuestTokenDerivationKey"];
+    if (string.IsNullOrWhiteSpace(guestDerivationKey) || Encoding.UTF8.GetByteCount(guestDerivationKey) < 32)
+        throw new InvalidOperationException("CheckoutSecurity:GuestTokenDerivationKey must be supplied by the deployment secret store and contain at least 32 bytes.");
+}
 
 builder.Services.AddAuthentication(options =>
 {
@@ -206,6 +221,10 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    var secretKey = jwtSettings["SecretKey"];
+    if (string.IsNullOrWhiteSpace(secretKey) || Encoding.UTF8.GetByteCount(secretKey) < 32)
+        throw new InvalidOperationException("JwtSettings:SecretKey must be supplied by the deployment secret store and contain at least 32 bytes.");
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
@@ -382,8 +401,8 @@ if (!app.Environment.IsDevelopment())
 app.UseCors("AllowSpecificOrigins");
 
 // Security: Swagger only in development
-//if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
-//{
+if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -393,7 +412,7 @@ app.UseCors("AllowSpecificOrigins");
         // Security: Disable Swagger UI in production
         c.DocumentTitle = "Ecom API - Development";
     });
-//}
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -415,7 +434,6 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
             {
                 name = e.Key,
                 status = e.Value.Status.ToString(),
-                exception = e.Value.Exception?.Message,
                 duration = e.Value.Duration.ToString()
             })
         });
@@ -424,13 +442,14 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 });
 
 // Ensure database is created and seed data
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
     await context.Database.MigrateAsync();
-    
-    // Seed roles and admin user
     await Ecom.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider);
 }
 
 await app.RunAsync();
+
+public partial class Program;

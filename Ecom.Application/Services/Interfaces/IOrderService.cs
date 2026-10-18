@@ -12,7 +12,7 @@ namespace Ecom.Application.Services.Interfaces
         Task<IEnumerable<OrderSummaryDto>> GetOrdersByStatusAsync(OrderStatus status);
         Task<IEnumerable<OrderSummaryDto>> GetRecentOrdersAsync(int count = 10);
         
-        Task<TransactionAdvancedDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null);
+        Task<TransactionAdvancedDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null, string? idempotencyKey = null);
         Task<OrderDto> UpdateOrderStatusAsync(OrderUpdateStatusDto orderUpdateDto);
         Task<bool> CancelOrderAsync(int orderId);
         
@@ -22,8 +22,12 @@ namespace Ecom.Application.Services.Interfaces
         Task<TransactionDto> ProcessPaymentAsync(TransactionCreateDto transactionDto);
         Task<IEnumerable<TransactionDto>> GetOrderTransactionsAsync(int orderId);
         Task<string> GetOrderPaymentLinkAsync(int orderId);
+        Task<PaymentStatusDto> GetOrderPaymentStatusAsync(int orderId);
+        Task<PaymentStatusDto> RetryPaymentAsync(int orderId, string idempotencyKey);
         
         Task<InvoicePaymentDto?> GetInvoicePaymentDataAsync(int orderId);
+        Task<bool> CanAccessOrderAsync(int orderId, string? userId, string? guestAccessToken, bool isAdmin = false);
+        Task<string?> RotateGuestAccessTokenAsync(int orderId);
     }
 }
 

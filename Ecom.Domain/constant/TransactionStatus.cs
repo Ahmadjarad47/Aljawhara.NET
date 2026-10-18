@@ -6,6 +6,7 @@ namespace Ecom.Domain.constant
         Paid,
         Failed,
         Cancelled,
-        Refunded
+        Refunded,
+        Collected
     }
 }

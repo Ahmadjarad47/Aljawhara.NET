@@ -18,15 +18,15 @@ public class BusinessAndPaymentTests
     [Theory]
     [InlineData(-1)]
     [InlineData(0)]
-    public void Order_item_accepts_non_positive_quantity(int quantity)
+    public void Order_item_rejects_non_positive_quantity(int quantity)
     {
         var dto = new OrderItemCreateDto { ProductId = 1, Quantity = quantity };
 
-        Assert.True(IsValid(dto));
+        Assert.False(IsValid(dto));
     }
 
     [Fact]
-    public void Empty_order_is_model_valid()
+    public void Empty_order_is_model_invalid()
     {
         var dto = new OrderCreateDto
         {
@@ -34,21 +34,21 @@ public class BusinessAndPaymentTests
             Items = []
         };
 
-        Assert.True(IsValid(dto));
+        Assert.False(IsValid(dto));
     }
 
     [Theory]
     [InlineData(-10)]
     [InlineData(0)]
-    public void Legacy_transaction_accepts_non_positive_amount(double amount)
+    public void Legacy_transaction_rejects_non_positive_amount(double amount)
     {
         var dto = new TransactionCreateDto { OrderId = 1, Amount = (decimal)amount };
 
-        Assert.True(IsValid(dto));
+        Assert.False(IsValid(dto));
     }
 
     [Fact]
-    public async Task Legacy_payment_service_marks_client_amount_paid_without_gateway_verification()
+    public async Task Legacy_payment_service_is_disabled_without_persisting_a_transaction()
     {
         Transaction? stored = null;
         var transactions = InterfaceStub.Create<ITransactionRepository>((method, args) => method.Name switch
@@ -72,22 +72,19 @@ public class BusinessAndPaymentTests
         });
         var service = new OrderService(uow, TestMapper.Create(), null!, null!, null!);
 
-        var result = await service.ProcessPaymentAsync(new TransactionCreateDto
+        await Assert.ThrowsAsync<NotSupportedException>(() => service.ProcessPaymentAsync(new TransactionCreateDto
         {
             OrderId = 999999,
-            Amount = -250m,
+            Amount = 250m,
             PaymentMethod = PaymentMethod.Bank,
-            Status = TransactionStatus.Failed
-        });
+            Status = TransactionStatus.Paid
+        }));
 
-        Assert.Equal(TransactionStatus.Paid, stored!.Status);
-        Assert.Equal(-250m, stored.Amount);
-        Assert.Equal(999999, stored.OrderId);
-        Assert.Equal(TransactionStatus.Paid, result.Status);
+        Assert.Null(stored);
     }
 
     [Fact]
-    public async Task Admin_completion_method_marks_transaction_paid_without_gateway_verification()
+    public async Task Admin_completion_cannot_mark_electronic_transaction_paid_without_gateway_verification()
     {
         var order = Order(25m, 25m);
         var transaction = new Transaction
@@ -102,16 +99,40 @@ public class BusinessAndPaymentTests
         var handler = new SadadHandler((_, _) => throw new InvalidOperationException("Gateway must not be called"));
         var harness = new TransactionHarness(order, handler, transaction);
 
-        var updated = await harness.Service.MarkTransactionAsCompletedAsync(transaction.Id, "manual-reference");
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            harness.Service.MarkTransactionAsCompletedAsync(transaction.Id, "manual-reference"));
+
+        Assert.Equal(TransactionStatus.Pending, transaction.Status);
+        Assert.Equal(0, handler.Calls);
+        Assert.Equal(0, harness.Saves);
+    }
+
+    [Fact]
+    public async Task Cash_on_delivery_completion_uses_collected_not_paid()
+    {
+        var order = Order(25m, 25m);
+        var transaction = new Transaction
+        {
+            Id = 89,
+            OrderId = order.Id,
+            Order = order,
+            Amount = order.Total,
+            PaymentMethod = PaymentMethod.Cod,
+            Status = TransactionStatus.Pending
+        };
+        var harness = new TransactionHarness(order, new SadadHandler((_, _) => throw new InvalidOperationException()), transaction);
+
+        var updated = await harness.Service.MarkTransactionAsCompletedAsync(transaction.Id, "cod-receipt");
 
         Assert.True(updated);
-        Assert.Equal(TransactionStatus.Paid, transaction.Status);
-        Assert.Equal(0, handler.Calls);
+        Assert.Equal(TransactionStatus.Collected, transaction.Status);
+        Assert.NotEqual(TransactionStatus.Paid, transaction.Status);
+        Assert.Equal("cod-receipt", transaction.TransactionReference);
         Assert.Equal(1, harness.Saves);
     }
 
     [Fact]
-    public async Task Negative_stock_reduction_increases_inventory()
+    public async Task Negative_stock_reduction_is_rejected_without_changing_inventory()
     {
         var product = new Product { Id = 4, TotalInStock = 5, IsInStock = true };
         var products = InterfaceStub.Create<IProductRepository>((method, _) => method.Name switch
@@ -131,12 +152,12 @@ public class BusinessAndPaymentTests
 
         var accepted = await service.ReduceProductStockAsync(4, -3);
 
-        Assert.True(accepted);
-        Assert.Equal(8, product.TotalInStock);
+        Assert.False(accepted);
+        Assert.Equal(5, product.TotalInStock);
     }
 
     [Fact]
-    public async Task Transaction_amount_can_differ_from_server_generated_Sadad_invoice_amount()
+    public async Task Transaction_amount_is_always_derived_from_the_server_order_total()
     {
         using var environment = new EnvironmentVariableScope();
         var order = Order(total: 10m, itemPrice: 10m);
@@ -150,13 +171,13 @@ public class BusinessAndPaymentTests
             PaymentMethod = PaymentMethod.Bank
         });
 
-        Assert.Equal(0.01m, harness.StoredTransaction!.Amount);
+        Assert.Equal(10m, harness.StoredTransaction!.Amount);
         using var payload = InsertPayload(handler);
-        Assert.Equal("10.000", payload.RootElement.GetProperty("Invoices")[0].GetProperty("amount").GetString());
+        Assert.Equal(10m, payload.RootElement.GetProperty("Invoices")[0].GetProperty("amount").GetDecimal());
     }
 
     [Fact]
-    public async Task Invoice_success_without_invoice_id_is_persisted_as_pending()
+    public async Task Invoice_success_without_invoice_id_is_rejected_without_persistence()
     {
         using var environment = new EnvironmentVariableScope();
         var order = Order(10m, 10m);
@@ -165,21 +186,19 @@ public class BusinessAndPaymentTests
             insert: "{\"isValid\":true,\"response\":{}}"));
         var harness = new TransactionHarness(order, handler);
 
-        var result = await harness.Service.CreateTransactionAsync(new TransactionCreateAdvancedDto
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.CreateTransactionAsync(new TransactionCreateAdvancedDto
         {
             OrderId = order.Id,
             Amount = order.Total,
             PaymentMethod = PaymentMethod.Bank
-        });
+        }));
 
-        Assert.Equal(TransactionStatus.Pending, harness.StoredTransaction!.Status);
-        Assert.Null(harness.StoredTransaction.GatewayInvoiceId);
-        Assert.Null(result.PaymentUrl);
-        Assert.Equal(1, harness.Saves);
+        Assert.Null(harness.StoredTransaction);
+        Assert.Equal(0, harness.Saves);
     }
 
     [Fact]
-    public async Task Missing_loaded_coupon_causes_invoice_to_ignore_local_discount()
+    public async Task Missing_loaded_coupon_fails_closed_before_invoice_creation()
     {
         using var environment = new EnvironmentVariableScope();
         var order = Order(8m, 10m);
@@ -190,22 +209,19 @@ public class BusinessAndPaymentTests
         var handler = new SadadHandler((request, _) => SadadResponses.HappyPath(request));
         var harness = new TransactionHarness(order, handler);
 
-        await harness.Service.CreateTransactionAsync(new TransactionCreateAdvancedDto
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Service.CreateTransactionAsync(new TransactionCreateAdvancedDto
         {
             OrderId = order.Id,
             Amount = order.Total,
             PaymentMethod = PaymentMethod.Bank
-        });
+        }));
 
-        using var payload = InsertPayload(handler);
-        var invoice = payload.RootElement.GetProperty("Invoices")[0];
-        Assert.Equal("10.000", invoice.GetProperty("amount").GetString());
-        Assert.False(invoice.TryGetProperty("discount_Amount", out _));
-        Assert.Equal(8m, harness.StoredTransaction!.Amount);
+        Assert.DoesNotContain(handler.Requests, request => request.Path == "/api/Invoice/insert");
+        Assert.Null(harness.StoredTransaction);
     }
 
     [Fact]
-    public async Task Invoice_amount_format_depends_on_server_culture()
+    public async Task Invoice_amount_is_a_culture_independent_json_number()
     {
         using var environment = new EnvironmentVariableScope();
         var previousCulture = CultureInfo.CurrentCulture;
@@ -226,7 +242,7 @@ public class BusinessAndPaymentTests
             });
 
             using var payload = InsertPayload(handler);
-            Assert.Equal("12,345", payload.RootElement.GetProperty("Invoices")[0].GetProperty("amount").GetString());
+            Assert.Equal(12.345m, payload.RootElement.GetProperty("Invoices")[0].GetProperty("amount").GetDecimal());
         }
         finally
         {
@@ -262,13 +278,14 @@ public class BusinessAndPaymentTests
                 PaymentMethod = PaymentMethod.Bank
             }));
 
-        Assert.Contains(((int)status).ToString(CultureInfo.InvariantCulture), exception.Message);
+        Assert.Equal("Payment gateway invoice creation failed.", exception.Message);
+        Assert.DoesNotContain("synthetic", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Null(harness.StoredTransaction);
         Assert.Equal(0, harness.Saves);
     }
 
     [Fact]
-    public async Task Paid_gateway_status_marks_transaction_paid_even_when_amount_currency_and_reference_mismatch()
+    public async Task Undocumented_or_mismatched_gateway_response_cannot_mark_transaction_paid()
     {
         using var environment = new EnvironmentVariableScope();
         var order = Order(25m, 25m);
@@ -292,14 +309,14 @@ public class BusinessAndPaymentTests
             Amount = 0.001m
         });
 
-        Assert.True(updated);
-        Assert.Equal(TransactionStatus.Paid, transaction.Status);
-        Assert.Equal(OrderStatus.Processing, order.Status);
-        Assert.Equal(1, harness.Saves);
+        Assert.False(updated);
+        Assert.Equal(TransactionStatus.Pending, transaction.Status);
+        Assert.Equal(OrderStatus.Pending, order.Status);
+        Assert.Equal(0, harness.Saves);
     }
 
     [Fact]
-    public async Task Duplicate_paid_webhook_is_idempotent_only_after_an_additional_gateway_call()
+    public async Task Duplicate_verified_paid_webhook_is_idempotent_without_an_additional_gateway_call()
     {
         using var environment = new EnvironmentVariableScope();
         var order = Order(25m, 25m);
@@ -310,7 +327,8 @@ public class BusinessAndPaymentTests
             Order = order,
             Amount = 25m,
             GatewayInvoiceId = "9001",
-            Status = TransactionStatus.Paid
+            Status = TransactionStatus.Paid,
+            GatewayVerifiedAtUtc = DateTime.UtcNow
         };
         var paid = "{\"isValid\":true,\"response\":{\"status\":\"Paid\"}}";
         var handler = new SadadHandler((request, _) => SadadResponses.HappyPath(request, get: paid));
@@ -319,7 +337,7 @@ public class BusinessAndPaymentTests
         var result = await harness.Service.HandleSadadPaidWebhookAsync(new SadadWebhookDto { InvoiceId = 9001, Status = "Paid" });
 
         Assert.True(result);
-        Assert.Equal(3, handler.Calls);
+        Assert.Equal(0, handler.Calls);
         Assert.Equal(0, harness.Saves);
         Assert.Equal(0, harness.TransactionUpdates);
     }

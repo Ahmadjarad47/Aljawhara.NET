@@ -278,6 +278,42 @@ namespace Ecom.Infrastructure.Repositories
 
             return products;
         }
+
+        public async Task<bool> TryReduceStockAsync(int productId, int quantity)
+        {
+            if (quantity <= 0)
+                return false;
+
+            var affected = await _dbSet
+                .Where(product => product.Id == productId &&
+                                  product.IsActive &&
+                                  product.TotalInStock >= quantity)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(product => product.TotalInStock, product => product.TotalInStock - quantity)
+                    .SetProperty(product => product.IsInStock, product => product.TotalInStock - quantity > 0));
+
+            if (affected == 1)
+                InvalidateCollectionCache();
+
+            return affected == 1;
+        }
+
+        public async Task<bool> TryIncreaseStockAsync(int productId, int quantity)
+        {
+            if (quantity <= 0)
+                return false;
+
+            var affected = await _dbSet
+                .Where(product => product.Id == productId && product.IsActive)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(product => product.TotalInStock, product => product.TotalInStock + quantity)
+                    .SetProperty(product => product.IsInStock, true));
+
+            if (affected == 1)
+                InvalidateCollectionCache();
+
+            return affected == 1;
+        }
     }
 }
 

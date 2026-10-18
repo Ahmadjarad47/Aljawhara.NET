@@ -88,8 +88,10 @@ namespace Ecom.Infrastructure.Data
 
         private static async Task SeedAdminUserAsync(UserManager<AppUsers> userManager)
         {
-            const string adminEmail = "super.admin@aljawhara.com";
-            const string adminPassword = "Ad*-*in)@1=2+3.!";
+            var adminEmail = Environment.GetEnvironmentVariable("BootstrapAdmin__Email");
+            var adminPassword = Environment.GetEnvironmentVariable("BootstrapAdmin__Password");
+            if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))
+                return;
 
             var adminUser = await userManager.FindByEmailAsync(adminEmail);
             if (adminUser == null)

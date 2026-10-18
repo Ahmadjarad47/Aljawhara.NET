@@ -135,7 +135,18 @@ namespace Ecom.Application.Mappings
                 .ForMember(dest => dest.ShippingAddress, opt => opt.Ignore())
                 .ForMember(dest => dest.AppUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.CouponId, opt => opt.Ignore())
-                .ForMember(dest => dest.CouponDiscountAmount, opt => opt.Ignore());
+                .ForMember(dest => dest.CouponDiscountAmount, opt => opt.Ignore())
+                .ForMember(dest => dest.GuestAccessTokenHash, opt => opt.Ignore())
+                .ForMember(dest => dest.GuestAccessExpiresAtUtc, opt => opt.Ignore())
+                .ForMember(dest => dest.GuestAccessRevokedAtUtc, opt => opt.Ignore())
+                .ForMember(dest => dest.CheckoutIdempotencyKeyHash, opt => opt.Ignore())
+                .ForMember(dest => dest.CheckoutRequestHash, opt => opt.Ignore())
+                .ForMember(dest => dest.GuestTokenDerivationNonce, opt => opt.Ignore())
+                .ForMember(dest => dest.ReservationExpiresAtUtc, opt => opt.Ignore())
+                .ForMember(dest => dest.InventoryReservations, opt => opt.Ignore())
+                .ForMember(dest => dest.CouponReservation, opt => opt.Ignore())
+                .ForMember(dest => dest.PaymentAttempts, opt => opt.Ignore());
+
 
             CreateMap<OrderItem, OrderItemDto>()
                 .ForMember(dest => dest.Total, opt => opt.MapFrom(src => src.Price * src.Quantity));
@@ -162,7 +173,9 @@ namespace Ecom.Application.Mappings
                     src.Order != null && src.Order.ShippingAddress != null ? src.Order.ShippingAddress.FullName : 
                     (src.AppUser != null ? src.AppUser.UserName : "Guest")))
                 .ForMember(dest => dest.CustomerEmail, opt => opt.MapFrom(src => src.AppUser != null ? src.AppUser.Email : string.Empty))
-                .ForMember(dest => dest.PaymentMethodName, opt => opt.MapFrom(src => src.PaymentMethod.ToString()));
+                .ForMember(dest => dest.PaymentMethodName, opt => opt.MapFrom(src => src.PaymentMethod.ToString()))
+                .ForMember(dest => dest.GuestAccessToken, opt => opt.Ignore())
+                .ForMember(dest => dest.GuestAccessExpiresAtUtc, opt => opt.Ignore());
 
             CreateMap<TransactionCreateAdvancedDto, Transaction>();
             CreateMap<TransactionUpdateDto, Transaction>()

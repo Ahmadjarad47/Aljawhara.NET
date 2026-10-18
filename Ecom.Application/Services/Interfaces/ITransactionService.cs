@@ -60,5 +60,6 @@ namespace Ecom.Application.Services.Interfaces
         /// Used by background job.
         /// </summary>
         Task CheckPendingSadadPaymentsAsync();
+        Task<TokenResponse> GenerateTokens();
     }
 }

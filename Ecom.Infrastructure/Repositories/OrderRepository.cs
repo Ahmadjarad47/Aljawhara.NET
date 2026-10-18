@@ -124,6 +124,20 @@ namespace Ecom.Infrastructure.Repositories
                 .Take(count)
                 .ToListAsync();
         }
+
+        public async Task<bool> TryCancelOrderAsync(int orderId, OrderStatus expectedStatus, DateTime revokedAtUtc)
+        {
+            var affected = await _dbSet
+                .Where(order => order.Id == orderId && order.Status == expectedStatus)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(order => order.Status, OrderStatus.Cancelled)
+                    .SetProperty(order => order.GuestAccessRevokedAtUtc, revokedAtUtc));
+
+            if (affected == 1)
+                InvalidateCacheForEntity(new Order { Id = orderId });
+
+            return affected == 1;
+        }
     }
 }
 

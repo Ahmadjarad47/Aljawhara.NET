@@ -531,6 +531,9 @@ namespace Ecom.Application.Services
         // Stock management methods
         public async Task<bool> UpdateProductStockAsync(int productId, int newStockQuantity)
         {
+            if (newStockQuantity < 0)
+                return false;
+
             // Use FirstOrDefaultAsync to get a tracked entity for updates
             var product = await _unitOfWork.Products.FirstOrDefaultAsync(p => p.Id == productId);
             if (product == null)
@@ -547,34 +550,18 @@ namespace Ecom.Application.Services
 
         public async Task<bool> ReduceProductStockAsync(int productId, int quantity)
         {
-            // Use FirstOrDefaultAsync to get a tracked entity for updates
-            var product = await _unitOfWork.Products.FirstOrDefaultAsync(p => p.Id == productId);
-            if (product == null || product.TotalInStock < quantity)
+            if (quantity <= 0)
                 return false;
 
-            product.TotalInStock -= quantity;
-            product.IsInStock = product.TotalInStock > 0;
-
-            // Entity is already tracked, just mark as modified
-            _unitOfWork.Products.Update(product);
-            await _unitOfWork.SaveChangesAsync();
-            return true;
+            return await _unitOfWork.Products.TryReduceStockAsync(productId, quantity);
         }
 
         public async Task<bool> IncreaseProductStockAsync(int productId, int quantity)
         {
-            // Use FirstOrDefaultAsync to get a tracked entity for updates
-            var product = await _unitOfWork.Products.FirstOrDefaultAsync(p => p.Id == productId);
-            if (product == null)
+            if (quantity <= 0)
                 return false;
 
-            product.TotalInStock += quantity;
-            product.IsInStock = true; // If we're adding stock, it's definitely in stock
-
-            // Entity is already tracked, just mark as modified
-            _unitOfWork.Products.Update(product);
-            await _unitOfWork.SaveChangesAsync();
-            return true;
+            return await _unitOfWork.Products.TryIncreaseStockAsync(productId, quantity);
         }
 
         public async Task<bool> SetProductInStockStatusAsync(int productId, bool isInStock)
