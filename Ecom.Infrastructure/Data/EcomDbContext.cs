@@ -168,10 +168,10 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.FullName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Phone).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.Street).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.City).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.State).HasMaxLength(100);
-                entity.Property(e => e.PostalCode).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.Country).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.City).IsRequired(false).HasMaxLength(100);
+                entity.Property(e => e.State).IsRequired(false).HasMaxLength(100);
+                entity.Property(e => e.PostalCode).IsRequired(false).HasMaxLength(20);
+                entity.Property(e => e.Country).IsRequired(false).HasMaxLength(100);
                 entity.HasOne(e => e.AppUser)
                       .WithOne()
                       .HasForeignKey<ShippingAddress>(e => e.AppUserId)

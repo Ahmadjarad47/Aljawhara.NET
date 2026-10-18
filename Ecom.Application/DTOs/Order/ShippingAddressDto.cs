@@ -1,4 +1,5 @@
 using Ecom.Application.DTOs.Common;
+using System.ComponentModel.DataAnnotations;
 
 namespace Ecom.Application.DTOs.Order
 {
@@ -7,10 +8,10 @@ namespace Ecom.Application.DTOs.Order
             public string FullName { get; set; } = string.Empty;
             public string Phone { get; set; } = string.Empty;
             public string Street { get; set; } = string.Empty;
-            public string City { get; set; } = string.Empty;
+            public string? City { get; set; }
             public string? State { get; set; }
-            public string PostalCode { get; set; } = string.Empty;
-            public string Country { get; set; } = string.Empty;
+            public string? PostalCode { get; set; }
+            public string? Country { get; set; }
             public string? AppUserId { get; set; }
             
             // Arabic address fields
@@ -24,13 +25,21 @@ namespace Ecom.Application.DTOs.Order
 
     public class ShippingAddressCreateDto
     {
+        [Required]
+        [StringLength(100)]
         public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(20)]
         public string Phone { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(200)]
         public string Street { get; set; } = string.Empty;
-        public string City { get; set; } = string.Empty;
+        public string? City { get; set; }
         public string? State { get; set; }
-        public string PostalCode { get; set; } = string.Empty;
-        public string Country { get; set; } = string.Empty;
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
         
         // Arabic address fields
         public string? AlQataa { get; set; } // القطعة (District/Block)
@@ -44,13 +53,22 @@ namespace Ecom.Application.DTOs.Order
     public class ShippingAddressUpdateDto
     {
         public int Id { get; set; }
+
+        [Required]
+        [StringLength(100)]
         public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(20)]
         public string Phone { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(200)]
         public string Street { get; set; } = string.Empty;
-        public string City { get; set; } = string.Empty;
+        public string? City { get; set; }
         public string? State { get; set; }
-        public string PostalCode { get; set; } = string.Empty;
-        public string Country { get; set; } = string.Empty;
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
         
         // Arabic address fields
         public string? AlQataa { get; set; } // القطعة (District/Block)

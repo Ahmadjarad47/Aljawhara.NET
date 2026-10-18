@@ -48,7 +48,7 @@ builder.Services.AddControllers(options =>
 builder.Services.AddHttpContextAccessor();
 
 // Sadad HttpClient with base URL from configuration
-var sadadBaseUrl = builder.Configuration["Sadad:BaseUrl"] ?? "https://api.sadadpay.net";
+var sadadBaseUrl = builder.Configuration["Sadad:BaseUrl"] ?? "https://apisandbox.sadadpay.net";
 builder.Services.AddHttpClient("Sadad", client =>
 {
     client.BaseAddress = new Uri(sadadBaseUrl);
@@ -230,7 +230,7 @@ builder.Services.AddAuthorization(options =>
 
 // Add CORS with security best practices
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() 
-    ?? new[] {"https://aljawharaplus.com" };
+    ?? new[] {"http://localhost:4200" };
 
 builder.Services.AddCors(options =>
 {

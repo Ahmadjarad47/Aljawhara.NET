@@ -1,5 +1,6 @@
 using Ecom.Application.DTOs.Common;
 using Ecom.Domain.constant;
+using System.ComponentModel.DataAnnotations;
 
 namespace Ecom.Application.DTOs.Order
 {
@@ -28,6 +29,9 @@ namespace Ecom.Application.DTOs.Order
         public List<OrderItemCreateDto> Items { get; set; } = new();
         public ShippingAddressCreateDto ShippingAddress { get; set; } = new();
         public string? CouponCode { get; set; }
+
+        [EnumDataType(typeof(PaymentMethod))]
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Bank;
     }
 
     public class OrderUpdateStatusDto

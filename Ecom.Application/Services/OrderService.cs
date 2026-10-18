@@ -58,6 +58,9 @@ namespace Ecom.Application.Services
         }
         public async Task<TransactionAdvancedDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null)
         {
+            if (!Enum.IsDefined(orderDto.PaymentMethod))
+                throw new ArgumentException("Invalid payment method.");
+
             var context = _unitOfWork.Context;
             var strategy = context.Database.CreateExecutionStrategy();
 
@@ -180,7 +183,7 @@ namespace Ecom.Application.Services
                             Amount = order.Total,
                             Status = TransactionStatus.Pending,
                             AppUserId = string.IsNullOrWhiteSpace(userId) ? null : userId,
-                            PaymentMethod = PaymentMethod.Bank,
+                            PaymentMethod = state.PaymentMethod,
                         };
                         var result = await _transaction.CreateTransactionAsync(transactionDto);
                         return result;
@@ -308,6 +311,9 @@ namespace Ecom.Application.Services
                 throw new InvalidOperationException("Order already has a successful payment.");
 
             var latestTransaction = await _transaction.GetLatestTransactionByOrderAsync(orderId);
+            if (latestTransaction?.PaymentMethod == PaymentMethod.Cod)
+                throw new InvalidOperationException("Cash-on-delivery orders do not have an online payment link.");
+
             if (latestTransaction != null &&
                 latestTransaction.Status == TransactionStatus.Pending &&
                 !string.IsNullOrWhiteSpace(latestTransaction.GatewayInvoiceId))
@@ -323,7 +329,7 @@ namespace Ecom.Application.Services
                 Amount = order.Total,
                 Status = TransactionStatus.Pending,
                 AppUserId = string.IsNullOrWhiteSpace(order.AppUserId) ? null : order.AppUserId,
-                PaymentMethod = PaymentMethod.Bank
+                PaymentMethod = latestTransaction?.PaymentMethod ?? PaymentMethod.Bank
             };
 
             var createdTransaction = await _transaction.CreateTransactionAsync(transactionDto);

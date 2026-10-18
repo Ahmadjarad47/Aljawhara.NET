@@ -8,10 +8,10 @@ namespace Ecom.Application.DTOs.Auth
         public string FullName { get; set; } = string.Empty;
         public string AddressLine1 { get; set; } = string.Empty;
         public string? AddressLine2 { get; set; }
-        public string City { get; set; } = string.Empty;
-        public string State { get; set; } = string.Empty;
-        public string PostalCode { get; set; } = string.Empty;
-        public string Country { get; set; } = string.Empty;
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
         public string PhoneNumber { get; set; } = string.Empty;
         public bool IsDefault { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -39,21 +39,17 @@ namespace Ecom.Application.DTOs.Auth
         [StringLength(200)]
         public string? AddressLine2 { get; set; }
 
-        [Required]
         [StringLength(100)]
-        public string City { get; set; } = string.Empty;
+        public string? City { get; set; }
 
-        [Required]
         [StringLength(100)]
-        public string State { get; set; } = string.Empty;
+        public string? State { get; set; }
 
-        [Required]
         [StringLength(20)]
-        public string PostalCode { get; set; } = string.Empty;
+        public string? PostalCode { get; set; }
 
-        [Required]
         [StringLength(100)]
-        public string Country { get; set; } = string.Empty;
+        public string? Country { get; set; }
 
         [Required]
         [Phone]
@@ -98,21 +94,17 @@ namespace Ecom.Application.DTOs.Auth
         [StringLength(200)]
         public string? AddressLine2 { get; set; }
 
-        [Required]
         [StringLength(100)]
-        public string City { get; set; } = string.Empty;
+        public string? City { get; set; }
 
-        [Required]
         [StringLength(100)]
-        public string State { get; set; } = string.Empty;
+        public string? State { get; set; }
 
-        [Required]
         [StringLength(20)]
-        public string PostalCode { get; set; } = string.Empty;
+        public string? PostalCode { get; set; }
 
-        [Required]
         [StringLength(100)]
-        public string Country { get; set; } = string.Empty;
+        public string? Country { get; set; }
 
         [Required]
         [Phone]

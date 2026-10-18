@@ -147,6 +147,9 @@ namespace Ecom.Application.Services
 
         public async Task<TransactionAdvancedDto> CreateTransactionAsync(TransactionCreateAdvancedDto transactionDto)
         {
+            if (!Enum.IsDefined(transactionDto.PaymentMethod))
+                throw new ArgumentException("Invalid payment method.");
+
             var transaction = _mapper.Map<Transaction>(transactionDto);
             transaction.AppUserId = string.IsNullOrWhiteSpace(transaction.AppUserId) ? null : transaction.AppUserId;
             transaction.TransactionDate = DateTime.UtcNow;
@@ -155,6 +158,20 @@ namespace Ecom.Application.Services
             var order = await _unitOfWork.Orders.GetOrderWithItemsAsync(transactionDto.OrderId);
             if (order == null)
                 throw new ArgumentException($"Order with ID {transactionDto.OrderId} not found.");
+
+            if (transaction.PaymentMethod == PaymentMethod.Cod)
+            {
+                transaction.Status = TransactionStatus.Pending;
+                transaction.GatewayInvoiceId = null;
+                transaction.PaymentGatewayResponse = null;
+                transaction.ProcessedDate = null;
+                await _unitOfWork.Transactions.AddAsync(transaction);
+                await _unitOfWork.SaveChangesAsync();
+                var storedTransaction = await _unitOfWork.Transactions.GetTransactionWithDetailsAsync(transaction.Id);
+                var cashOnDelivery = _mapper.Map<TransactionAdvancedDto>(storedTransaction ?? transaction);
+                cashOnDelivery.PaymentUrl = null;
+                return cashOnDelivery;
+            }
 
             var customerName = order.AppUser?.UserName ?? order.ShippingAddress?.FullName ?? "Guest";
             var customerEmail = order.AppUser?.Email ?? "guest@example.com";
@@ -265,7 +282,7 @@ namespace Ecom.Application.Services
         public async Task<string?> GetPaymentUrlByTransactionIdAsync(int transactionId)
         {
             var transaction = await _unitOfWork.Transactions.GetByIdAsync(transactionId);
-            if (transaction == null || string.IsNullOrEmpty(transaction.GatewayInvoiceId))
+            if (transaction == null || transaction.PaymentMethod == PaymentMethod.Cod || string.IsNullOrEmpty(transaction.GatewayInvoiceId))
                 return null;
 
             var tokens = await GenerateTokens();
@@ -550,6 +567,9 @@ namespace Ecom.Application.Services
 
         public async Task<TransactionAdvancedDto> ProcessPaymentAsync(PaymentProcessingDto paymentDto)
         {
+            if (!Enum.IsDefined(paymentDto.PaymentMethod))
+                throw new ArgumentException("Invalid payment method.");
+
             // Validate order exists and get amount
             var order = await _unitOfWork.Orders.GetByIdAsync(paymentDto.OrderId);
             if (order == null)
@@ -558,6 +578,18 @@ namespace Ecom.Application.Services
             // Check if order already has successful transaction
             if (await HasSuccessfulTransactionAsync(paymentDto.OrderId))
                 throw new InvalidOperationException("Order already has a successful transaction.");
+
+            if (paymentDto.PaymentMethod == PaymentMethod.Cod)
+            {
+                return await CreateTransactionAsync(new TransactionCreateAdvancedDto
+                {
+                    OrderId = order.Id,
+                    Amount = order.Total,
+                    AppUserId = order.AppUserId,
+                    PaymentMethod = PaymentMethod.Cod,
+                    Notes = paymentDto.Notes
+                });
+            }
 
             // Simulate payment processing (in real app, integrate with payment gateway)
             var isSuccessful = await ProcessPaymentWithGateway(paymentDto);

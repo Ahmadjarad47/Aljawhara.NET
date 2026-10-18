@@ -5,4 +5,7 @@
     <Project Path="Ecom.Domain/Ecom.Domain.csproj" />
     <Project Path="Ecom.Infrastructure/Ecom.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ecom.CheckoutAudit.Tests/Ecom.CheckoutAudit.Tests.csproj" />
+  </Folder>
 </Solution>
