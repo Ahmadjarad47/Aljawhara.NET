@@ -14,9 +14,7 @@ namespace Ecom.Infrastructure.Data
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
-            // Demo orders and ratings must never be recreated on the live site.
-            if (serviceProvider.GetRequiredService<Microsoft.Extensions.Hosting.IHostEnvironment>()
-                .IsProduction()) return;
+          
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUsers>>();

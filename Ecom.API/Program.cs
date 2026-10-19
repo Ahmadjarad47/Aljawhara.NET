@@ -507,12 +507,7 @@ if (!app.Environment.IsEnvironment("Testing"))
     // Existing application initialization
     await DataSeeder.SeedAsync(scope.ServiceProvider);
 
-    // Demo data: Staging only
-    if (app.Environment.IsStaging() &&
-        app.Configuration.GetValue<bool>("Database:SeedDemoData"))
-    {
-        await DataSeeder.SeedAsync(scope.ServiceProvider);
-    }
+  
 }
 
 await app.RunAsync();
