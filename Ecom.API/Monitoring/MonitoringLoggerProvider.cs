@@ -46,6 +46,11 @@ public sealed class MonitoringLoggerProvider(MonitoringStore store, IHttpContext
 
 public static class LogPrivacy
 {
+    private static readonly HashSet<string> MoneyFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ExpectedAmount", "ExpectedGrossAmount", "ExpectedDiscountAmount",
+        "GatewayAmount", "GatewayTotal", "GatewaySubtotal", "GatewayFees"
+    };
     // Deliberately allowlist metadata. New application fields are private by default.
     private static readonly HashSet<string> SafeFields = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -57,6 +62,9 @@ public static class LogPrivacy
     public static string? Value(string name, object? value)
     {
         if (value == null) return null;
+        // These fields contain numeric verification diagnostics, never response bodies.
+        if (MoneyFields.Contains(name))
+            return value is decimal amount ? amount.ToString(CultureInfo.InvariantCulture) : "[redacted]";
         if (!SafeFields.Contains(name)) return "[redacted]";
         return Text(Convert.ToString(value, CultureInfo.InvariantCulture) ?? "");
     }

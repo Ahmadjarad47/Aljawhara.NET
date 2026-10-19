@@ -38,5 +38,9 @@ No item is classified `VERIFIED IN SANDBOX`: the required sandbox credentials an
 
 ## Safe interpretation adopted
 
-The public material is sufficient to implement a strict candidate adapter and to establish that callbacks/webhooks are triggers only. It is not sufficient to activate production Paid transitions. For non-discounted invoices the adapter requires all three monetary fields to equal the local expected KWD amount; this is deliberately conservative and remains behind certification gates. Discounted invoices, refunds, partial payments and uncertain GetAll results remain in reconciliation until their semantics are certified.
+The public material is sufficient to implement a strict candidate adapter and to establish that callbacks/webhooks are triggers only. It is not sufficient to activate production Paid transitions. The original assumption that all three monetary fields equal the local expected KWD amount was corrected after the sandbox hosted-invoice observation below. Discounted invoices, refunds, partial payments and uncertain GetAll results remain in reconciliation until their semantics are certified.
+
+## 2026-10-20 hosted-invoice observation
+
+The user's sandbox invoice exposed `amount=total=203.689`, `subtotal=195.541`, and `fees=8.148` through the same public read-only endpoint used by the hosted payment page. Net subtotal plus fees exactly equals the customer charge. The parser now supports this relationship only when authenticated GetById returns explicit numeric fees and every other payment verification check passes. Missing fees still require all three amounts to match. This corrects the amount comparison; the public response itself is never trusted for finalization and does not certify the merchant's full GetById or discount contract.
 

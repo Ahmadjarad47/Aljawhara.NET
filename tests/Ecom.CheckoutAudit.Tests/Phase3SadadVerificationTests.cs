@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AutoMapper;
 using Ecom.Application.Payments;
 using Ecom.Application.Services;
@@ -9,6 +10,7 @@ using Ecom.Domain.constant;
 using Ecom.Infrastructure.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Ecom.CheckoutAudit.Tests;
 
@@ -206,6 +208,115 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Paid_invoice_with_gateway_fees_finalizes_the_full_charge_and_records_net_subtotal()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true, expectedAmount: 203.689m);
+        await using var db = CreateContext();
+        var (gateway, handler) = CreateRealGateway(db, InvoiceBody(seeded.Reference,
+            amount: 203.689m, subtotal: 195.541m, gatewayFees: 8.148m));
+        var processor = CreateProcessor(db, gateway);
+
+        var result = await processor.VerifyByInvoiceIdAsync("9001", "webhook:paid-with-fees", TestContext.Current.CancellationToken);
+        var replay = await processor.VerifyByInvoiceIdAsync("9001", "webhook:replay-with-fees", TestContext.Current.CancellationToken);
+
+        Assert.Equal(PaymentVerificationOutcome.Paid, result.Outcome);
+        Assert.Equal(PaymentVerificationOutcome.AlreadyPaid, replay.Outcome);
+        Assert.Equal(1, handler.Calls);
+        var attempt = await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(203.689m, attempt.VerifiedAmount);
+        Assert.Equal(203.689m, attempt.VerifiedTotal);
+        Assert.Equal(195.541m, attempt.VerifiedSubtotal);
+        var transaction = await db.Transactions.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(203.689m, transaction.Amount);
+        Assert.Equal(TransactionStatus.Paid, transaction.Status);
+        var order = await db.Orders.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(203.689m, order.Total);
+        Assert.Equal(OrderStatus.Processing, order.Status);
+        Assert.Equal(ReservationStatus.Confirmed, await db.InventoryReservations.Select(r => r.Status).SingleAsync(TestContext.Current.CancellationToken));
+        Assert.Single(await db.PaymentTransitionAudits.Where(a => a.ToStatus == PaymentAttemptStatus.Paid).ToListAsync(TestContext.Current.CancellationToken));
+    }
+
+    public static TheoryData<decimal, decimal, decimal, decimal, string> InvalidFeeAmounts => new()
+    {
+        { 203.689m, 203.689m, 195.541m, 8.147m, "AMOUNT_FIELDS_MISMATCH" },
+        { 203.688m, 203.689m, 195.541m, 8.148m, "AMOUNT_FIELDS_MISMATCH" },
+        { 203.689m, 203.688m, 195.540m, 8.148m, "AMOUNT_FIELDS_MISMATCH" },
+        { 203.689m, 203.689m, 203.689m, 8.148m, "AMOUNT_FIELDS_MISMATCH" },
+        { 203.689m, 203.689m, 211.837m, -8.148m, "AMOUNT_FIELDS_MISMATCH" },
+        { 203.689m, 203.689m, -1m, 204.689m, "AMOUNT_FIELDS_MISMATCH" },
+        { 203.689m, 203.689m, 195.5409m, 8.1481m, "KWD_SCALE_INVALID" }
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidFeeAmounts))]
+    public async Task Fees_do_not_allow_a_changed_charge_or_unreconciled_subtotal(
+        decimal amount, decimal total, decimal subtotal, decimal fees, string reason)
+    {
+        var seeded = await SeedAttemptAsync(expectedAmount: 203.689m);
+        await using var db = CreateContext();
+        var (gateway, _) = CreateRealGateway(db, InvoiceBody(seeded.Reference,
+            amount: amount, total: total, subtotal: subtotal, gatewayFees: fees));
+
+        var result = await gateway.VerifyInvoiceAsync(await db.PaymentAttempts.AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SadadInvoiceVerificationOutcome.Invalid, result.Outcome);
+        Assert.Equal(reason, result.ReasonCode);
+        Assert.Null(result.Payment);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Omitted_fees_are_supported_only_when_subtotal_equals_the_full_charge(bool netSubtotal)
+    {
+        var seeded = await SeedAttemptAsync(expectedAmount: 203.689m);
+        await using var db = CreateContext();
+        var body = JsonNode.Parse(InvoiceBody(seeded.Reference, amount: 203.689m,
+            subtotal: netSubtotal ? 195.541m : 203.689m))!;
+        body["response"]!.AsObject().Remove("fees");
+        var (gateway, _) = CreateRealGateway(db, body.ToJsonString());
+
+        var result = await gateway.VerifyInvoiceAsync(await db.PaymentAttempts.AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+
+        Assert.Equal(netSubtotal ? SadadInvoiceVerificationOutcome.Invalid : SadadInvoiceVerificationOutcome.VerifiedPaid, result.Outcome);
+    }
+
+    [Fact]
+    public async Task Malformed_fee_is_rejected_instead_of_inferred_from_the_subtotal()
+    {
+        var seeded = await SeedAttemptAsync(expectedAmount: 203.689m);
+        await using var db = CreateContext();
+        var body = JsonNode.Parse(InvoiceBody(seeded.Reference, amount: 203.689m,
+            subtotal: 195.541m, gatewayFees: 8.148m))!;
+        body["response"]!["fees"] = "8.148";
+        var (gateway, _) = CreateRealGateway(db, body.ToJsonString());
+
+        var result = await gateway.VerifyInvoiceAsync(await db.PaymentAttempts.AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SadadInvoiceVerificationOutcome.Invalid, result.Outcome);
+        Assert.Equal("MISSING_REQUIRED_FIELD", result.ReasonCode);
+        Assert.Null(result.Payment);
+    }
+
+    [Fact]
+    public async Task Finalization_rechecks_the_fee_equation_before_marking_paid()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true);
+        await using var db = CreateContext();
+        var gateway = new ScriptedGateway(new(SadadInvoiceVerificationOutcome.VerifiedPaid, "STRICT_GETBYID_VERIFIED",
+            Verified(seeded.Reference) with { Subtotal = 11.851m, GatewayFees = 0.493m }));
+
+        var result = await CreateProcessor(db, gateway).VerifyByInvoiceIdAsync("9001", "callback:inconsistent-fees", TestContext.Current.CancellationToken);
+
+        Assert.Equal("FINALIZATION_REJECTED", result.ReasonCode);
+        Assert.Equal(TransactionStatus.Pending, await db.Transactions.Select(t => t.Status).SingleAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(ReservationStatus.Active, await db.InventoryReservations.Select(r => r.Status).SingleAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task Strict_paid_invoice_captures_three_decimal_evidence()
     {
         var seeded = await SeedAttemptAsync();
@@ -236,6 +347,35 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         { InvoiceBody("REF", amount: 12.3456m), "KWD_SCALE_INVALID" },
         { "{\"isValid\":true,\"response\":{\"id\":9001}}", "MISSING_REQUIRED_FIELD" }
     };
+
+    [Theory]
+    [InlineData("amount")]
+    [InlineData("total")]
+    [InlineData("subtotal")]
+    public async Task Amount_mismatch_logs_the_numeric_comparison_without_customer_data(string field)
+    {
+        var seeded = await SeedAttemptAsync();
+        await using var db = CreateContext();
+        var body = JsonNode.Parse(InvoiceBody(seeded.Reference))!;
+        body["response"]![field] = 12.344m;
+        body["response"]!["customer_Email"] = "private-customer@example.test";
+        var logger = new RecordingGatewayLogger();
+        var handler = new SadadHandler((_, _) => SadadHandler.Json(body.ToJsonString()));
+        var (gateway, _) = CreateRealGateway(db, handler, logger);
+
+        var result = await gateway.VerifyInvoiceAsync(await db.PaymentAttempts.AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SadadInvoiceVerificationOutcome.Invalid, result.Outcome);
+        Assert.Equal("AMOUNT_FIELDS_MISMATCH", result.ReasonCode);
+        Assert.Equal(12.345m, logger.Properties["ExpectedAmount"]);
+        Assert.Equal(12.345m, logger.Properties["ExpectedGrossAmount"]);
+        Assert.Equal(0m, logger.Properties["ExpectedDiscountAmount"]);
+        Assert.Equal(field == "amount" ? 12.344m : 12.345m, logger.Properties["GatewayAmount"]);
+        Assert.Equal(field == "total" ? 12.344m : 12.345m, logger.Properties["GatewayTotal"]);
+        Assert.Equal(field == "subtotal" ? 12.344m : 12.345m, logger.Properties["GatewaySubtotal"]);
+        Assert.DoesNotContain("private-customer", string.Join('\n', logger.Messages));
+    }
 
     [Theory]
     [MemberData(nameof(RejectedResponses))]
@@ -398,13 +538,14 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         return CreateRealGateway(db, handler);
     }
 
-    private (SadadInvoiceGateway Gateway, SadadHandler Handler) CreateRealGateway(EcomDbContext db, SadadHandler handler)
+    private (SadadInvoiceGateway Gateway, SadadHandler Handler) CreateRealGateway(EcomDbContext db, SadadHandler handler,
+        ILogger<SadadInvoiceGateway>? logger = null)
     {
         var tokenService = InterfaceStub.Create<ITransactionService>((method, _) => method.Name == "GenerateTokens"
             ? Task.FromResult(new TokenResponse { AccessToken = "access-test", RefreshToken = "refresh-test", ExpiredAfterSeconds = 3600 })
             : throw new InvalidOperationException(method.Name));
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
-        return (new SadadInvoiceGateway(db, tokenService, new StubHttpClientFactory(client), Configuration(), NullLogger<SadadInvoiceGateway>.Instance), handler);
+        return (new SadadInvoiceGateway(db, tokenService, new StubHttpClientFactory(client), Configuration(), logger ?? NullLogger<SadadInvoiceGateway>.Instance), handler);
     }
 
     private PaymentOrchestrationService CreateProcessor(EcomDbContext db, ISadadInvoiceGateway gateway)
@@ -421,23 +562,24 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         string? gatewayInvoiceId = "9001",
         decimal? couponDiscount = null,
         bool withActiveReservation = false,
-        bool withExpiredReservation = false)
+        bool withExpiredReservation = false,
+        decimal expectedAmount = 12.345m)
     {
         await using var db = CreateContext();
         var category = new Category { Name = $"C-{Guid.NewGuid():N}", NameAr = "فئة" };
         var sub = new SubCategory { Name = $"S-{Guid.NewGuid():N}", NameAr = "فرع", Category = category };
-        var product = new Product { Title = "P", TitleAr = "م", Description = "D", DescriptionAr = "و", subCategory = sub, oldPrice = 12.345m, newPrice = 12.345m, TotalInStock = 0, IsInStock = true };
+        var product = new Product { Title = "P", TitleAr = "م", Description = "D", DescriptionAr = "و", subCategory = sub, oldPrice = expectedAmount, newPrice = expectedAmount, TotalInStock = 0, IsInStock = true };
         var order = new Order
         {
             OrderNumber = $"O-{Guid.NewGuid():N}",
             ShippingAddress = new ShippingAddress { FullName = "G", Phone = "1", Street = "S" },
-            Subtotal = 12.345m,
-            Total = 12.345m,
+            Subtotal = expectedAmount,
+            Total = expectedAmount,
             CouponDiscountAmount = couponDiscount,
             Status = OrderStatus.Pending,
             ReservationExpiresAtUtc = withExpiredReservation ? DateTime.UtcNow.AddMinutes(-1) : DateTime.UtcNow.AddMinutes(30)
         };
-        var transaction = new Transaction { Order = order, Amount = 12.345m, PaymentMethod = PaymentMethod.Bank, Status = TransactionStatus.Pending, TransactionReference = $"LOCAL-{Guid.NewGuid():N}" };
+        var transaction = new Transaction { Order = order, Amount = expectedAmount, PaymentMethod = PaymentMethod.Bank, Status = TransactionStatus.Pending, TransactionReference = $"LOCAL-{Guid.NewGuid():N}" };
         db.AddRange(category, sub, product, order, transaction);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var merchantReference = reference ?? "REF";
@@ -448,7 +590,7 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
             IdempotencyKeyHash = Convert.ToHexString(Guid.NewGuid().ToByteArray()).PadRight(64, '0'),
             RequestHash = new string('A', 64),
             MerchantReference = merchantReference,
-            Amount = 12.345m,
+            Amount = expectedAmount,
             Currency = "KWD",
             Status = status,
             GatewayInvoiceId = gatewayInvoiceId
@@ -477,7 +619,10 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         decimal amount = 12.345m,
         string currency = "KWD",
         decimal refundedAmount = 0m,
-        bool includeTransaction = true) => JsonSerializer.Serialize(new
+        bool includeTransaction = true,
+        decimal? subtotal = null,
+        decimal? total = null,
+        decimal gatewayFees = 0m) => JsonSerializer.Serialize(new
         {
             isValid = true,
             errorKey = (string?)null,
@@ -487,8 +632,9 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
                 vendor_Id = vendorId,
                 status,
                 amount,
-                total = amount,
-                subtotal = amount,
+                total = total ?? amount,
+                subtotal = subtotal ?? amount,
+                fees = gatewayFees,
                 refunded_Amount = refundedAmount,
                 ref_Number = reference,
                 currency_Code = currency,
@@ -499,6 +645,20 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
 
     private static SadadVerifiedPayment Verified(string reference) =>
         new(new string('E', 64), "9001", 51, reference, 12.345m, 12.345m, 12.345m, 0m, "KWD", "TX-9001");
+
+    private sealed class RecordingGatewayLogger : ILogger<SadadInvoiceGateway>
+    {
+        public Dictionary<string, object?> Properties { get; } = [];
+        public List<string> Messages { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel level) => true;
+        public void Log<TState>(LogLevel level, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+            if (state is IEnumerable<KeyValuePair<string, object?>> fields)
+                foreach (var field in fields) Properties[field.Key] = field.Value;
+        }
+    }
 
     private sealed class ScriptedGateway(
         SadadInvoiceVerificationResult verification,

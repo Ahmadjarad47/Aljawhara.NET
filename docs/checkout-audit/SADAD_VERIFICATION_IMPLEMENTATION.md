@@ -12,12 +12,18 @@ Only `Paid` and `Unpaid` are accepted. A Paid candidate must pass every check be
 4. `vendor_Id` equals configured `Sadad:MerchantVendorId`.
 5. `ref_Number` equals the attempt's generated `MerchantReference` exactly.
 6. Currency equals both the stored currency and uppercase `KWD`.
-7. Monetary values parse as .NET `decimal`, have no more than three decimal places, and `amount`, `total` and `subtotal` all equal the stored expected amount.
+7. Monetary values parse as .NET `decimal` with at most three decimal places. `amount` and `total` must both equal the full stored expected charge. `subtotal` may be net merchant proceeds only when a numeric, nonnegative `fees` field reconciles it exactly: `subtotal = total - fees`, with `0 <= fees <= total`. Missing `fees` is treated as zero and requires `subtotal = total`. There is no rounding tolerance or acceptance of a reduced customer charge.
 8. `refunded_Amount` is zero. Any refund/partial refund is reconciled, not fulfilled.
 9. Paid includes a non-empty `transactionID` and a non-empty `transactions` array.
 10. Order is still Pending and every inventory reservation is active and unexpired.
 
-The SHA-256 digest of the authoritative GetById body is persisted as `VerificationEvidenceId`; the gateway transaction ID and all verified monetary fields are also persisted. No raw customer response body is stored.
+The SHA-256 digest of the authoritative GetById body is persisted as `VerificationEvidenceId`; the gateway transaction ID, verified gross amounts and verified net subtotal are also persisted. Verified fees equal `VerifiedTotal - VerifiedSubtotal`, so this change needs no database migration. Finalization independently checks the same amount/fee equation before claiming Paid. No raw customer response body is stored.
+
+### Gateway fee observation (2026-10-20)
+
+For the user-provided sandbox hosted invoice, a read-only request to the payment page's public `Invoice/getforpaymentbykey` endpoint returned `status=Paid`, `amount=203.689`, `total=203.689`, `subtotal=195.541` and `fees=8.148 KWD`. The displayed customer charge and merchant order/PDF were both 203.689 KWD. This exposed the invalid assumption that subtotal always equals the customer's total.
+
+This public hosted-invoice response is diagnostic evidence only; it never authorizes a Paid transition. The application continues to require authenticated `Invoice/getbyid` with the invoice, merchant, reference, currency, refund and transaction checks above. If its fee field is absent, malformed or fails to explain the entire subtotal difference, verification rejects the response. The sandbox observation is not certification of all merchant/discount contracts.
 
 ## State and concurrency behavior
 

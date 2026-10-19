@@ -33,6 +33,17 @@ public sealed class MonitoringTests
     }
 
     [Fact]
+    public void Payment_amount_diagnostics_allow_decimals_and_reject_arbitrary_strings()
+    {
+        foreach (var field in new[] { "ExpectedAmount", "ExpectedGrossAmount", "ExpectedDiscountAmount", "GatewayAmount", "GatewayTotal", "GatewaySubtotal", "GatewayFees" })
+        {
+            Assert.Equal("12.345", LogPrivacy.Value(field, 12.345m));
+            Assert.Equal("[redacted]", LogPrivacy.Value(field, "customer@example.test"));
+            Assert.Equal("[redacted]", LogPrivacy.Value(field, "Bearer sensitive-token"));
+        }
+    }
+
+    [Fact]
     public async Task Dashboard_shell_and_assets_are_available_without_exposing_data()
     {
         await using var factory = new MonitoringApiFactory();
