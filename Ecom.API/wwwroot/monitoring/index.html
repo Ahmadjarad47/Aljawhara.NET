@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="dark">
+  <title>Monitoring · Admin</title>
+  <link rel="stylesheet" href="/monitoring/style.css">
+  <script src="/monitoring/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><a class="brand" href="/admin/monitoring">ALJAWHARA <span>ADMIN</span></a><h1>System monitoring</h1><p class="muted">Keep an eye on your store, requests, and background services.</p></div>
+      <div id="session" hidden><span class="live">● Live · every 15s</span><button id="logout" class="secondary">Sign out</button></div></header>
+    <section id="login-panel" class="panel login">
+      <span class="eyebrow">ADMIN ACCESS</span><h2>Sign in to monitoring</h2><p class="muted">Use your existing administrator account.</p>
+      <form id="login-form"><label>Email<input id="email" type="email" autocomplete="username" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+        <button id="login-button" type="submit">Sign in</button></form>
+      <p id="login-error" role="alert"></p>
+    </section>
+    <div id="dashboard" hidden>
+      <p id="notice" class="notice" role="status" aria-live="polite"></p>
+      <section class="cards" aria-label="Store performance over the last 60 minutes">
+        <article class="panel metric"><span>Database health</span><strong id="health">—</strong><small id="health-time">Waiting for a check</small></article>
+        <article class="panel metric"><span>Requests · 60 min</span><strong id="requests">—</strong><small id="uptime">—</small></article>
+        <article class="panel metric"><span>Server errors</span><strong id="errors">—</strong><small id="error-rate">—</small></article>
+        <article class="panel metric"><span>Average response</span><strong id="latency">—</strong><small id="p95">—</small></article>
+      </section>
+      <section class="panel chart-panel"><div class="section-heading"><div><h2>Request activity</h2><p class="muted">Last 60 minutes · monitoring polls excluded</p></div><span class="legend">■ Requests <span>■ Server errors</span></span></div>
+        <div id="chart" class="chart" role="img" aria-label="Requests and server errors by minute"></div><div class="axis"><span>60 minutes ago</span><span>Now</span></div>
+      </section>
+      <section class="panel"><div class="section-heading"><h2>Background services</h2><span id="memory" class="muted"></span></div><div id="jobs" class="jobs"></div></section>
+      <section class="panel logs-panel"><div class="section-heading"><div><h2>Activity &amp; errors</h2><p id="retention" class="muted">Recent application events</p></div><button id="refresh" class="secondary">Refresh</button></div>
+        <form id="filters" class="filters"><label>Search<input id="search" type="search" maxlength="200" placeholder="Message, category, trace ID…"></label>
+          <label>Level<select id="level"><option value="">All levels</option><option>Information</option><option>Warning</option><option>Error</option><option>Critical</option></select></label>
+          <label>Trace ID<input id="trace" maxlength="128" placeholder="Correlate a request"></label>
+          <button type="submit">Apply</button><button type="button" id="clear" class="secondary">Clear</button></form>
+        <div class="table-wrap"><table><thead><tr><th>Time</th><th>Level</th><th>Event</th><th>Trace</th></tr></thead><tbody id="logs"></tbody></table></div>
+        <div class="pagination"><span id="log-count" class="muted"></span><div><button id="previous" class="secondary">Previous</button><span id="page-number"></span><button id="next" class="secondary">Next</button></div></div>
+      </section>
+      <footer>Metrics describe this running app instance. Recent logs survive restarts; metrics reset on restart. <span id="updated"></span></footer>
+    </div>
+  </main>
+</body>
+</html>

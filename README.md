@@ -21,6 +21,8 @@ This solution follows **Clean Architecture** pattern with clear separation of co
 - **Review System**: Product ratings and reviews
 
 ### Technical Features
+- **Admin monitoring** at `/admin/monitoring`: searchable logs, request/error metrics,
+  database health and background job status. See [setup and API details](docs/MONITORING.md).
 - **Repository Pattern** with Unit of Work
 - **AutoMapper** for object mapping
 - **Entity Framework Core** with PostgreSQL

@@ -369,3 +369,7 @@ FodyWeavers.xsd
 *.dump.partial
 /Ecom.API/appsettings.json
 /Ecom.API/appsettings.Development.json
+
+# Runtime monitoring data
+**/logs/
+events-*.jsonl

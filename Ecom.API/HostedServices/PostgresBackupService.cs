@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using Ecom.API.Monitoring;
 
 namespace Ecom.API.HostedServices;
 
@@ -20,12 +21,13 @@ public sealed class DatabaseBackupOptions
 // so restarts catch up a missed backup and failures never erase a previous backup.
 public sealed class PostgresBackupService(
     IOptions<DatabaseBackupOptions> options,
-    ILogger<PostgresBackupService> logger) : BackgroundService
+    ILogger<PostgresBackupService> logger, MonitoringState? monitoring = null) : BackgroundService
 {
     private readonly DatabaseBackupOptions _options = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        monitoring?.RegisterJob("PostgreSQL backup scheduler", 1200);
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -33,10 +35,12 @@ public sealed class PostgresBackupService(
                 var now = DateTime.UtcNow;
                 var scheduledDate = now.Hour >= _options.HourUtc ? now.Date : now.Date.AddDays(-1);
                 await BackupOnceAsync(scheduledDate, stoppingToken);
+                monitoring?.JobCompleted("PostgreSQL backup scheduler", true);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
+                monitoring?.JobCompleted("PostgreSQL backup scheduler", false);
                 logger.LogError(ex, "PostgreSQL backup failed; retrying in 15 minutes. Previous backups are retained.");
                 try { await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken); }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }

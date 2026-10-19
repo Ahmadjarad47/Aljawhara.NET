@@ -151,3 +151,9 @@ Content-Type: application/json
 DELETE /api/products/456
 Authorization: Bearer {JWT_TOKEN}
 ```
+
+## Monitoring
+
+Open `/admin/monitoring` and sign in with an Admin account. Protected monitoring
+data is available at `GET /api/admin/monitoring/summary` and
+`GET /api/admin/monitoring/logs`. See [monitoring configuration, coverage and filters](docs/MONITORING.md).

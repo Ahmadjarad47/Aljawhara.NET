@@ -21,7 +21,29 @@ using Microsoft.AspNetCore.ResponseCompression;
 using System.IO.Compression;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi;
+using Ecom.API.Monitoring;
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddOptions<MonitoringOptions>()
+    .Bind(builder.Configuration.GetSection("Monitoring"))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Directory), "Monitoring:Directory is required.")
+    .Validate(o => o.RetentionDays is >= 1 and <= 90 && o.MaxFiles is >= 2 and <= 1000,
+        "Monitoring retention must be 1-90 days and MaxFiles 2-1000.")
+    .Validate(o => o.MaxFileBytes is >= 65536 and <= 104857600 && o.RecentEventLimit is >= 100 and <= 50000,
+        "Monitoring file size must be 64KB-100MB and recent event limit 100-50000.")
+    .Validate(o => o.QueueCapacity is >= 100 and <= 100000 && o.HealthIntervalSeconds is >= 10 and <= 300 &&
+        o.SlowRequestMilliseconds >= 1, "Invalid monitoring queue, health interval or slow request threshold.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<MonitoringStore>();
+builder.Services.AddSingleton<MonitoringState>();
+builder.Services.AddSingleton<ILoggerProvider, MonitoringLoggerProvider>();
+builder.Logging.AddFilter<MonitoringLoggerProvider>(null, LogLevel.Information);
+builder.Services.AddHostedService<MonitoringPersistenceWorker>();
+builder.Services.AddHostedService<MonitoringHealthWorker>();
+builder.Services.AddScoped<DatabaseAuditInterceptor>();
+builder.Services.AddTransient<MonitoringHttpHandler>();
+// Apply safe outbound metadata logging to every factory-created HTTP client.
+builder.Services.ConfigureHttpClientDefaults(client => client.AddHttpMessageHandler<MonitoringHttpHandler>());
 
 // Configure FormOptions for large file uploads (up to 50MB)
 builder.Services.Configure<FormOptions>(options =>
@@ -76,6 +98,7 @@ builder.Services.AddDbContext<EcomDbContext>((serviceProvider, options) =>
         // Performance: Enable query splitting for better performance
         sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
     });
+    options.AddInterceptors(serviceProvider.GetRequiredService<DatabaseAuditInterceptor>());
     // Performance: Connection pooling is enabled by default in EF Core
     // Performance: Disable change tracking for read-only scenarios
     // options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
@@ -356,6 +379,8 @@ builder.WebHost.ConfigureKestrel(options =>
 
 var app = builder.Build();
 
+app.UseMiddleware<MonitoringMiddleware>();
+
 // Configure the HTTP request pipeline.
 
 // Security: Add security headers middleware (must be early in pipeline)
@@ -434,6 +459,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Only the empty dashboard shell and assets are public. All monitoring data requires an Admin JWT.
+app.UseStaticFiles();
+app.MapGet("/admin/monitoring", (HttpContext context) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(Path.Combine(app.Environment.WebRootPath, "monitoring", "index.html"), "text/html");
+}).AllowAnonymous();
+
+app.Lifetime.ApplicationStarted.Register(() => app.Logger.LogInformation("Application started"));
+app.Lifetime.ApplicationStopping.Register(() => app.Logger.LogInformation("Application stopping"));
 
 // Security: Apply rate limiting to controllers
 app.MapControllers()
