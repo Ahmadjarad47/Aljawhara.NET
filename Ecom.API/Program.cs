@@ -496,13 +496,13 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 });
 
     // Ensure database is created and seed data
-    //if (!app.Environment.IsEnvironment("Testing"))
-    //{
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
         await context.Database.MigrateAsync();
         await Ecom.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider);
-    //}
+    }
 
 await app.RunAsync();
 
