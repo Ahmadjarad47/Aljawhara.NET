@@ -24,6 +24,16 @@
 8. لا تنشئ محاولة جديدة أثناء Pending/Dispatching/AwaitingPayment/RequiresReconciliation. retry فقط بعد حالة نهائية مسموحة وبـ`Idempotency-Key` جديد عبر `POST /api/orders/{id}/payment-attempts`.
 9. احترم `reservationExpiresAtUtc` ولا تعد المستخدم بتوفر المخزون بعد الانتهاء.
 
+## إصلاح متابعة الدفع بعد الرجوع من سداد
+
+- أصبح `GET /api/orders/{id}/payment-status` يشغّل تحقق GetById بعد إثبات صلاحية الوصول للطلب. يستخدم lease مخزّناً في قاعدة البيانات وفاصل 10 ثوانٍ بين فحوصات الحالة، لذلك يعمل عند تأخر webhook أو عدم وصوله دون مضاعفة استدعاءات سداد من عدة تبويبات.
+- يبقى webhook وcallback قادرين على بدء تحقق فوري حتى إذا أعاد فحص الحالة السابق `Unpaid` قبل وصول الدفع.
+- الاستجابة تضيف `lastVerificationAtUtc` و`verificationReasonCode`؛ وcallback يضيف `reasonCode`. تسجّل المراقبة النتيجة وسبب الرفض دون مفاتيح أو استجابة سداد الخام.
+- الواجهة تحدّد مهلة 20 ثانية لطلبات callback والحالة. بعد مهلة callback أو خطأ مؤقت تستكمل التحقق عبر حالة الطلب المحمية. بعد 30 تحديثاً تلقائياً تعرض تأخر التأكيد وزر تحديث يدوي بدلاً من مؤشر تحميل دائم. أخطاء إعداد التحقق أو عدم تطابق بيانات الدفع تعرض حالة متابعة مباشرة ولا تسمح بإعادة الدفع.
+- عنوان webhook الذي يُضبط في حساب سداد لهذا النشر: `https://api.aljawharaplus.com/api/orders/webhook/sadad-paid`. عنوان رجوع المتصفح `/checkout/success` له وظيفة مختلفة ولا يستقبل webhook.
+
+الإعدادات المحلية الحالية تترك `Sadad:MerchantVendorId` فارغاً وتعطّل `ContractProfileCertified` و`EnablePaidTransitions`. لذلك لن تتحول أي محاولة إلى Paid بهذا الإعداد حتى إن عاد المتصفح بـ`payment=success`. يجب ضبط Vendor ID الحقيقي وملف التحقق المعتمد في بيئة خدمة API؛ لا تُستبدل هوية التاجر برقم تجريبي مأخوذ من توثيق سداد. يمكن رؤية المانع الفعلي في المراقبة أو `verificationReasonCode` بعد نشر التعديل.
+
 ## ما لم يتغير
 
 - checkout الأساسي يبقى `POST /api/orders`.

@@ -22,6 +22,7 @@ public sealed class PaymentOrchestrationService(
     ILogger<PaymentOrchestrationService> logger) : IPaymentOrchestrationService, IPaymentFinalizationService, ISadadPaymentVerificationService
 {
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan StatusVerificationInterval = TimeSpan.FromSeconds(10);
     private sealed record PaymentPayload(int PaymentAttemptId);
     private sealed record OrderPayload(int OrderId);
 
@@ -317,10 +318,27 @@ public sealed class PaymentOrchestrationService(
         });
     }
 
-    public async Task<PaymentVerificationResult> VerifyByInvoiceIdAsync(
+    public async Task<PaymentVerificationResult> VerifyByOrderIdAsync(int orderId, CancellationToken cancellationToken = default)
+    {
+        var attempt = await db.PaymentAttempts.AsNoTracking().Where(a => a.OrderId == orderId)
+            .OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (attempt == null || string.IsNullOrWhiteSpace(attempt.GatewayInvoiceId))
+            return new(PaymentVerificationOutcome.NotFound, "INVOICE_NOT_READY");
+
+        return await VerifyByInvoiceIdCoreAsync(attempt.GatewayInvoiceId, true, cancellationToken);
+    }
+
+    public Task<PaymentVerificationResult> VerifyByInvoiceIdAsync(
         string gatewayInvoiceId,
         string triggerId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        VerifyByInvoiceIdCoreAsync(gatewayInvoiceId, false, cancellationToken);
+
+    private async Task<PaymentVerificationResult> VerifyByInvoiceIdCoreAsync(
+        string gatewayInvoiceId,
+        bool throttle,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(gatewayInvoiceId))
             return new(PaymentVerificationOutcome.Rejected, "INVALID_INVOICE_ID");
@@ -336,9 +354,11 @@ public sealed class PaymentOrchestrationService(
 
         var worker = $"verify-{Guid.NewGuid():N}";
         var now = DateTime.UtcNow;
+        var checkedBefore = now.Subtract(StatusVerificationInterval);
         var claimed = await db.PaymentAttempts.Where(a => a.Id == attempt.Id &&
                 (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation) &&
-                (a.LeaseUntilUtc == null || a.LeaseUntilUtc < now))
+                (a.LeaseUntilUtc == null || a.LeaseUntilUtc < now) &&
+                (!throttle || a.LastVerificationAtUtc == null || a.LastVerificationAtUtc <= checkedBefore))
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.LeaseOwner, worker)
                 .SetProperty(a => a.LeaseUntilUtc, now.Add(LeaseDuration)), cancellationToken);
         if (claimed == 0)
@@ -350,6 +370,8 @@ public sealed class PaymentOrchestrationService(
             attempt = await db.PaymentAttempts.AsNoTracking().SingleAsync(a => a.Id == attempt.Id, cancellationToken);
             var result = await gateway.VerifyInvoiceAsync(attempt, cancellationToken);
             var checkedAt = DateTime.UtcNow;
+            logger.LogInformation("Sadad invoice verification completed for PaymentAttemptId={PaymentAttemptId}. Status={Status}, ReasonCode={ReasonCode}",
+                attempt.Id, result.Outcome.ToString(), result.ReasonCode);
 
             if (result.Outcome == SadadInvoiceVerificationOutcome.NotPaid)
             {
@@ -368,6 +390,8 @@ public sealed class PaymentOrchestrationService(
                     !configuration.GetValue<bool>("Sadad:Verification:EnablePaidTransitions"))
                 {
                     await MarkRequiresReconciliationAsync(attempt.Id, worker, "PAID_TRANSITIONS_NOT_CERTIFIED", checkedAt, cancellationToken);
+                    logger.LogWarning("Sadad payment confirmation blocked for PaymentAttemptId={PaymentAttemptId}. ReasonCode={ReasonCode}",
+                        attempt.Id, "PAID_TRANSITIONS_NOT_CERTIFIED");
                     return new(PaymentVerificationOutcome.RequiresReconciliation, "PAID_TRANSITIONS_NOT_CERTIFIED");
                 }
 
@@ -376,6 +400,12 @@ public sealed class PaymentOrchestrationService(
                     result.Payment,
                     result.Payment.VendorId.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     cancellationToken);
+                if (!finalized)
+                {
+                    await MarkRequiresReconciliationAsync(attempt.Id, worker, "FINALIZATION_REJECTED", checkedAt, cancellationToken);
+                    logger.LogWarning("Sadad payment finalization rejected for PaymentAttemptId={PaymentAttemptId}. ReasonCode={ReasonCode}",
+                        attempt.Id, "FINALIZATION_REJECTED");
+                }
                 return finalized
                     ? new(PaymentVerificationOutcome.Paid, result.ReasonCode)
                     : new(PaymentVerificationOutcome.RequiresReconciliation, "FINALIZATION_REJECTED");
@@ -390,7 +420,9 @@ public sealed class PaymentOrchestrationService(
         {
             await db.PaymentAttempts.Where(a => a.Id == attempt.Id && a.LeaseOwner == worker)
                 .ExecuteUpdateAsync(s => s.SetProperty(a => a.LeaseOwner, (string?)null)
-                    .SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
+                    .SetProperty(a => a.LeaseUntilUtc, (DateTime?)null)
+                    .SetProperty(a => a.LastVerificationAtUtc, DateTime.UtcNow)
+                    .SetProperty(a => a.LastErrorCode, "VERIFICATION_UNAVAILABLE"), CancellationToken.None);
             throw;
         }
     }

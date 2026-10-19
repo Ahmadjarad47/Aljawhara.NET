@@ -396,8 +396,9 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<TokenResponse> GenerateTokens()
+        public async Task<TokenResponse> GenerateTokens(CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // Prefer the Sadad section, while preserving existing flat environment settings.
             var clientKey = _configuration?["Sadad:ClientKey"];
             var clientSecret = _configuration?["Sadad:ClientSecret"];
@@ -428,7 +429,7 @@ namespace Ecom.Application.Services
             refreshRequest.Headers.Authorization =
                 new AuthenticationHeaderValue("Basic", authValue);
 
-            var refreshObj = await ReadAuthenticationResponseAsync<SadadRefreshResponse>(httpClient, refreshRequest, "REFRESH");
+            var refreshObj = await ReadAuthenticationResponseAsync<SadadRefreshResponse>(httpClient, refreshRequest, "REFRESH", cancellationToken);
 
             if (refreshObj == null || !refreshObj.isValid || refreshObj.response == null)
                 throw AuthenticationFailure("SADAD_REFRESH_REJECTED");
@@ -458,7 +459,7 @@ namespace Ecom.Application.Services
                 "application/json"
             );
 
-            var accessObj = await ReadAuthenticationResponseAsync<SadadAccessResponse>(httpClient, accessRequest, "ACCESS");
+            var accessObj = await ReadAuthenticationResponseAsync<SadadAccessResponse>(httpClient, accessRequest, "ACCESS", cancellationToken);
 
             if (accessObj == null || !accessObj.isValid || accessObj.response == null)
                 throw AuthenticationFailure("SADAD_ACCESS_REJECTED");
@@ -474,15 +475,15 @@ namespace Ecom.Application.Services
             };
         }
 
-        private async Task<T?> ReadAuthenticationResponseAsync<T>(HttpClient client, HttpRequestMessage request, string stage)
+        private async Task<T?> ReadAuthenticationResponseAsync<T>(HttpClient client, HttpRequestMessage request, string stage, CancellationToken cancellationToken)
         {
             try
             {
-                using var response = await client.SendAsync(request);
+                using var response = await client.SendAsync(request, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                     throw AuthenticationFailure($"SADAD_{stage}_HTTP_{(int)response.StatusCode}");
 
-                return JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync());
+                return JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync(cancellationToken));
             }
             catch (JsonException)
             {
@@ -492,7 +493,7 @@ namespace Ecom.Application.Services
             {
                 throw AuthenticationFailure($"SADAD_{stage}_NETWORK_ERROR");
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 throw AuthenticationFailure($"SADAD_{stage}_TIMEOUT");
             }

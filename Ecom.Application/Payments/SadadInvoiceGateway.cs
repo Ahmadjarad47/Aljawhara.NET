@@ -29,7 +29,8 @@ public sealed class SadadInvoiceGateway(
         var order = await db.Orders.Include(o => o.Items).Include(o => o.ShippingAddress).Include(o => o.AppUser)
             .Include(o => o.Coupon).AsNoTracking().SingleAsync(o => o.Id == attempt.OrderId, cancellationToken);
         TokenResponse tokens;
-        try { tokens = await transactions.GenerateTokens(); }
+        try { tokens = await transactions.GenerateTokens(cancellationToken); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Sadad authentication failed before invoice dispatch for PaymentAttemptId={PaymentAttemptId}.", attempt.Id);
@@ -115,7 +116,7 @@ public sealed class SadadInvoiceGateway(
 
         try
         {
-            var tokens = await transactions.GenerateTokens();
+            var tokens = await transactions.GenerateTokens(cancellationToken);
             using var request = new HttpRequestMessage(
                 HttpMethod.Get,
                 $"api/Invoice/getbyid?id={Uri.EscapeDataString(attempt.GatewayInvoiceId)}");
@@ -154,7 +155,7 @@ public sealed class SadadInvoiceGateway(
 
         try
         {
-            var tokens = await transactions.GenerateTokens();
+            var tokens = await transactions.GenerateTokens(cancellationToken);
             var uri = $"api/Invoice/getall?Ref_Number={Uri.EscapeDataString(attempt.MerchantReference)}&vendor_Id={expectedVendorId.ToString(CultureInfo.InvariantCulture)}";
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
             request.Headers.TryAddWithoutValidation("authorization", $"Bearer {tokens.AccessToken}");

@@ -30,6 +30,147 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Status_poll_recovers_paid_invoice_without_a_webhook_and_throttles_unpaid_checks()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true);
+        var paid = false;
+        var handler = new SadadHandler((_, _) => SadadHandler.Json(InvoiceBody(seeded.Reference,
+            status: paid ? "Paid" : "Unpaid", includeTransaction: paid)));
+        int orderId;
+        await using (var db = CreateContext())
+        {
+            orderId = await db.PaymentAttempts.Select(a => a.OrderId).SingleAsync(TestContext.Current.CancellationToken);
+            var service = CreateProcessor(db, CreateRealGateway(db, handler).Gateway);
+            Assert.Equal(PaymentVerificationOutcome.NotPaid,
+                (await service.VerifyByOrderIdAsync(orderId, TestContext.Current.CancellationToken)).Outcome);
+        }
+        paid = true;
+        await using (var db = CreateContext())
+        {
+            var service = CreateProcessor(db, CreateRealGateway(db, handler).Gateway);
+            Assert.Equal(PaymentVerificationOutcome.Busy,
+                (await service.VerifyByOrderIdAsync(orderId, TestContext.Current.CancellationToken)).Outcome);
+            Assert.Equal(1, handler.Calls);
+            await db.PaymentAttempts.ExecuteUpdateAsync(s => s.SetProperty(a => a.LastVerificationAtUtc,
+                DateTime.UtcNow.AddSeconds(-11)), TestContext.Current.CancellationToken);
+        }
+        await using (var db = CreateContext())
+        {
+            var service = CreateProcessor(db, CreateRealGateway(db, handler).Gateway);
+            Assert.Equal(PaymentVerificationOutcome.Paid,
+                (await service.VerifyByOrderIdAsync(orderId, TestContext.Current.CancellationToken)).Outcome);
+            Assert.Equal(PaymentVerificationOutcome.AlreadyPaid,
+                (await service.VerifyByOrderIdAsync(orderId, TestContext.Current.CancellationToken)).Outcome);
+        }
+        await using var verification = CreateContext();
+        Assert.Equal(2, handler.Calls);
+        Assert.Equal(TransactionStatus.Paid, await verification.Transactions.Select(t => t.Status).SingleAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(ReservationStatus.Confirmed, await verification.InventoryReservations.Select(r => r.Status).SingleAsync(TestContext.Current.CancellationToken));
+        Assert.Single(await verification.PaymentTransitionAudits.Where(a => a.ToStatus == PaymentAttemptStatus.Paid).ToListAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Webhook_rechecks_immediately_even_after_a_recent_unpaid_status_poll()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true);
+        await using var db = CreateContext();
+        await db.PaymentAttempts.ExecuteUpdateAsync(s => s.SetProperty(a => a.LastVerificationAtUtc, DateTime.UtcNow), TestContext.Current.CancellationToken);
+        var (gateway, handler) = CreateRealGateway(db, InvoiceBody(seeded.Reference));
+
+        var result = await CreateProcessor(db, gateway).VerifyByInvoiceIdAsync("9001", "webhook:paid", TestContext.Current.CancellationToken);
+
+        Assert.Equal(PaymentVerificationOutcome.Paid, result.Outcome);
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Concurrent_status_polls_share_the_persistent_verification_lease()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true);
+        var handler = new SadadHandler((_, _) => SadadHandler.Json(InvoiceBody(seeded.Reference, status: "Unpaid", includeTransaction: false)));
+        await using var lookup = CreateContext();
+        var orderId = await lookup.PaymentAttempts.Select(a => a.OrderId).SingleAsync(TestContext.Current.CancellationToken);
+        var contexts = Enumerable.Range(0, 8).Select(_ => CreateContext()).ToList();
+        try
+        {
+            var results = await Task.WhenAll(contexts.Select(db => CreateProcessor(db, CreateRealGateway(db, handler).Gateway)
+                .VerifyByOrderIdAsync(orderId, TestContext.Current.CancellationToken)));
+            Assert.Single(results, r => r.Outcome == PaymentVerificationOutcome.NotPaid);
+            Assert.Equal(7, results.Count(r => r.Outcome == PaymentVerificationOutcome.Busy));
+            Assert.Equal(1, handler.Calls);
+        }
+        finally
+        {
+            foreach (var db in contexts) await db.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Disabled_paid_transitions_persist_a_diagnostic_reason_instead_of_marking_paid()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true);
+        await using var db = CreateContext();
+        var config = new ConfigurationBuilder().AddConfiguration(Configuration())
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Sadad:Verification:EnablePaidTransitions"] = "false" }).Build();
+        var email = InterfaceStub.Create<IEmailService>((method, _) => throw new InvalidOperationException(method.Name));
+        var processor = new PaymentOrchestrationService(db, CreateRealGateway(db, InvoiceBody(seeded.Reference)).Gateway,
+            email, TestMapper.Create(), config, NullLogger<PaymentOrchestrationService>.Instance);
+
+        var result = await processor.VerifyByInvoiceIdAsync("9001", "callback:paid", TestContext.Current.CancellationToken);
+
+        Assert.Equal("PAID_TRANSITIONS_NOT_CERTIFIED", result.ReasonCode);
+        var attempt = await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(result.ReasonCode, attempt.LastErrorCode);
+        Assert.Equal(PaymentAttemptStatus.RequiresReconciliation, attempt.Status);
+        Assert.NotNull(attempt.LastVerificationAtUtc);
+        Assert.Null(attempt.LeaseOwner);
+        Assert.Equal(TransactionStatus.Pending, await db.Transactions.Select(t => t.Status).SingleAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Rejected_finalization_releases_the_lease_and_persists_the_failure()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true);
+        await using var db = CreateContext();
+        var payment = Verified(seeded.Reference) with { Amount = 99m };
+        var service = CreateProcessor(db, new ScriptedGateway(new(SadadInvoiceVerificationOutcome.VerifiedPaid,
+            "STRICT_GETBYID_VERIFIED", payment)));
+
+        var result = await service.VerifyByInvoiceIdAsync("9001", "callback:invalid-finalization", TestContext.Current.CancellationToken);
+
+        Assert.Equal("FINALIZATION_REJECTED", result.ReasonCode);
+        var attempt = await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("FINALIZATION_REJECTED", attempt.LastErrorCode);
+        Assert.Equal(PaymentAttemptStatus.RequiresReconciliation, attempt.Status);
+        Assert.Null(attempt.LeaseOwner);
+        Assert.Null(attempt.LeaseUntilUtc);
+        Assert.NotNull(attempt.LastVerificationAtUtc);
+    }
+
+    [Fact]
+    public async Task Cancelled_verification_releases_the_lease_without_waiting_for_its_expiry()
+    {
+        await SeedAttemptAsync(withActiveReservation: true);
+        await using var db = CreateContext();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var gateway = InterfaceStub.Create<ISadadInvoiceGateway>((method, _) =>
+        {
+            Assert.Equal("VerifyInvoiceAsync", method.Name);
+            cancellation.Cancel();
+            return Task.FromCanceled<SadadInvoiceVerificationResult>(cancellation.Token);
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateProcessor(db, gateway)
+            .VerifyByInvoiceIdAsync("9001", "callback:cancelled", cancellation.Token));
+
+        var attempt = await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Null(attempt.LeaseOwner);
+        Assert.Null(attempt.LeaseUntilUtc);
+        Assert.NotNull(attempt.LastVerificationAtUtc);
+        Assert.Equal("VERIFICATION_UNAVAILABLE", attempt.LastErrorCode);
+    }
+
+    [Fact]
     public async Task Unpaid_invoice_is_validated_but_never_finalized()
     {
         var seeded = await SeedAttemptAsync();

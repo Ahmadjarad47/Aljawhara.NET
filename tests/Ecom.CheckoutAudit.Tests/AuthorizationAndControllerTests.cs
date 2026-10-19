@@ -33,6 +33,51 @@ public class AuthorizationAndControllerTests
     }
 
     [Fact]
+    public async Task Payment_status_checks_access_before_triggering_gateway_verification()
+    {
+        var orders = OrderServiceStub((method, _) => method.Name == "CanAccessOrderAsync"
+            ? Task.FromResult(false) : throw Unexpected(method));
+        var controller = Controller(orders);
+
+        var response = await controller.GetPaymentStatus(91);
+
+        Assert.IsType<NotFoundResult>(response.Result);
+        Assert.Equal("no-store", controller.Response.Headers.CacheControl);
+    }
+
+    [Fact]
+    public async Task Authorized_payment_status_verifies_then_returns_the_updated_protected_status()
+    {
+        var verified = false;
+        var orders = OrderServiceStub((method, _) => method.Name switch
+        {
+            "CanAccessOrderAsync" => Task.FromResult(true),
+            "GetOrderPaymentStatusAsync" when verified => Task.FromResult(new PaymentStatusDto
+            {
+                OrderId = 91, InitializationStatus = PaymentInitializationStatus.Paid
+            }),
+            _ => throw Unexpected(method)
+        });
+        var verifier = InterfaceStub.Create<ISadadPaymentVerificationService>((method, args) =>
+        {
+            Assert.Equal("VerifyByOrderIdAsync", method.Name);
+            Assert.Equal(91, args![0]);
+            verified = true;
+            return Task.FromResult(new PaymentVerificationResult(PaymentVerificationOutcome.Paid, "STRICT_GETBYID_VERIFIED"));
+        });
+        var controller = new OrdersController(orders, null!, verifier, NullLogger<OrdersController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+
+        var response = await controller.GetPaymentStatus(91);
+
+        var body = Assert.IsType<PaymentStatusDto>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal(PaymentInitializationStatus.Paid, body.InitializationStatus);
+        Assert.Equal("no-store", controller.Response.Headers.CacheControl);
+    }
+
+    [Fact]
     public void Application_has_no_global_fallback_authorization_policy()
     {
         var source = File.ReadAllText(Path.Combine(Workspace.Root(), "Ecom.API", "Program.cs"));

@@ -462,7 +462,9 @@ namespace Ecom.Application.Services
             {
                 OrderId = orderId, PaymentAttemptId = attempt?.Id, MerchantReference = attempt?.MerchantReference,
                 AttemptStatus = attempt?.Status, InitializationStatus = initialization,
-                PaymentUrl = attempt?.PaymentUrl, ReservationExpiresAtUtc = order.ReservationExpiresAtUtc
+                PaymentUrl = attempt?.PaymentUrl, ReservationExpiresAtUtc = order.ReservationExpiresAtUtc,
+                LastVerificationAtUtc = attempt?.LastVerificationAtUtc,
+                VerificationReasonCode = attempt?.LastErrorCode
             };
         }
 

@@ -28,10 +28,25 @@ public sealed class SadadAuthenticationTests
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
         var service = CreateService(client, config, new RecordingLogger());
 
-        var tokens = await service.GenerateTokens();
+        var tokens = await service.GenerateTokens(TestContext.Current.CancellationToken);
 
         Assert.Equal("access-test", tokens.AccessToken);
         Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Caller_cancellation_is_not_reported_as_an_authentication_timeout()
+    {
+        var handler = new SadadHandler((_, _) => throw new InvalidOperationException("Must not send a cancelled request"));
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
+        var logger = new RecordingLogger();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateService(client, Configuration(), logger).GenerateTokens(cancellation.Token));
+
+        Assert.Empty(logger.Messages);
+        Assert.Equal(0, handler.Calls);
     }
 
     [Fact]
@@ -41,7 +56,7 @@ public sealed class SadadAuthenticationTests
         var handler = new SadadHandler((_, call) => SadadHandler.Json(call == 1 ? SadadResponses.Refresh : SadadResponses.Access));
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
 
-        var tokens = await CreateService(client, null, new RecordingLogger()).GenerateTokens();
+        var tokens = await CreateService(client, null, new RecordingLogger()).GenerateTokens(TestContext.Current.CancellationToken);
 
         Assert.Equal("access-test", tokens.AccessToken);
         Assert.Equal(2, handler.Calls);
@@ -59,7 +74,7 @@ public sealed class SadadAuthenticationTests
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
         var logger = new RecordingLogger();
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, config, logger).GenerateTokens());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, config, logger).GenerateTokens(TestContext.Current.CancellationToken));
 
         Assert.Contains("SADAD_CREDENTIALS_MISSING", error.Message);
         Assert.Contains(logger.Messages, m => m.Contains("SADAD_CREDENTIALS_MISSING", StringComparison.Ordinal));
@@ -77,7 +92,7 @@ public sealed class SadadAuthenticationTests
         var handler = new SadadHandler((_, _) => throw new InvalidOperationException("Must not call Sadad"));
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, config, new RecordingLogger()).GenerateTokens());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, config, new RecordingLogger()).GenerateTokens(TestContext.Current.CancellationToken));
 
         Assert.Contains("SADAD_CREDENTIALS_MISSING", error.Message);
         Assert.Equal(0, handler.Calls);
@@ -100,7 +115,7 @@ public sealed class SadadAuthenticationTests
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
         var logger = new RecordingLogger();
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, Configuration(), logger).GenerateTokens());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, Configuration(), logger).GenerateTokens(TestContext.Current.CancellationToken));
 
         Assert.Contains(reason, error.Message);
         Assert.Contains(logger.Messages, m => m.Contains(reason, StringComparison.Ordinal));
@@ -123,7 +138,7 @@ public sealed class SadadAuthenticationTests
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
         var logger = new RecordingLogger();
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, Configuration(), logger).GenerateTokens());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService(client, Configuration(), logger).GenerateTokens(TestContext.Current.CancellationToken));
 
         Assert.Contains(reason, error.Message);
         Assert.Contains(logger.Messages, m => m.Contains(reason, StringComparison.Ordinal));

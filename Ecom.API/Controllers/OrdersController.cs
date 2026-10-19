@@ -112,8 +112,21 @@ namespace Ecom.API.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<PaymentStatusDto>> GetPaymentStatus(int id)
         {
+            Response.Headers.CacheControl = "no-store";
             if (!await HasOrderAccessAsync(id))
                 return NotFound();
+            // Polling after a gateway return must also recover a delayed/missing webhook.
+            // The verifier uses a persistent lease and throttles status polls across instances.
+            try
+            {
+                await _paymentVerification.VerifyByOrderIdAsync(id, HttpContext.RequestAborted);
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Payment status verification unavailable for OrderId={OrderId}. ReasonCode={ReasonCode}",
+                    id, "VERIFICATION_UNAVAILABLE");
+            }
             return Ok(await _orderService.GetOrderPaymentStatusAsync(id));
         }
 
@@ -311,6 +324,7 @@ namespace Ecom.API.Controllers
             [FromQuery(Name = "invoice_id")] long invoiceId,
             [FromQuery(Name = "payment")] string? payment)
         {
+            Response.Headers.CacheControl = "no-store";
             if (invoiceId <= 0)
             {
                 return BadRequest(new
@@ -334,7 +348,8 @@ namespace Ecom.API.Controllers
                 InvoiceId = invoiceId,
                 Payment = payment,
                 Updated = result.Outcome is PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid,
-                VerificationStatus = result.Outcome.ToString()
+                VerificationStatus = result.Outcome.ToString(),
+                ReasonCode = result.ReasonCode
             };
             return result.Outcome switch
             {
