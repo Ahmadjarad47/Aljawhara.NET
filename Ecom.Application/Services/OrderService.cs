@@ -161,7 +161,7 @@ namespace Ecom.Application.Services
                             order.CouponDiscountAmount = discount;
                             couponType = coupon.Type;
                         }
-                        order.Shipping = KwdMoney.Round(await shippingService.CalculateAsync(order.Subtotal, couponType, shipping.City));
+                        order.Shipping = KwdMoney.Round(await shippingService.CalculateAsync(order.Subtotal, couponType, shipping.City, shipping.State));
                         order.Tax = KwdMoney.Round(CalculateTax(order.Subtotal));
                         order.Total = KwdMoney.Round(order.Subtotal + order.Shipping + order.Tax - discount);
 

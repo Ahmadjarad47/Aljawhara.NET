@@ -10,6 +10,14 @@ public class ShippingSettingsDto
     public required decimal? FreeShippingThreshold { get; set; }
     [Range(1, long.MaxValue)]
     public required long Version { get; set; }
+    [Required, MaxLength(20)]
+    public required List<ShippingGovernorateDto> Governorates { get; set; }
+}
+
+public class ShippingGovernorateDto
+{
+    [Required, StringLength(100)]
+    public required string State { get; set; }
     [Required, MaxLength(100)]
     public required List<ShippingAreaRateDto> Areas { get; set; }
 }

@@ -1319,6 +1319,10 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Property<int>("ShippingSettingsId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("StateKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("CityKey")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -1331,7 +1335,7 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Property<decimal>("Fee")
                         .HasColumnType("decimal(18,3)");
 
-                    b.HasKey("ShippingSettingsId", "CityKey");
+                    b.HasKey("ShippingSettingsId", "StateKey", "CityKey");
 
                     b.ToTable("ShippingAreaRates", t =>
                         {
@@ -1342,6 +1346,7 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         new
                         {
                             ShippingSettingsId = 1,
+                            StateKey = "الأحمدي",
                             CityKey = "مدينة صباح الأحمد",
                             City = "مدينة صباح الأحمد",
                             Fee = 6m
@@ -1349,6 +1354,7 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         new
                         {
                             ShippingSettingsId = 1,
+                            StateKey = "الأحمدي",
                             CityKey = "الخيران",
                             City = "الخيران",
                             Fee = 6m
@@ -1356,6 +1362,7 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         new
                         {
                             ShippingSettingsId = 1,
+                            StateKey = "الجهراء",
                             CityKey = "العبدلي",
                             City = "العبدلي",
                             Fee = 6m
@@ -1363,6 +1370,7 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         new
                         {
                             ShippingSettingsId = 1,
+                            StateKey = "الأحمدي",
                             CityKey = "الوفرة",
                             City = "الوفرة",
                             Fee = 6m
@@ -1370,6 +1378,7 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         new
                         {
                             ShippingSettingsId = 1,
+                            StateKey = "مبارك الكبير",
                             CityKey = "صباح السالم",
                             City = "صباح السالم",
                             Fee = 3m
@@ -1377,6 +1386,7 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         new
                         {
                             ShippingSettingsId = 1,
+                            StateKey = "الأحمدي",
                             CityKey = "الأحمدي",
                             City = "الأحمدي",
                             Fee = 3m
@@ -1384,9 +1394,67 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         new
                         {
                             ShippingSettingsId = 1,
+                            StateKey = "الجهراء",
                             CityKey = "المطلاع",
                             City = "المطلاع",
                             Fee = 4m
+                        });
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingGovernorate", b =>
+                {
+                    b.Property<int>("ShippingSettingsId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StateKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("ShippingSettingsId", "StateKey");
+
+                    b.ToTable("ShippingGovernorates");
+
+                    b.HasData(
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            StateKey = "العاصمة",
+                            State = "محافظة العاصمة"
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            StateKey = "حولي",
+                            State = "محافظة حولي"
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            StateKey = "الفروانية",
+                            State = "محافظة الفروانية"
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            StateKey = "الجهراء",
+                            State = "محافظة الجهراء"
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            StateKey = "الأحمدي",
+                            State = "محافظة الأحمدي"
+                        },
+                        new
+                        {
+                            ShippingSettingsId = 1,
+                            StateKey = "مبارك الكبير",
+                            State = "محافظة مبارك الكبير"
                         });
                 });
 
@@ -1947,8 +2015,17 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
 
             modelBuilder.Entity("Ecom.Domain.Entity.ShippingAreaRate", b =>
                 {
-                    b.HasOne("Ecom.Domain.Entity.ShippingSettings", null)
+                    b.HasOne("Ecom.Domain.Entity.ShippingGovernorate", null)
                         .WithMany("Areas")
+                        .HasForeignKey("ShippingSettingsId", "StateKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingGovernorate", b =>
+                {
+                    b.HasOne("Ecom.Domain.Entity.ShippingSettings", null)
+                        .WithMany("Governorates")
                         .HasForeignKey("ShippingSettingsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2076,9 +2153,14 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Navigation("Values");
                 });
 
-            modelBuilder.Entity("Ecom.Domain.Entity.ShippingSettings", b =>
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingGovernorate", b =>
                 {
                     b.Navigation("Areas");
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.ShippingSettings", b =>
+                {
+                    b.Navigation("Governorates");
                 });
 
             modelBuilder.Entity("Ecom.Domain.Entity.SubCategory", b =>

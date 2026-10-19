@@ -32,6 +32,7 @@ namespace Ecom.Infrastructure.Data
         public DbSet<ShippingAddress> ShippingAddresses { get; set; }
         public DbSet<ShippingSettings> ShippingSettings { get; set; }
         public DbSet<ShippingAreaRate> ShippingAreaRates { get; set; }
+        public DbSet<ShippingGovernorate> ShippingGovernorates { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<Rating> Ratings { get; set; }
         public DbSet<Coupon> Coupons { get; set; }
@@ -61,7 +62,7 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.DefaultFee).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.FreeShippingThreshold).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.Version).IsConcurrencyToken();
-                entity.HasMany(e => e.Areas).WithOne().HasForeignKey(e => e.ShippingSettingsId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasMany(e => e.Governorates).WithOne().HasForeignKey(e => e.ShippingSettingsId).OnDelete(DeleteBehavior.Cascade);
                 entity.ToTable(table =>
                 {
                     table.HasCheckConstraint("CK_ShippingSettings_Singleton", "\"Id\" = 1");
@@ -71,21 +72,36 @@ namespace Ecom.Infrastructure.Data
                 });
                 entity.HasData(new ShippingSettings { Id = 1, DefaultFee = 2m, FreeShippingThreshold = 20m, Version = 1 });
             });
+            modelBuilder.Entity<ShippingGovernorate>(entity =>
+            {
+                entity.HasKey(e => new { e.ShippingSettingsId, e.StateKey });
+                entity.Property(e => e.StateKey).HasMaxLength(100);
+                entity.Property(e => e.State).IsRequired().HasMaxLength(100);
+                entity.HasMany(e => e.Areas).WithOne().HasForeignKey(e => new { e.ShippingSettingsId, e.StateKey }).OnDelete(DeleteBehavior.Cascade);
+                entity.HasData(
+                    new ShippingGovernorate { ShippingSettingsId = 1, StateKey = "العاصمة", State = "محافظة العاصمة" },
+                    new ShippingGovernorate { ShippingSettingsId = 1, StateKey = "حولي", State = "محافظة حولي" },
+                    new ShippingGovernorate { ShippingSettingsId = 1, StateKey = "الفروانية", State = "محافظة الفروانية" },
+                    new ShippingGovernorate { ShippingSettingsId = 1, StateKey = "الجهراء", State = "محافظة الجهراء" },
+                    new ShippingGovernorate { ShippingSettingsId = 1, StateKey = "الأحمدي", State = "محافظة الأحمدي" },
+                    new ShippingGovernorate { ShippingSettingsId = 1, StateKey = "مبارك الكبير", State = "محافظة مبارك الكبير" });
+            });
             modelBuilder.Entity<ShippingAreaRate>(entity =>
             {
-                entity.HasKey(e => new { e.ShippingSettingsId, e.CityKey });
+                entity.HasKey(e => new { e.ShippingSettingsId, e.StateKey, e.CityKey });
+                entity.Property(e => e.StateKey).HasMaxLength(100);
                 entity.Property(e => e.CityKey).HasMaxLength(100);
                 entity.Property(e => e.City).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Fee).HasColumnType("decimal(18,3)");
                 entity.ToTable(table => table.HasCheckConstraint("CK_ShippingAreaRates_Fee", "\"Fee\" BETWEEN 0 AND 1000000"));
                 entity.HasData(
-                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "مدينة صباح الأحمد", City = "مدينة صباح الأحمد", Fee = 6m },
-                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "الخيران", City = "الخيران", Fee = 6m },
-                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "العبدلي", City = "العبدلي", Fee = 6m },
-                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "الوفرة", City = "الوفرة", Fee = 6m },
-                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "صباح السالم", City = "صباح السالم", Fee = 3m },
-                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "الأحمدي", City = "الأحمدي", Fee = 3m },
-                    new ShippingAreaRate { ShippingSettingsId = 1, CityKey = "المطلاع", City = "المطلاع", Fee = 4m });
+                    new ShippingAreaRate { ShippingSettingsId = 1, StateKey = "الأحمدي", CityKey = "مدينة صباح الأحمد", City = "مدينة صباح الأحمد", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, StateKey = "الأحمدي", CityKey = "الخيران", City = "الخيران", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, StateKey = "الجهراء", CityKey = "العبدلي", City = "العبدلي", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, StateKey = "الأحمدي", CityKey = "الوفرة", City = "الوفرة", Fee = 6m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, StateKey = "مبارك الكبير", CityKey = "صباح السالم", City = "صباح السالم", Fee = 3m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, StateKey = "الأحمدي", CityKey = "الأحمدي", City = "الأحمدي", Fee = 3m },
+                    new ShippingAreaRate { ShippingSettingsId = 1, StateKey = "الجهراء", CityKey = "المطلاع", City = "المطلاع", Fee = 4m });
             });
 
             // Configure Category

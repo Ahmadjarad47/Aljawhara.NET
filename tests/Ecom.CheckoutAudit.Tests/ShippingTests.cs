@@ -7,6 +7,8 @@ using Ecom.Domain.constant;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Ecom.CheckoutAudit.Tests;
 
@@ -40,7 +42,10 @@ public sealed class ShippingTests : IAsyncLifetime
         var settings = await ReadAsync();
         Assert.Equal(2m, settings.DefaultFee);
         Assert.Equal(20m, settings.FreeShippingThreshold);
-        Assert.Equal(7, settings.Areas.Count);
+        Assert.Equal(6, settings.Governorates.Count);
+        Assert.Equal(7, settings.Governorates.Sum(g => g.Areas.Count));
+        Assert.Contains(settings.Governorates.Single(g => g.State == "محافظة الأحمدي").Areas, a => a.City == "الخيران");
+        Assert.Contains(settings.Governorates.Single(g => g.State == "محافظة الجهراء").Areas, a => a.City == "المطلاع");
         Assert.Equal(HttpStatusCode.Unauthorized, (await _client.GetAsync("/api/admin/shipping", TestContext.Current.CancellationToken)).StatusCode);
         using var user = new HttpRequestMessage(HttpMethod.Put, "/api/admin/shipping") { Content = JsonContent.Create(settings) };
         user.Headers.Add("X-Test-User", "ordinary-user");
@@ -73,12 +78,12 @@ public sealed class ShippingTests : IAsyncLifetime
         var settings = await ReadAsync();
         settings.DefaultFee = 4.125m;
         settings.FreeShippingThreshold = null;
-        settings.Areas = [new ShippingAreaRateDto { City = "  مدينة   جديدة ", Fee = 7.375m }];
+        settings.Governorates = [new ShippingGovernorateDto { State = "محافظة الأحمدي", Areas = [new ShippingAreaRateDto { City = "  مدينة   جديدة ", Fee = 7.375m }] }];
         var saved = await SaveAsync(settings);
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
         var updated = await ReadAsync();
         Assert.Equal(settings.Version + 1, updated.Version);
-        Assert.Equal("مدينة جديدة", Assert.Single(updated.Areas).City);
+        Assert.Equal("مدينة جديدة", Assert.Single(Assert.Single(updated.Governorates).Areas).City);
 
         var newer = await CheckoutAsync(productId, "shipping-after-change");
         var retry = await CheckoutAsync(productId, "shipping-before-change");
@@ -119,22 +124,26 @@ public sealed class ShippingTests : IAsyncLifetime
     [InlineData("threshold")]
     [InlineData("duplicate")]
     [InlineData("blank")]
+    [InlineData("blank-governorate")]
+    [InlineData("duplicate-governorate")]
     public async Task Invalid_settings_are_rejected_without_partial_changes(string kind)
     {
         var settings = await ReadAsync();
         switch (kind)
         {
             case "negative": settings.DefaultFee = -1m; break;
-            case "precision": settings.Areas[0].Fee = 1.0001m; break;
+            case "precision": settings.Governorates.SelectMany(g => g.Areas).First().Fee = 1.0001m; break;
             case "threshold": settings.FreeShippingThreshold = -1m; break;
-            case "duplicate": settings.Areas = [new() { City = " صباح  السالم ", Fee = 1 }, new() { City = "صباح السالم", Fee = 2 }]; break;
-            case "blank": settings.Areas[0].City = "   "; break;
+            case "duplicate": settings.Governorates = [new() { State = "مبارك الكبير", Areas = [new() { City = " صباح  السالم ", Fee = 1 }, new() { City = "صباح السالم", Fee = 2 }] }]; break;
+            case "blank": settings.Governorates.SelectMany(g => g.Areas).First().City = "   "; break;
+            case "blank-governorate": settings.Governorates[0].State = "   "; break;
+            case "duplicate-governorate": settings.Governorates = [new() { State = "محافظة الأحمدي", Areas = [] }, new() { State = " الأحمدي ", Areas = [] }]; break;
         }
         Assert.Equal(HttpStatusCode.BadRequest, (await SaveAsync(settings)).StatusCode);
         var actual = await ReadAsync();
         Assert.Equal(1, actual.Version);
         Assert.Equal(2m, actual.DefaultFee);
-        Assert.Equal(7, actual.Areas.Count);
+        Assert.Equal(7, actual.Governorates.Sum(g => g.Areas.Count));
     }
 
     [Fact]
@@ -145,15 +154,81 @@ public sealed class ShippingTests : IAsyncLifetime
         first.DefaultFee = 8;
         Assert.Equal(HttpStatusCode.OK, (await SaveAsync(first)).StatusCode);
         stale.DefaultFee = 9;
-        stale.Areas.Clear();
+        stale.Governorates.Clear();
         Assert.Equal(HttpStatusCode.Conflict, (await SaveAsync(stale)).StatusCode);
         var actual = await ReadAsync();
         Assert.Equal(8m, actual.DefaultFee);
-        Assert.Equal(7, actual.Areas.Count);
+        Assert.Equal(7, actual.Governorates.Sum(g => g.Areas.Count));
     }
 
     private async Task<ShippingSettingsDto> ReadAsync()
         => (await _client.GetFromJsonAsync<ShippingSettingsDto>("/api/shipping", TestContext.Current.CancellationToken))!;
+
+    [Fact]
+    public async Task Checkout_prices_each_area_within_its_governorate_and_distinguishes_repeated_names()
+    {
+        int productId;
+        await using (var db = CreateContext())
+        {
+            var product = new Product { Title = "Governorate test", TitleAr = "اختبار", Description = "Test", DescriptionAr = "اختبار",
+                newPrice = 10m, oldPrice = 10m, TotalInStock = 10, IsInStock = true,
+                subCategory = new SubCategory { Name = "Test", NameAr = "اختبار", Category = new Category { Name = "Test", NameAr = "اختبار" } } };
+            db.Products.Add(product);
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            productId = product.Id;
+        }
+        var settings = await ReadAsync();
+        settings.FreeShippingThreshold = null;
+        settings.Governorates = [
+            new() { State = "محافظة الأحمدي", Areas = [new() { City = "الساحل", Fee = 3.125m }, new() { City = "البعيد", Fee = 9.375m }] },
+            new() { State = "محافظة الجهراء", Areas = [new() { City = "الساحل", Fee = 5m }] }
+        ];
+        Assert.Equal(HttpStatusCode.OK, (await SaveAsync(settings)).StatusCode);
+        var near = await CheckoutAsync(productId, "area-near", "الساحل", "محافظة الأحمدي");
+        var far = await CheckoutAsync(productId, "area-far", "البعيد", "الأحمدي");
+        var other = await CheckoutAsync(productId, "other-governorate", "الساحل", "محافظة الجهراء");
+        await using var verification = CreateContext();
+        var orders = await verification.Orders.ToDictionaryAsync(o => o.Id, TestContext.Current.CancellationToken);
+        Assert.Equal(3.125m, orders[near].Shipping);
+        Assert.Equal(9.375m, orders[far].Shipping);
+        Assert.Equal(5m, orders[other].Shipping);
+        var shipping = new ShippingService(verification);
+        Assert.Equal(2m, await shipping.CalculateAsync(10m, null, "الساحل", cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(2m, await shipping.CalculateAsync(10m, null, "البعيد", "محافظة حولي", TestContext.Current.CancellationToken));
+        Assert.Equal(9.375m, await shipping.CalculateAsync(10m, null, "البعيد", cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Upgrade_groups_existing_rates_without_resetting_custom_prices_or_deleted_areas()
+    {
+        var connection = PostgresTestDatabase.ConnectionString($"EcomShippingUpgrade_{Guid.NewGuid():N}");
+        await using var db = new EcomDbContext(new DbContextOptionsBuilder<EcomDbContext>().UseNpgsql(connection).Options);
+        try
+        {
+            await db.GetService<IMigrator>().MigrateAsync("20261018202539_DynamicShippingSettings", TestContext.Current.CancellationToken);
+            await db.Database.ExecuteSqlRawAsync("""
+                UPDATE "ShippingSettings" SET "DefaultFee" = 4, "FreeShippingThreshold" = 35, "Version" = 8;
+                UPDATE "ShippingAreaRates" SET "Fee" = 8.125 WHERE "City" = 'الخيران';
+                DELETE FROM "ShippingAreaRates" WHERE "City" = 'الوفرة';
+                INSERT INTO "ShippingAreaRates" ("ShippingSettingsId", "CityKey", "City", "Fee")
+                VALUES (1, 'الفحيحيل', 'الفحيحيل', 4.625), (1, 'منطقة خاصة', 'منطقة خاصة', 7.375);
+                """, TestContext.Current.CancellationToken);
+            await db.Database.MigrateAsync(TestContext.Current.CancellationToken);
+            Assert.False(db.Database.HasPendingModelChanges());
+            var shipping = new ShippingService(db);
+            var settings = await shipping.GetSettingsAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(8, settings.Version);
+            Assert.Equal(35m, settings.FreeShippingThreshold);
+            Assert.Equal(8, settings.Governorates.Sum(g => g.Areas.Count));
+            Assert.DoesNotContain(settings.Governorates.SelectMany(g => g.Areas), a => a.City == "الوفرة");
+            Assert.Equal(8.125m, await shipping.CalculateAsync(10m, null, "الخيران", "محافظة الأحمدي", TestContext.Current.CancellationToken));
+            Assert.Equal(4.625m, await shipping.CalculateAsync(10m, null, "الفحيحيل", "محافظة الأحمدي", TestContext.Current.CancellationToken));
+            Assert.Equal(7.375m, await shipping.CalculateAsync(10m, null, "منطقة خاصة", "محافظة حولي", TestContext.Current.CancellationToken));
+            Assert.Equal(4m, await shipping.CalculateAsync(10m, null, "الوفرة", "محافظة الأحمدي", TestContext.Current.CancellationToken));
+            Assert.Contains(settings.Governorates.Single(g => g.State == ShippingService.UnassignedState).Areas, a => a.City == "منطقة خاصة");
+        }
+        finally { await db.Database.EnsureDeletedAsync(TestContext.Current.CancellationToken); }
+    }
 
     private async Task<HttpResponseMessage> SaveAsync(ShippingSettingsDto settings)
     {
@@ -162,12 +237,12 @@ public sealed class ShippingTests : IAsyncLifetime
         return await _client.SendAsync(request, TestContext.Current.CancellationToken);
     }
 
-    private async Task<int> CheckoutAsync(int productId, string key)
+    private async Task<int> CheckoutAsync(int productId, string key, string city = "مدينة جديدة", string? state = "محافظة الأحمدي")
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/orders")
         {
             Content = JsonContent.Create(new { items = new[] { new { productId, quantity = 1 } },
-                shippingAddress = new { fullName = "Test", phone = "12345678", street = "Street", city = "مدينة جديدة" }, paymentMethod = (int)PaymentMethod.Cod })
+                shippingAddress = new { fullName = "Test", phone = "12345678", street = "Street", city, state }, paymentMethod = (int)PaymentMethod.Cod })
         };
         request.Headers.Add("Idempotency-Key", key);
         var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
