@@ -28,6 +28,7 @@ namespace Ecom.Infrastructure.Data
             ////// Seed Roles
             await SeedRolesAsync(roleManager);
 
+
             ////// Seed Admin User
             await SeedAdminUserAsync(userManager);
 
