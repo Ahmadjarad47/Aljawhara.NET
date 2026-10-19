@@ -39,7 +39,7 @@ public class AuthorizationAndControllerTests
             ? Task.FromResult(false) : throw Unexpected(method));
         var controller = Controller(orders);
 
-        var response = await controller.GetPaymentStatus(91);
+        var response = await controller.GetPaymentStatus(91, verify: true);
 
         Assert.IsType<NotFoundResult>(response.Result);
         Assert.Equal("no-store", controller.Response.Headers.CacheControl);
@@ -70,11 +70,43 @@ public class AuthorizationAndControllerTests
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
         };
 
-        var response = await controller.GetPaymentStatus(91);
+        var response = await controller.GetPaymentStatus(91, verify: true);
 
         var body = Assert.IsType<PaymentStatusDto>(Assert.IsType<OkObjectResult>(response.Result).Value);
         Assert.Equal(PaymentInitializationStatus.Paid, body.InitializationStatus);
         Assert.Equal("no-store", controller.Response.Headers.CacheControl);
+    }
+
+    [Fact]
+    public async Task Preparing_payment_status_reads_the_link_without_calling_the_verifier()
+    {
+        var verificationCalled = false;
+        var orders = OrderServiceStub((method, _) => method.Name switch
+        {
+            "CanAccessOrderAsync" => Task.FromResult(true),
+            "GetOrderPaymentStatusAsync" => Task.FromResult(new PaymentStatusDto
+            {
+                OrderId = 91, InitializationStatus = PaymentInitializationStatus.Ready,
+                PaymentUrl = "https://sadad.test/pay/91"
+            }),
+            _ => throw Unexpected(method)
+        });
+        var verifier = InterfaceStub.Create<ISadadPaymentVerificationService>((method, _) =>
+        {
+            verificationCalled = true;
+            throw Unexpected(method);
+        });
+        var controller = new OrdersController(orders, null!, verifier, NullLogger<OrdersController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+
+        var response = await controller.GetPaymentStatus(91);
+
+        var body = Assert.IsType<PaymentStatusDto>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.False(verificationCalled);
+        Assert.Equal(PaymentInitializationStatus.Ready, body.InitializationStatus);
+        Assert.Equal("https://sadad.test/pay/91", body.PaymentUrl);
     }
 
     [Fact]

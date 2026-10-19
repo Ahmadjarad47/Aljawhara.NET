@@ -384,6 +384,20 @@ public sealed class PaymentOrchestrationService(
                 return new(PaymentVerificationOutcome.NotPaid, result.ReasonCode);
             }
 
+            // A verification precondition failure has no remote payment evidence.
+            // Background checks must not hide an already-created payment link.
+            if (result.Outcome == SadadInvoiceVerificationOutcome.Unsupported &&
+                (result.ReasonCode is "MERCHANT_VENDOR_ID_NOT_CONFIGURED" or "DISCOUNT_SEMANTICS_NOT_CERTIFIED") &&
+                attempt.Status == PaymentAttemptStatus.AwaitingPayment)
+            {
+                await db.PaymentAttempts.Where(a => a.Id == attempt.Id && a.LeaseOwner == worker)
+                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.LastVerificationAtUtc, checkedAt)
+                        .SetProperty(a => a.LastErrorCode, result.ReasonCode)
+                        .SetProperty(a => a.LeaseOwner, (string?)null)
+                        .SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
+                return new(PaymentVerificationOutcome.RequiresReconciliation, result.ReasonCode);
+            }
+
             if (result.Outcome == SadadInvoiceVerificationOutcome.VerifiedPaid && result.Payment != null)
             {
                 if (!configuration.GetValue<bool>("Sadad:Verification:ContractProfileCertified") ||

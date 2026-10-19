@@ -110,22 +110,25 @@ namespace Ecom.API.Controllers
 
         [HttpGet("{id}/payment-status")]
         [AllowAnonymous]
-        public async Task<ActionResult<PaymentStatusDto>> GetPaymentStatus(int id)
+        public async Task<ActionResult<PaymentStatusDto>> GetPaymentStatus(int id, [FromQuery] bool verify = false)
         {
             Response.Headers.CacheControl = "no-store";
             if (!await HasOrderAccessAsync(id))
                 return NotFound();
-            // Polling after a gateway return must also recover a delayed/missing webhook.
-            // The verifier uses a persistent lease and throttles status polls across instances.
-            try
+            // Preparing the link only reads persisted state. Explicit verification is
+            // requested after the browser returns from Sadad, never before redirecting.
+            if (verify)
             {
-                await _paymentVerification.VerifyByOrderIdAsync(id, HttpContext.RequestAborted);
-            }
-            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested) { throw; }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Payment status verification unavailable for OrderId={OrderId}. ReasonCode={ReasonCode}",
-                    id, "VERIFICATION_UNAVAILABLE");
+                try
+                {
+                    await _paymentVerification.VerifyByOrderIdAsync(id, HttpContext.RequestAborted);
+                }
+                catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Payment status verification unavailable for OrderId={OrderId}. ReasonCode={ReasonCode}",
+                        id, "VERIFICATION_UNAVAILABLE");
+                }
             }
             return Ok(await _orderService.GetOrderPaymentStatusAsync(id));
         }

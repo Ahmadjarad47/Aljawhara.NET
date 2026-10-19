@@ -30,6 +30,26 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Verification_precondition_failure_keeps_the_existing_invoice_awaiting_payment()
+    {
+        await SeedAttemptAsync(withActiveReservation: true);
+        await using var db = CreateContext();
+        await db.PaymentAttempts.ExecuteUpdateAsync(s => s.SetProperty(a => a.PaymentUrl,
+            "https://sadad.test/pay/9001"), TestContext.Current.CancellationToken);
+        var gateway = new ScriptedGateway(new(SadadInvoiceVerificationOutcome.Unsupported, "MERCHANT_VENDOR_ID_NOT_CONFIGURED"));
+
+        await CreateProcessor(db, gateway).VerifyPendingBatchAsync("background-check", 10, TestContext.Current.CancellationToken);
+
+        var attempt = await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(PaymentAttemptStatus.AwaitingPayment, attempt.Status);
+        Assert.Equal("https://sadad.test/pay/9001", attempt.PaymentUrl);
+        Assert.Equal("MERCHANT_VENDOR_ID_NOT_CONFIGURED", attempt.LastErrorCode);
+        Assert.Null(attempt.LeaseOwner);
+        Assert.Null(attempt.LeaseUntilUtc);
+        Assert.Equal(TransactionStatus.Pending, await db.Transactions.Select(t => t.Status).SingleAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task Status_poll_recovers_paid_invoice_without_a_webhook_and_throttles_unpaid_checks()
     {
         var seeded = await SeedAttemptAsync(withActiveReservation: true);
