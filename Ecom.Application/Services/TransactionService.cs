@@ -8,6 +8,7 @@ using Ecom.Infrastructure.UnitOfWork;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -72,13 +73,15 @@ namespace Ecom.Application.Services
         private readonly IMapper _mapper;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<TransactionService> _logger;
+        private readonly IConfiguration? _configuration;
 
-        public TransactionService(IUnitOfWork unitOfWork, IMapper mapper, IHttpClientFactory httpClientFactory, ILogger<TransactionService> logger)
+        public TransactionService(IUnitOfWork unitOfWork, IMapper mapper, IHttpClientFactory httpClientFactory, ILogger<TransactionService> logger, IConfiguration? configuration = null)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<TransactionAdvancedDto?> GetTransactionByIdAsync(int id)
@@ -395,11 +398,17 @@ namespace Ecom.Application.Services
 
         public async Task<TokenResponse> GenerateTokens()
         {
-            var clientKey = Environment.GetEnvironmentVariable("ClientKey");
-            var clientSecret = Environment.GetEnvironmentVariable("ClientSecret");
+            // Prefer the Sadad section, while preserving existing flat environment settings.
+            var clientKey = _configuration?["Sadad:ClientKey"];
+            var clientSecret = _configuration?["Sadad:ClientSecret"];
+            if (clientKey == null && clientSecret == null)
+            {
+                clientKey = _configuration?["ClientKey"] ?? Environment.GetEnvironmentVariable("ClientKey");
+                clientSecret = _configuration?["ClientSecret"] ?? Environment.GetEnvironmentVariable("ClientSecret");
+            }
 
-            if (string.IsNullOrEmpty(clientKey) || string.IsNullOrEmpty(clientSecret))
-                throw new InvalidOperationException("Sadad credentials not configured. Set ClientKey and ClientSecret environment variables.");
+            if (string.IsNullOrWhiteSpace(clientKey) || string.IsNullOrWhiteSpace(clientSecret))
+                throw AuthenticationFailure("SADAD_CREDENTIALS_MISSING");
 
             var httpClient = _httpClientFactory.CreateClient("Sadad");
 
@@ -411,7 +420,7 @@ namespace Ecom.Application.Services
                 Encoding.ASCII.GetBytes($"{clientKey}:{clientSecret}")
             );
 
-            var refreshRequest = new HttpRequestMessage(
+            using var refreshRequest = new HttpRequestMessage(
                 HttpMethod.Post,
                 "api/User/GenerateRefreshToken"
             );
@@ -419,27 +428,21 @@ namespace Ecom.Application.Services
             refreshRequest.Headers.Authorization =
                 new AuthenticationHeaderValue("Basic", authValue);
 
-            var refreshResponse = await httpClient.SendAsync(refreshRequest);
-            var refreshContent = await refreshResponse.Content.ReadAsStringAsync();
-
-            if (!refreshResponse.IsSuccessStatusCode)
-                throw new InvalidOperationException("Payment gateway authentication failed.");
-
-            var refreshObj = JsonSerializer.Deserialize<SadadRefreshResponse>(refreshContent);
+            var refreshObj = await ReadAuthenticationResponseAsync<SadadRefreshResponse>(httpClient, refreshRequest, "REFRESH");
 
             if (refreshObj == null || !refreshObj.isValid || refreshObj.response == null)
-                throw new InvalidOperationException("Payment gateway authentication failed.");
+                throw AuthenticationFailure("SADAD_REFRESH_REJECTED");
 
             var refreshToken = refreshObj.response.refreshToken;
 
-            if (string.IsNullOrEmpty(refreshToken))
-                throw new InvalidOperationException("Sadad returned empty refresh token.");
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                throw AuthenticationFailure("SADAD_REFRESH_TOKEN_EMPTY");
 
             // =========================
             // 2️⃣ Generate Access Token (Body only)
             // =========================
 
-            var accessRequest = new HttpRequestMessage
+            using var accessRequest = new HttpRequestMessage
             {
                 Method = HttpMethod.Post,
                 RequestUri = new Uri("api/User/GenerateAccessToken", UriKind.Relative),
@@ -455,16 +458,13 @@ namespace Ecom.Application.Services
                 "application/json"
             );
 
-            var accessResponse = await httpClient.SendAsync(accessRequest);
-            var accessContent = await accessResponse.Content.ReadAsStringAsync();
-
-            if (!accessResponse.IsSuccessStatusCode)
-                throw new InvalidOperationException("Payment gateway authentication failed.");
-
-            var accessObj = JsonSerializer.Deserialize<SadadAccessResponse>(accessContent);
+            var accessObj = await ReadAuthenticationResponseAsync<SadadAccessResponse>(httpClient, accessRequest, "ACCESS");
 
             if (accessObj == null || !accessObj.isValid || accessObj.response == null)
-                throw new InvalidOperationException("Payment gateway authentication failed.");
+                throw AuthenticationFailure("SADAD_ACCESS_REJECTED");
+
+            if (string.IsNullOrWhiteSpace(accessObj.response.accessToken))
+                throw AuthenticationFailure("SADAD_ACCESS_TOKEN_EMPTY");
 
             return new TokenResponse
             {
@@ -474,6 +474,36 @@ namespace Ecom.Application.Services
             };
         }
 
+        private async Task<T?> ReadAuthenticationResponseAsync<T>(HttpClient client, HttpRequestMessage request, string stage)
+        {
+            try
+            {
+                using var response = await client.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                    throw AuthenticationFailure($"SADAD_{stage}_HTTP_{(int)response.StatusCode}");
+
+                return JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync());
+            }
+            catch (JsonException)
+            {
+                throw AuthenticationFailure($"SADAD_{stage}_INVALID_RESPONSE");
+            }
+            catch (HttpRequestException)
+            {
+                throw AuthenticationFailure($"SADAD_{stage}_NETWORK_ERROR");
+            }
+            catch (OperationCanceledException)
+            {
+                throw AuthenticationFailure($"SADAD_{stage}_TIMEOUT");
+            }
+        }
+
+        private InvalidOperationException AuthenticationFailure(string reasonCode)
+        {
+            // Only fixed diagnostic codes go to monitoring; never log credentials or token responses.
+            _logger.LogWarning("Sadad authentication failed. ReasonCode={ReasonCode}", reasonCode);
+            return new InvalidOperationException($"Payment gateway authentication failed ({reasonCode}).");
+        }
 
 
 
