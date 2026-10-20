@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using System.Net;
 
 namespace Ecom.Application.Services
 {
@@ -321,49 +322,82 @@ namespace Ecom.Application.Services
             try
             {
                 var subject = "رمز التحقق - المتجر الجوهرة";
-                var body = $@"
+                var displayName = string.IsNullOrWhiteSpace(user.UserName) ? "بك" : user.UserName;
+                var safeName = WebUtility.HtmlEncode(displayName);
+                var safeOtp = WebUtility.HtmlEncode(otp);
+                // Keep the code as one LTR text node so it can be copied without reordering digits.
+                // Inline styles and solid table backgrounds also survive email-client CSS filtering.
+                var body = $$"""
                     <!DOCTYPE html>
-                    <html dir='rtl' lang='ar'>
+                    <html dir="rtl" lang="ar">
                     <head>
-                        <meta charset='UTF-8'>
-                        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <meta name="color-scheme" content="light">
+                        <title>رمز التحقق - المتجر الجوهرة</title>
                     </head>
-                    <body style='margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background-color: #f5f5f5;'>
-                        <table width='100%' cellpadding='0' cellspacing='0' style='background-color: #f5f5f5; padding: 40px 20px;'>
+                    <body dir="rtl" style="margin:0; padding:0; width:100%; background-color:#f3f5f3; font-family:Tahoma, Arial, sans-serif; -webkit-text-size-adjust:100%;">
+                        <div aria-hidden="true" style="display:none; font-size:1px; line-height:1px; color:#f3f5f3; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all;">استخدم رمز التحقق لإكمال طلبك. الرمز صالح لمدة ساعة واحدة.</div>
+                        <table role="presentation" dir="rtl" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f5f3" style="width:100%; background-color:#f3f5f3;">
                             <tr>
-                                <td align='center'>
-                                    <table width='600' cellpadding='0' cellspacing='0' style='background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+                                <td align="center" style="padding:24px 12px;">
+                                    <!--[if mso]><table role="presentation" width="520" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+                                    <table role="presentation" dir="rtl" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%; max-width:520px; background-color:#ffffff; border:1px solid #dfe7e2; border-radius:16px; border-spacing:0;">
                                         <tr>
-                                            <td style='background: linear-gradient(135deg, #054239d9 0%, #054239 100%); padding: 30px; text-align: center;'>
-                                                <h1 style='color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;'>رمز التحقق</h1>
+                                            <td align="center" bgcolor="#054239" style="padding:24px; background-color:#054239; border-radius:15px 15px 0 0; border-bottom:3px solid #c6a66b; font-family:Tahoma, Arial, sans-serif;">
+                                                <p style="margin:0; color:#ffffff; font-family:Tahoma, Arial, sans-serif; font-size:22px; line-height:34px; font-weight:bold;">المتجر الجوهرة</p>
+                                                <p style="margin:4px 0 0; color:#dbeae4; font-size:12px; line-height:22px;">خطوة بسيطة لحماية حسابك</p>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td style='padding: 40px 30px;'>
-                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
-                                                <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 30px 0; text-align: center;'>رمز التحقق الخاص بك هو:</p>
-                                                <div style='background: linear-gradient(135deg, #054239d9 0%, #054239 100%); padding: 30px; text-align: center; border-radius: 10px; margin: 30px 0; box-shadow: 0 4px 6px rgba(5,66,57,0.3);'>
-                                                    <h1 style='color: #ffffff; font-size: 42px; margin: 0; letter-spacing: 8px; font-weight: bold; font-family: 'Courier New', monospace;'>{otp}</h1>
-                                                </div>
-                                                <p style='color: #dc3545; font-size: 14px; margin: 25px 0 0 0; text-align: center;'><strong>ملاحظة:</strong> هذا الرمز صالح لمدة ساعة واحدة فقط.</p>
-                                                <div style='background-color: #fff3cd; border-right: 4px solid #ffc107; padding: 15px; border-radius: 5px; margin-top: 25px;'>
-                                                    <p style='color: #856404; font-size: 14px; margin: 0; text-align: center;'>إذا لم تطلب هذا الرمز، يرجى تجاهل هذه الرسالة.</p>
-                                                </div>
+                                            <td dir="rtl" align="right" style="padding:28px 24px 24px; text-align:right; font-family:Tahoma, Arial, sans-serif;">
+                                                <p style="margin:0 0 16px; color:#34443e; font-size:15px; line-height:26px; overflow-wrap:anywhere; word-break:break-word;">مرحباً <strong dir="auto" style="unicode-bidi:isolate;">{{safeName}}</strong>،</p>
+                                                <h1 style="margin:0 0 10px; color:#173c32; font-family:Tahoma, Arial, sans-serif; font-size:26px; line-height:38px; font-weight:bold; text-align:center;">رمز التحقق الخاص بك</h1>
+                                                <p style="margin:0 0 22px; color:#59675f; font-size:15px; line-height:27px; text-align:center;">أدخل الرمز التالي لإكمال التحقق من حسابك.</p>
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+                                                    <tr>
+                                                        <td align="center">
+                                                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#edf5f0" style="width:100%; max-width:320px; background-color:#edf5f0; border:1px solid #cbded2; border-radius:12px;">
+                                                                <tr>
+                                                                    <td align="center" style="padding:14px 8px 4px; color:#50675b; font-family:Tahoma, Arial, sans-serif; font-size:12px; line-height:20px;">رمز التحقق</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td dir="ltr" align="center" style="padding:0 8px 14px; direction:ltr; text-align:center;">
+                                                                        <span dir="ltr" style="display:inline-block; direction:ltr; unicode-bidi:isolate; color:#054239; font-family:Consolas, 'Courier New', monospace; font-size:38px; line-height:52px; letter-spacing:6px; font-weight:bold; white-space:nowrap;">{{safeOtp}}</span>
+                                                                    </td>
+                                                                </tr>
+                                                            </table>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                                <p style="margin:14px 0 24px; color:#59675f; font-size:13px; line-height:24px; text-align:center;">صالح لمدة <strong style="color:#173c32;">ساعة واحدة</strong> من وقت الطلب.</p>
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-top:1px solid #e6ebe7;">
+                                                    <tr>
+                                                        <td dir="rtl" align="right" style="padding-top:18px; text-align:right; font-family:Tahoma, Arial, sans-serif;">
+                                                            <p style="margin:0 0 4px; color:#34443e; font-size:13px; line-height:24px; font-weight:bold;">لحماية حسابك، لا تشارك هذا الرمز مع أي شخص.</p>
+                                                            <p style="margin:0; color:#66736b; font-size:13px; line-height:24px;">إذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة.</p>
+                                                        </td>
+                                                    </tr>
+                                                </table>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td style='background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #e9ecef;'>
-                                                <p style='color: #666666; font-size: 14px; margin: 0;'>مع أطيب التحيات،<br><strong style='color: #054239d9;'>فريق المتجر الجوهرة</strong></p>
+                                            <td align="center" bgcolor="#f8faf8" style="padding:18px 24px; background-color:#f8faf8; border-top:1px solid #e6ebe7; border-radius:0 0 15px 15px; font-family:Tahoma, Arial, sans-serif;">
+                                                <p style="margin:0; color:#34443e; font-size:13px; line-height:24px; font-weight:bold;">فريق المتجر الجوهرة</p>
+                                                <p style="margin:2px 0 0; color:#66736b; font-size:12px; line-height:22px;">هذه رسالة تلقائية، لا حاجة للرد عليها.</p>
                                             </td>
                                         </tr>
                                     </table>
+                                    <!--[if mso]></td></tr></table><![endif]-->
                                 </td>
                             </tr>
                         </table>
                     </body>
-                    </html>";
+                    </html>
+                    """;
+                var textBody = $"مرحباً {displayName}،\n\nرمز التحقق الخاص بك: {otp}\n\nالرمز صالح لمدة ساعة واحدة من وقت الطلب.\nلا تشارك هذا الرمز مع أي شخص.\nإذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة.\n\nفريق المتجر الجوهرة";
 
-                return await SendEmailAsync(user.Email!, subject, body);
+                return await SendEmailAsync(user.Email!, subject, body, textBody);
             }
             catch (Exception ex)
             {
@@ -673,7 +707,7 @@ namespace Ecom.Application.Services
             }
         }
 
-        private async Task<bool> SendEmailAsync(string toEmail, string subject, string body)
+        private async Task<bool> SendEmailAsync(string toEmail, string subject, string body, string? textBody = null)
         {
             try
             {
@@ -692,7 +726,8 @@ namespace Ecom.Application.Services
 
                 var bodyBuilder = new BodyBuilder
                 {
-                    HtmlBody = body
+                    HtmlBody = body,
+                    TextBody = textBody
                 };
                 message.Body = bodyBuilder.ToMessageBody();
 
