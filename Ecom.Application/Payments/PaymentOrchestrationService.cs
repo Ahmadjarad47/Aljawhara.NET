@@ -258,9 +258,8 @@ public sealed class PaymentOrchestrationService(
                 !string.Equals(attempt.MerchantReference, payment.MerchantReference, StringComparison.Ordinal) ||
                 string.IsNullOrWhiteSpace(expectedMerchantIdentity) ||
                 !string.Equals(expectedMerchantIdentity, merchantIdentity, StringComparison.Ordinal) ||
-                !string.Equals(payment.Currency, "KWD", StringComparison.Ordinal) ||
-                !SadadInvoiceAmounts.MatchesExpected(attempt.Amount, payment.Amount, payment.Total, payment.Subtotal, payment.GatewayFees) ||
-                payment.RefundedAmount != 0m)
+                !string.Equals(payment.Currency, "KWD", StringComparison.Ordinal) || payment.Amount != attempt.Amount ||
+                payment.Total != attempt.Amount || payment.Subtotal != attempt.Amount || payment.RefundedAmount != 0m)
                 return false;
             if (attempt.Status == PaymentAttemptStatus.Paid) { await tx.CommitAsync(cancellationToken); return true; }
             var activeCount = await db.InventoryReservations.CountAsync(r => r.OrderId == attempt.OrderId && r.Status == ReservationStatus.Active && r.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);

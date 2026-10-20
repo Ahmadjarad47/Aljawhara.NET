@@ -49,7 +49,7 @@ public static class LogPrivacy
     private static readonly HashSet<string> MoneyFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "ExpectedAmount", "ExpectedGrossAmount", "ExpectedDiscountAmount",
-        "GatewayAmount", "GatewayTotal", "GatewaySubtotal", "GatewayFees"
+        "GatewayAmount", "GatewayTotal", "GatewaySubtotal"
     };
     // Deliberately allowlist metadata. New application fields are private by default.
     private static readonly HashSet<string> SafeFields = new(StringComparer.OrdinalIgnoreCase)

@@ -19,7 +19,7 @@ the Admin role and return `Cache-Control: no-store`.
 - Factory-created outbound HTTP calls, including Sadad: method, host, status and duration.
 - Sadad `AMOUNT_FIELDS_MISMATCH` warnings include decimal-only `ExpectedAmount`,
   `ExpectedGrossAmount`, `ExpectedDiscountAmount`, `GatewayAmount`, `GatewayTotal`,
-  `GatewaySubtotal`, and optional `GatewayFees`. These identify which comparison failed without capturing
+  and `GatewaySubtotal`. These identify which comparison failed without capturing
   the provider response, tokens or customer details. A successful GetById HTTP 200
   does not by itself confirm payment or matching amounts.
 - EF `SaveChanges` activity: entity type, numeric/GUID identity, operation and enum status transitions, with

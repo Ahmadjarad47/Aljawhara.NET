@@ -158,15 +158,22 @@ public sealed class SadadInvoiceGateway(
         {
             var tokens = await transactions.GenerateTokens(cancellationToken);
             var uri = $"api/Invoice/getall?Ref_Number={Uri.EscapeDataString(attempt.MerchantReference)}&vendor_Id={expectedVendorId.ToString(CultureInfo.InvariantCulture)}";
+         
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
             request.Headers.TryAddWithoutValidation("authorization", $"Bearer {tokens.AccessToken}");
+            
+            
             using var response = await httpClientFactory.CreateClient("Sadad").SendAsync(request, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            
+            
             if (!response.IsSuccessStatusCode)
                 return new(SadadInvoiceLookupOutcome.Unavailable, $"GETALL_HTTP_{(int)response.StatusCode}");
 
             using var document = JsonDocument.Parse(body);
             var root = document.RootElement;
+         
+            
             if (!TryRequiredBoolean(root, "isValid", out var valid) || !valid ||
                 !root.TryGetProperty("response", out var responseElement) || responseElement.ValueKind != JsonValueKind.Array)
                 return new(SadadInvoiceLookupOutcome.Unavailable, "GETALL_MALFORMED_RESPONSE");
@@ -232,23 +239,14 @@ public sealed class SadadInvoiceGateway(
             return new(SadadInvoiceVerificationOutcome.Invalid, "MERCHANT_REFERENCE_MISMATCH");
         if (!string.Equals(currency, attempt.Currency, StringComparison.Ordinal) || !string.Equals(currency, "KWD", StringComparison.Ordinal))
             return new(SadadInvoiceVerificationOutcome.Invalid, "CURRENCY_MISMATCH");
-        // Older zero-fee responses omit fees. A different subtotal is accepted
-        // only when an explicit numeric fee reconciles it to the full total.
-        var hasFees = invoice.TryGetProperty("fees", out _);
-        decimal fees = 0m;
-        if (hasFees && !TryRequiredDecimal(invoice, "fees", out fees))
-            return new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_REQUIRED_FIELD");
-
-        if (!SadadInvoiceAmounts.HasKwdScale(amount) || !SadadInvoiceAmounts.HasKwdScale(total) ||
-            !SadadInvoiceAmounts.HasKwdScale(subtotal) || !SadadInvoiceAmounts.HasKwdScale(refundedAmount) ||
-            !SadadInvoiceAmounts.HasKwdScale(fees))
+        if (!HasKwdScale(amount) || !HasKwdScale(total) || !HasKwdScale(subtotal) || !HasKwdScale(refundedAmount))
             return new(SadadInvoiceVerificationOutcome.Invalid, "KWD_SCALE_INVALID");
-        if (!SadadInvoiceAmounts.MatchesExpected(attempt.Amount, amount, total, subtotal, fees))
+        if (amount != attempt.Amount || total != attempt.Amount || subtotal != attempt.Amount)
         {
             logger.LogWarning(
-                "Sadad amount comparison failed for PaymentAttemptId={PaymentAttemptId}. ReasonCode={ReasonCode}. ExpectedAmount={ExpectedAmount}, ExpectedGrossAmount={ExpectedGrossAmount}, ExpectedDiscountAmount={ExpectedDiscountAmount}, GatewayAmount={GatewayAmount}, GatewayTotal={GatewayTotal}, GatewaySubtotal={GatewaySubtotal}, GatewayFees={GatewayFees}",
+                "Sadad amount comparison failed for PaymentAttemptId={PaymentAttemptId}. ReasonCode={ReasonCode}. ExpectedAmount={ExpectedAmount}, ExpectedGrossAmount={ExpectedGrossAmount}, ExpectedDiscountAmount={ExpectedDiscountAmount}, GatewayAmount={GatewayAmount}, GatewayTotal={GatewayTotal}, GatewaySubtotal={GatewaySubtotal}",
                 attempt.Id, "AMOUNT_FIELDS_MISMATCH", attempt.Amount, orderAmounts.Gross, orderAmounts.Discount,
-                amount, total, subtotal, hasFees ? fees : (decimal?)null);
+                amount, total, subtotal);
             return new(SadadInvoiceVerificationOutcome.Invalid, "AMOUNT_FIELDS_MISMATCH");
         }
         if (refundedAmount != 0m)
@@ -267,7 +265,7 @@ public sealed class SadadInvoiceGateway(
         var evidenceId = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
         var payment = new SadadVerifiedPayment(
             evidenceId, invoiceId, vendorId, reference, amount, total, subtotal,
-            refundedAmount, currency, transactionId, fees);
+            refundedAmount, currency, transactionId);
         return new(SadadInvoiceVerificationOutcome.VerifiedPaid, "STRICT_GETBYID_VERIFIED", payment);
     }
 
@@ -317,4 +315,5 @@ public sealed class SadadInvoiceGateway(
             element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out value);
     }
 
+    private static bool HasKwdScale(decimal value) => decimal.Round(value, KwdMoney.Scale, MidpointRounding.AwayFromZero) == value;
 }
