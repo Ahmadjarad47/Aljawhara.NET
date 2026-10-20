@@ -113,6 +113,7 @@ public sealed class Phase2OrchestrationTests : IAsyncLifetime
         var seeded = await SeedAttemptAsync(PaymentAttemptStatus.AwaitingPayment, outboxStatus: null, withActiveReservation: true);
         await using var db = CreateContext();
         var processor = CreateProcessor(db, new StubGateway(new(GatewayDispatchOutcome.Created)));
+        Assert.Empty(await db.WhatsAppInvoices.ToListAsync(TestContext.Current.CancellationToken));
         Assert.True(await processor.FinalizeVerifiedAsync(seeded.AttemptId, "evidence-1", "INV-SEED", seeded.MerchantReference, "merchant-test", 12.345m, "KWD", TestContext.Current.CancellationToken));
         Assert.True(await processor.FinalizeVerifiedAsync(seeded.AttemptId, "evidence-1", "INV-SEED", seeded.MerchantReference, "merchant-test", 12.345m, "KWD", TestContext.Current.CancellationToken));
 
@@ -121,6 +122,9 @@ public sealed class Phase2OrchestrationTests : IAsyncLifetime
         Assert.Equal(OrderStatus.Processing, await verification.Orders.Select(o => o.Status).SingleAsync(TestContext.Current.CancellationToken));
         Assert.Equal(ReservationStatus.Confirmed, await verification.InventoryReservations.Select(r => r.Status).SingleAsync(TestContext.Current.CancellationToken));
         Assert.Single(await verification.PaymentTransitionAudits.ToListAsync(TestContext.Current.CancellationToken));
+        var invoice = Assert.Single(await verification.WhatsAppInvoices.ToListAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(seeded.AttemptId, invoice.PaymentAttemptId);
+        Assert.Equal(WhatsAppInvoiceStatus.Pending, invoice.Status);
     }
 
     [Fact]

@@ -22,6 +22,8 @@ using System.IO.Compression;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi;
 using Ecom.API.Monitoring;
+using Ecom.Application.WhatsApp;
+using Ecom.Infrastructure.WhatsApp;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOptions<MonitoringOptions>()
@@ -188,6 +190,19 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserManagerService, UserManagerService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISadadInvoiceGateway, SadadInvoiceGateway>();
+builder.Services.AddOptions<GupshupOptions>()
+    .Configure(options =>
+    {
+        builder.Configuration.GetSection("Gupshup").Bind(options);
+        if (options.Environment == "Sandbox") builder.Configuration.GetSection("Gupshup_sandbox").Bind(options);
+    })
+    .Validate(options => options.IsValid(), "Invalid Gupshup settings. Configure sender, country, webhook secret, public HTTPS URL and template/test allowlist before enabling.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IGupshupWhatsAppService, GupshupWhatsAppService>(client => client.Timeout = TimeSpan.FromSeconds(30))
+    .RedactLoggedHeaders(["apikey"])
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddSingleton<IInvoicePdfRenderer, InvoicePdfRenderer>();
+builder.Services.AddScoped<WhatsAppInvoiceProcessor>();
 builder.Services.AddScoped<PaymentOrchestrationService>();
 builder.Services.AddScoped<IPaymentOrchestrationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());
 builder.Services.AddScoped<IPaymentFinalizationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());
@@ -196,6 +211,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHostedService<SadadPaymentStatusCheckerService>();
     builder.Services.AddHostedService<PaymentOrchestrationWorker>();
+    builder.Services.AddHostedService<WhatsAppInvoiceWorker>();
 }
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();

@@ -118,6 +118,8 @@ namespace Ecom.Application.Services
                         var order = _mapper.Map<Order>(orderDto);
                         order.AppUserId = userId;
                         order.ShippingAddressId = shipping.Id;
+                        order.WhatsAppConsentAtUtc = orderDto.WhatsAppInvoiceOptIn ? DateTime.UtcNow : null;
+                        order.WhatsAppConsentPhone = orderDto.WhatsAppInvoiceOptIn ? shipping.Phone : null;
                         order.OrderNumber = await GenerateOrderNumberAsync();
                         order.CheckoutIdempotencyKeyHash = keyHash;
                         order.CheckoutRequestHash = requestHash;
@@ -668,7 +670,9 @@ namespace Ecom.Application.Services
                 Items = dto.Items.GroupBy(i => i.ProductId).Select(g => new { ProductId = g.Key, Quantity = g.Sum(i => i.Quantity) }).OrderBy(i => i.ProductId),
                 Shipping = dto.ShippingAddress
             };
-            return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(canonical)));
+            var canonicalJson = JsonSerializer.Serialize(canonical);
+            if (dto.WhatsAppInvoiceOptIn) canonicalJson += "|whatsapp-invoice-consent:true";
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalJson)));
         }
 
         private string DeriveGuestAccessToken(string idempotencyKey, string nonce)

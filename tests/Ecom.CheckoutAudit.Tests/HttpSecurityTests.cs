@@ -55,6 +55,21 @@ public sealed class HttpSecurityTests : IAsyncLifetime
         PostgresTestDatabase.ConnectionString(_databaseName);
 
     [Fact]
+    public async Task WhatsApp_management_requires_admin_and_public_pdf_requires_capability()
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await _client.GetAsync("/api/whatsapp/admin/invoices", TestContext.Current.CancellationToken)).StatusCode);
+        using var user = new HttpRequestMessage(HttpMethod.Get, "/api/whatsapp/admin/invoices");
+        user.Headers.Add("X-Test-User", "user-a");
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.SendAsync(user, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await _client.GetAsync("/api/whatsapp/invoices/1/document", TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await _client.PostAsJsonAsync("/api/whatsapp/webhook?token=incorrect", new { app = "whatsappaljawhara" },
+                TestContext.Current.CancellationToken)).StatusCode);
+    }
+
+    [Fact]
     public async Task Legacy_fake_paid_attempt_is_rejected_at_http_boundary()
     {
         var response = await _client.PostAsJsonAsync($"/api/orders/{_guestOrderId}/payment", new

@@ -1,0 +1,65 @@
+using System.Text.RegularExpressions;
+
+namespace Ecom.Infrastructure.WhatsApp;
+
+public sealed class GupshupOptions
+{
+    public bool Enabled { get; set; }
+    public string ApiKey { get; set; } = "";
+    public string AppName { get; set; } = "whatsappaljawhara";
+    public string Source { get; set; } = "";
+    public string TemplateId { get; set; } = "";
+    public string Environment { get; set; } = "Sandbox";
+    public string CountryCode { get; set; } = "965";
+    public string NationalNumberPattern { get; set; } = "[569][0-9]{7}";
+    public string PublicBaseUrl { get; set; } = "";
+    public string WebhookSecret { get; set; } = "";
+    public string[] SandboxAllowedDestinations { get; set; } = [];
+    // Sandbox session documents require the tester to open the 24-hour conversation first.
+    public bool SandboxSessionMessages { get; set; } = true;
+    public int MaxAttempts { get; set; } = 5;
+    public int MediaLifetimeMinutes { get; set; } = 30;
+    public int PdfRetentionDays { get; set; } = 7;
+    // Optional installed browser channel; null uses Playwright's bundled Chromium.
+    public string? PdfBrowserChannel { get; set; }
+
+    public bool IsValid()
+    {
+        if (!Enabled) return true;
+        if (PdfBrowserChannel is not (null or "chrome" or "msedge" or "chromium")) return false;
+        if (Environment is not ("Sandbox" or "Production") || string.IsNullOrWhiteSpace(ApiKey) ||
+            string.IsNullOrWhiteSpace(AppName) || AppName.Length > 100 || !Regex.IsMatch(Source, "^[1-9][0-9]{7,14}$") ||
+            !Regex.IsMatch(CountryCode, "^[1-9][0-9]{0,2}$") || WebhookSecret.Length is < 32 or > 512 ||
+            !Uri.TryCreate(PublicBaseUrl, UriKind.Absolute, out var url) || url.Scheme != "https" ||
+            !string.IsNullOrEmpty(url.Query) || !string.IsNullOrEmpty(url.Fragment) || !string.IsNullOrEmpty(url.UserInfo) ||
+            MaxAttempts is < 1 or > 10 || MediaLifetimeMinutes is < 5 or > 60 || PdfRetentionDays is < 1 or > 30)
+            return false;
+        if (Environment == "Production" && (Source == "917834811114" || string.IsNullOrWhiteSpace(TemplateId))) return false;
+        if (Environment == "Sandbox" && (SandboxAllowedDestinations.Length == 0 ||
+            (!SandboxSessionMessages && string.IsNullOrWhiteSpace(TemplateId)))) return false;
+        try { _ = new Regex($"\\A(?:{NationalNumberPattern})\\z", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)); }
+        catch (ArgumentException) { return false; }
+        return true;
+    }
+}
+
+public static class WhatsAppPhone
+{
+    public static string? Normalize(string? value, GupshupOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 40) return null;
+        var text = value.Trim();
+        if (text.Any(c => !(char.IsAsciiDigit(c) || c is '+' or ' ' or '-' or '(' or ')'))) return null;
+        text = text.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "");
+        var international = text.StartsWith('+') || text.StartsWith("00", StringComparison.Ordinal);
+        if (text.StartsWith('+')) text = text[1..];
+        else if (text.StartsWith("00", StringComparison.Ordinal)) text = text[2..];
+        if (text.Length == 0 || !text.All(char.IsAsciiDigit)) return null;
+        bool ValidNational(string national) => Regex.IsMatch(national, $"\\A(?:{options.NationalNumberPattern})\\z",
+            RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+        string? result = null;
+        if (!international && ValidNational(text)) result = options.CountryCode + text;
+        else if (text.StartsWith(options.CountryCode, StringComparison.Ordinal) && ValidNational(text[options.CountryCode.Length..])) result = text;
+        return result is { Length: >= 8 and <= 15 } ? result : null;
+    }
+}

@@ -14,6 +14,8 @@ namespace Ecom.Domain.Entity
         public decimal Shipping { get; set; }
         public decimal Tax { get; set; }
         public decimal Total { get; set; }
+        public DateTime? WhatsAppConsentAtUtc { get; set; }
+        public string? WhatsAppConsentPhone { get; set; }
 
         // Coupon relationship
         public int? CouponId { get; set; }

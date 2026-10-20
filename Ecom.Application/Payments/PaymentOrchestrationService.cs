@@ -365,6 +365,14 @@ public sealed class PaymentOrchestrationService(
                     .SetProperty(t => t.ProcessedDate, now)
                     .SetProperty(t => t.PaymentGatewayResponse, "Verified by Sadad GetById"), cancellationToken);
             db.PaymentTransitionAudits.Add(new PaymentTransitionAudit { PaymentAttemptId = attempt.Id, FromStatus = attempt.Status, ToStatus = PaymentAttemptStatus.Paid, EventKey = $"verified:{payment.EvidenceId}", ReasonCode = "STRICT_SADAD_GETBYID_VERIFICATION" });
+            // Atomic with Paid: the independent WhatsApp worker can only see this after commit.
+            // Always record the durable intent; disabled delivery simply leaves it pending.
+            db.WhatsAppInvoices.Add(new WhatsAppInvoice
+            {
+                PaymentAttemptId = attempt.Id,
+                InvoiceNumber = $"INV-{attempt.Order.OrderNumber}-{attempt.Id}",
+                NextAttemptAtUtc = now
+            });
             await db.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
             return true;

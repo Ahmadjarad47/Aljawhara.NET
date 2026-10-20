@@ -26,6 +26,9 @@ namespace Ecom.Application.DTOs.Order
 
     public class OrderCreateDto
     {
+        // Optional and false by default; checkout must present an explicit consent checkbox.
+        public bool WhatsAppInvoiceOptIn { get; set; }
+
         [Required]
         [MinLength(1, ErrorMessage = "At least one order item is required.")]
         public List<OrderItemCreateDto> Items { get; set; } = new();

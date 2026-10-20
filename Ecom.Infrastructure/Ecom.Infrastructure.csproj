@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" Version="4.0.104.4" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.58.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.13" />
@@ -15,6 +16,9 @@
   </ItemGroup>
 
   <!-- Preserve SQL Server migration history for reference; PostgreSQL has its own baseline. -->
+  <ItemGroup>
+    <None Include="InvoiceAssets/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Remove="Migrations/**/*.cs" />
   </ItemGroup>
