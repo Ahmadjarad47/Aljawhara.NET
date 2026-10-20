@@ -92,6 +92,7 @@ public sealed class SadadInvoiceGateway(
                 var envelope = JsonSerializer.Deserialize<InvoiceEnvelope>(getBody);
                 if (envelope?.isValid == true) url = envelope.response?.url?.Trim();
             }
+
             else
             {
                 // Preserve the existing non-success path: do not consume the body just for diagnostics.
