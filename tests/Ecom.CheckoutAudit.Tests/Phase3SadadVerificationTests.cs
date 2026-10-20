@@ -225,6 +225,84 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         Assert.Equal(64, result.Payment.EvidenceId.Length);
     }
 
+    [Fact]
+    public async Task Invoice_diagnostics_are_disabled_when_the_configuration_flag_is_absent()
+    {
+        var seeded = await SeedAttemptAsync();
+        await using var db = CreateContext();
+        var logger = new RecordingGatewayLogger();
+        var handler = new SadadHandler((_, _) => SadadHandler.Json(InvoiceBody(seeded.Reference)));
+        var (gateway, _) = CreateRealGateway(db, handler, logger);
+
+        await gateway.VerifyInvoiceAsync(await db.PaymentAttempts.AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain(logger.Messages, message => message.Contains("[Sadad GETBYID AMOUNTS]", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Enabled_invoice_diagnostics_log_only_serialized_financial_fields()
+    {
+        var seeded = await SeedAttemptAsync();
+        await using var db = CreateContext();
+        var order = await db.Orders.SingleAsync(TestContext.Current.CancellationToken);
+        var attempt = await db.PaymentAttempts.SingleAsync(TestContext.Current.CancellationToken);
+        var product = await db.Products.SingleAsync(TestContext.Current.CancellationToken);
+        order.Subtotal = 195.541m;
+        order.Shipping = 8.148m;
+        order.Tax = 0m;
+        order.Total = 203.689m;
+        attempt.Amount = 203.689m;
+        db.Set<OrderItem>().Add(new OrderItem
+        {
+            Order = order,
+            Product = product,
+            Name = "Private product name",
+            Image = "https://private.example.test/product.jpg",
+            Price = 195.541m,
+            Quantity = 1
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        const string privateEmail = "private-customer@example.test";
+        const string privateUrl = "https://sadad.test/pay/private-link";
+        var handler = new SadadHandler((request, _) => SadadHandler.Json(request.RequestUri!.AbsolutePath switch
+        {
+            "/api/Invoice/insert" => "{\"isValid\":true,\"response\":{\"invoiceId\":\"9001\",\"customer_Email\":\"private-customer@example.test\"}}",
+            "/api/Invoice/getbyid" => "{\"isValid\":true,\"response\":{\"url\":\"https://sadad.test/pay/private-link\",\"amount\":203.689,\"total\":203.689,\"subtotal\":195.541,\"discount_Amount\":0.000,\"service_Fee\":8.148,\"customer_Email\":\"private-customer@example.test\"}}",
+            _ => throw new InvalidOperationException(request.RequestUri.AbsolutePath)
+        }));
+        var logger = new RecordingGatewayLogger();
+        var diagnostics = new ConfigurationBuilder().AddConfiguration(Configuration()).AddInMemoryCollection(
+            new Dictionary<string, string?> { ["Sadad:Diagnostics:EnableInvoiceLogging"] = "true" }).Build();
+        var (gateway, _) = CreateRealGateway(db, handler, logger, diagnostics);
+
+        var result = await gateway.CreateInvoiceAsync(attempt, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GatewayDispatchOutcome.Created, result.Outcome);
+        Assert.Contains(logger.Messages, message => message.StartsWith("[Sadad CREATE REQUEST]", StringComparison.Ordinal));
+        Assert.Contains(logger.Messages, message => message.StartsWith("[Sadad CREATE RESPONSE]", StringComparison.Ordinal));
+        Assert.Contains(logger.Messages, message => message.StartsWith("[Sadad GETBYID AMOUNTS]", StringComparison.Ordinal));
+        Assert.Equal(203.689m, logger.Properties["InvoiceAmount"]);
+        Assert.Equal(203.689m, logger.Properties["InvoiceItemsTotal"]);
+        Assert.Equal(203.689m, logger.Properties["GatewayAmount"]);
+        Assert.Equal(203.689m, logger.Properties["GatewayTotal"]);
+        Assert.Equal(195.541m, logger.Properties["GatewaySubtotal"]);
+        using (var financial = JsonDocument.Parse(Assert.IsType<string>(logger.Properties["SerializedFinancialValues"])))
+        {
+            Assert.Equal(203.689m, financial.RootElement.GetProperty("amount").GetDecimal());
+            Assert.Equal(2, financial.RootElement.GetProperty("items").GetArrayLength());
+            Assert.Equal(195.541m, financial.RootElement.GetProperty("items")[0].GetProperty("amount").GetDecimal());
+            Assert.Equal(8.148m, financial.RootElement.GetProperty("items")[1].GetProperty("amount").GetDecimal());
+        }
+        var logged = string.Join('\n', logger.Messages.Concat(logger.Properties.Values.Select(value => value?.ToString() ?? "")));
+        Assert.DoesNotContain(privateEmail, logged, StringComparison.Ordinal);
+        Assert.DoesNotContain(privateUrl, logged, StringComparison.Ordinal);
+        Assert.DoesNotContain("Private product name", logged, StringComparison.Ordinal);
+        Assert.DoesNotContain("access-test", logged, StringComparison.Ordinal);
+        Assert.DoesNotContain("refresh-test", logged, StringComparison.Ordinal);
+    }
+
     public static TheoryData<string, string> RejectedResponses => new()
     {
         { InvoiceBody("REF", invoiceId: 9002), "INVOICE_ID_MISMATCH" },
@@ -430,13 +508,13 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
     }
 
     private (SadadInvoiceGateway Gateway, SadadHandler Handler) CreateRealGateway(EcomDbContext db, SadadHandler handler,
-        ILogger<SadadInvoiceGateway>? logger = null)
+        ILogger<SadadInvoiceGateway>? logger = null, IConfiguration? configuration = null)
     {
         var tokenService = InterfaceStub.Create<ITransactionService>((method, _) => method.Name == "GenerateTokens"
             ? Task.FromResult(new TokenResponse { AccessToken = "access-test", RefreshToken = "refresh-test", ExpiredAfterSeconds = 3600 })
             : throw new InvalidOperationException(method.Name));
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://sadad.test/") };
-        return (new SadadInvoiceGateway(db, tokenService, new StubHttpClientFactory(client), Configuration(), logger ?? NullLogger<SadadInvoiceGateway>.Instance), handler);
+        return (new SadadInvoiceGateway(db, tokenService, new StubHttpClientFactory(client), configuration ?? Configuration(), logger ?? NullLogger<SadadInvoiceGateway>.Instance), handler);
     }
 
     private PaymentOrchestrationService CreateProcessor(EcomDbContext db, ISadadInvoiceGateway gateway)

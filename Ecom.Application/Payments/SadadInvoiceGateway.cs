@@ -19,6 +19,7 @@ public sealed class SadadInvoiceGateway(
     IConfiguration configuration,
     ILogger<SadadInvoiceGateway> logger) : ISadadInvoiceGateway
 {
+    private const string DiagnosticsEnabledKey = "Sadad:Diagnostics:EnableInvoiceLogging";
     private sealed class InsertEnvelope { public bool isValid { get; set; } public InsertData? response { get; set; } }
     private sealed class InsertData { public string? invoiceId { get; set; } }
     private sealed class InvoiceEnvelope { public bool isValid { get; set; } public InvoiceData? response { get; set; } }
@@ -61,13 +62,17 @@ public sealed class SadadInvoiceGateway(
             invoice["discount_Type"] = order.Coupon?.Type.ToString() ?? "FixedAmount";
         }
 
+        var payloadJson = JsonSerializer.Serialize(new { Invoices = new[] { invoice } });
+        LogCreateRequest(attempt, order, payloadJson);
+
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "api/Invoice/insert");
             request.Headers.TryAddWithoutValidation("authorization", $"Bearer {tokens.AccessToken}");
-            request.Content = new StringContent(JsonSerializer.Serialize(new { Invoices = new[] { invoice } }), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
             using var response = await httpClientFactory.CreateClient("Sadad").SendAsync(request, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            LogCreateResponse(attempt.Id, response.StatusCode, body);
             if ((int)response.StatusCode >= 500)
                 return new(GatewayDispatchOutcome.Unknown, ErrorCode: $"HTTP_{(int)response.StatusCode}");
             if (!response.IsSuccessStatusCode)
@@ -82,8 +87,15 @@ public sealed class SadadInvoiceGateway(
             using var getResponse = await httpClientFactory.CreateClient("Sadad").SendAsync(get, cancellationToken);
             if (getResponse.IsSuccessStatusCode)
             {
-                var envelope = JsonSerializer.Deserialize<InvoiceEnvelope>(await getResponse.Content.ReadAsStringAsync(cancellationToken));
+                var getBody = await getResponse.Content.ReadAsStringAsync(cancellationToken);
+                LogGetByIdAmounts(attempt.Id, getResponse.StatusCode, getBody);
+                var envelope = JsonSerializer.Deserialize<InvoiceEnvelope>(getBody);
                 if (envelope?.isValid == true) url = envelope.response?.url?.Trim();
+            }
+            else
+            {
+                // Preserve the existing non-success path: do not consume the body just for diagnostics.
+                LogGetByIdAmounts(attempt.Id, getResponse.StatusCode, null);
             }
             return new(GatewayDispatchOutcome.Created, inserted.response.invoiceId, url);
         }
@@ -123,7 +135,8 @@ public sealed class SadadInvoiceGateway(
                 $"api/Invoice/getbyid?id={Uri.EscapeDataString(attempt.GatewayInvoiceId)}");
             request.Headers.TryAddWithoutValidation("authorization", $"Bearer {tokens.AccessToken}");
             using var response = await httpClientFactory.CreateClient("Sadad").SendAsync(request, cancellationToken);
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            LogGetByIdAmounts(attempt.Id, response.StatusCode, body);
             if (!response.IsSuccessStatusCode)
                 return new(SadadInvoiceVerificationOutcome.RequiresReconciliation, $"GETBYID_HTTP_{(int)response.StatusCode}");
 
@@ -316,4 +329,197 @@ public sealed class SadadInvoiceGateway(
     }
 
     private static bool HasKwdScale(decimal value) => decimal.Round(value, KwdMoney.Scale, MidpointRounding.AwayFromZero) == value;
+
+    private bool InvoiceDiagnosticsEnabled => configuration.GetValue<bool>(DiagnosticsEnabledKey);
+
+    private void LogCreateRequest(Domain.Entity.PaymentAttempt attempt, Domain.Entity.Order order, string payloadJson)
+    {
+        if (!InvoiceDiagnosticsEnabled || !logger.IsEnabled(LogLevel.Information)) return;
+
+        try
+        {
+            using var document = JsonDocument.Parse(payloadJson);
+            var serializedInvoice = document.RootElement.GetProperty("Invoices")[0];
+            var serializedItems = serializedInvoice.GetProperty("items");
+            var itemTotal = 0m;
+            foreach (var item in serializedItems.EnumerateArray())
+                itemTotal += item.GetProperty("quantity").GetDecimal() * item.GetProperty("amount").GetDecimal();
+
+            var itemValues = WriteSelectedJson(serializedItems, static name => name is "quantity" or "amount");
+            var financialValues = WriteCreateFinancialJson(serializedInvoice);
+            logger.LogInformation(
+                "[Sadad CREATE REQUEST] PaymentAttemptId={PaymentAttemptId} MerchantReference={MerchantReference} OrderSubtotal={OrderSubtotal} Shipping={Shipping} Tax={Tax} Discount={Discount} OrderTotal={OrderTotal} PaymentAttemptAmount={PaymentAttemptAmount} InvoiceAmount={InvoiceAmount} Currency={Currency} InvoiceItems={InvoiceItems} InvoiceItemsTotal={InvoiceItemsTotal} SerializedFinancialValues={SerializedFinancialValues}",
+                attempt.Id, attempt.MerchantReference, order.Subtotal, order.Shipping, order.Tax,
+                order.CouponDiscountAmount ?? 0m, order.Total, attempt.Amount,
+                serializedInvoice.GetProperty("amount").GetDecimal(),
+                serializedInvoice.GetProperty("currency_Code").GetString(), itemValues, itemTotal, financialValues);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            logger.LogWarning(ex,
+                "Sadad create-request diagnostics could not inspect the serialized financial fields for PaymentAttemptId={PaymentAttemptId}.",
+                attempt.Id);
+        }
+    }
+
+    private void LogCreateResponse(int paymentAttemptId, HttpStatusCode statusCode, string body)
+    {
+        if (!InvoiceDiagnosticsEnabled || !logger.IsEnabled(LogLevel.Information)) return;
+
+        bool? isValid = null;
+        string? invoiceId = null;
+        string? errorKey = null;
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                if (root.TryGetProperty("isValid", out var valid) && valid.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    isValid = valid.GetBoolean();
+                if (root.TryGetProperty("errorKey", out var rootError)) errorKey = ReadSafeScalar(rootError);
+                if (root.TryGetProperty("response", out var response) && response.ValueKind == JsonValueKind.Object)
+                {
+                    if (response.TryGetProperty("invoiceId", out var id)) invoiceId = ReadSafeScalar(id);
+                    if (errorKey == null && response.TryGetProperty("errorKey", out var responseError))
+                        errorKey = ReadSafeScalar(responseError);
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // The operational path still handles the response exactly as before; diagnostics never log the raw body.
+        }
+
+        logger.LogInformation(
+            "[Sadad CREATE RESPONSE] PaymentAttemptId={PaymentAttemptId} StatusCode={StatusCode} IsValid={IsValid} InvoiceId={InvoiceId} ErrorKey={ErrorKey}",
+            paymentAttemptId, (int)statusCode, isValid, invoiceId, errorKey);
+    }
+
+    private void LogGetByIdAmounts(int paymentAttemptId, HttpStatusCode statusCode, string? body)
+    {
+        if (!InvoiceDiagnosticsEnabled || !logger.IsEnabled(LogLevel.Information)) return;
+
+        decimal? amount = null;
+        decimal? total = null;
+        decimal? subtotal = null;
+        var discountFields = "{}";
+        var feeFields = "{}";
+        var serializedAmountFields = "{}";
+        try
+        {
+            if (body != null)
+            {
+                using var document = JsonDocument.Parse(body);
+                var root = document.RootElement;
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("response", out var invoice) &&
+                    invoice.ValueKind == JsonValueKind.Object)
+                {
+                    amount = ReadOptionalDecimal(invoice, "amount");
+                    total = ReadOptionalDecimal(invoice, "total");
+                    subtotal = ReadOptionalDecimal(invoice, "subtotal");
+                    discountFields = WriteSelectedNumericJson(invoice, static name =>
+                        name.Contains("discount", StringComparison.OrdinalIgnoreCase));
+                    feeFields = WriteSelectedNumericJson(invoice, static name =>
+                        name.Contains("fee", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("charge", StringComparison.OrdinalIgnoreCase));
+                    serializedAmountFields = WriteSelectedNumericJson(invoice, static name =>
+                        name is "amount" or "total" or "subtotal" ||
+                        name.Contains("discount", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("fee", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("charge", StringComparison.OrdinalIgnoreCase));
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Keep malformed/non-JSON gateway bodies out of logs.
+        }
+
+        logger.LogInformation(
+            "[Sadad GETBYID AMOUNTS] PaymentAttemptId={PaymentAttemptId} StatusCode={StatusCode} Amount={GatewayAmount} Total={GatewayTotal} Subtotal={GatewaySubtotal} DiscountFields={GatewayDiscountFields} FeeFields={GatewayFeeFields} SerializedAmountFields={GatewaySerializedAmountFields}",
+            paymentAttemptId, (int)statusCode, amount, total, subtotal, discountFields, feeFields, serializedAmountFields);
+    }
+
+    private static decimal? ReadOptionalDecimal(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var element) && element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out var value)
+            ? value
+            : null;
+
+    private static string? ReadSafeScalar(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.String => SafeCode(element.GetString()),
+        JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => element.GetRawText(),
+        _ => null
+    };
+
+    private static string? SafeCode(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && value.Length <= 128 &&
+        value.All(character => char.IsLetterOrDigit(character) || character is '_' or '-' or '.')
+            ? value
+            : null;
+
+    private static string WriteCreateFinancialJson(JsonElement invoice)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in invoice.EnumerateObject())
+            {
+                if (property.Name is not ("amount" or "currency_Code" or "discount_Amount" or "discount_Amount_Total" or "discount_Type" or "items"))
+                    continue;
+                writer.WritePropertyName(property.Name);
+                if (property.Name == "items") WriteSelectedJson(writer, property.Value, static name => name is "quantity" or "amount");
+                else property.Value.WriteTo(writer);
+            }
+            writer.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static string WriteSelectedJson(JsonElement element, Func<string, bool> include)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream)) WriteSelectedJson(writer, element, include);
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static string WriteSelectedNumericJson(JsonElement element, Func<string, bool> include)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!include(property.Name) || property.Value.ValueKind is not (JsonValueKind.Number or JsonValueKind.Null))
+                    continue;
+                writer.WritePropertyName(property.Name);
+                property.Value.WriteTo(writer);
+            }
+            writer.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static void WriteSelectedJson(Utf8JsonWriter writer, JsonElement element, Func<string, bool> include)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            writer.WriteStartArray();
+            foreach (var item in element.EnumerateArray()) WriteSelectedJson(writer, item, include);
+            writer.WriteEndArray();
+            return;
+        }
+
+        writer.WriteStartObject();
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!include(property.Name)) continue;
+            writer.WritePropertyName(property.Name);
+            property.Value.WriteTo(writer);
+        }
+        writer.WriteEndObject();
+    }
 }
