@@ -12,7 +12,7 @@
 ## التنفيذ الفعلي
 
 - أضيف adapter صارم لـGetById يستخدم `decimal` فقط، ويتحقق من envelope والأنواع والحقول المطلوبة.
-- يتحقق من invoice ID و`vendor_Id` والمرجع والعملة KWD والمبلغ المحلي وكل من `amount/total/subtotal` ودقة ثلاث خانات.
+- يتحقق من invoice ID و`vendor_Id` والمرجع والعملة KWD، ويقارن `amount` و`total` بالمبلغ المحلي عند دقة KWD. يحتفظ بـ`subtotal` للتدقيق ولا يفترض مساواته بالإجمالي.
 - يرفض الحالة المجهولة، الحقول الناقصة، transaction evidence الناقص، refund غير الصفري، والتعارضات المالية.
 - callback وwebhook أصبحا منبّهين فقط؛ لا قيمة من المتصفح أو payload تستطيع تعليم المعاملة Paid.
 - أضيف lease على `PaymentAttempt` لمنع تحقق عاملين من الفاتورة نفسها، مع finalization مركزي وشرطي.
@@ -23,7 +23,7 @@
 
 ## الحماية من التفعيل غير المقصود
 
-الإعدادات `ContractProfileCertified`, `EnablePaidTransitions`, `DiscountSemanticsCertified`, و`GetAllContractCertified` افتراضياً false، و`MerchantVendorId` فارغ. حتى استجابة Paid سليمة شكلياً لا تنتقل إلى Paid ما لم تُعتمد الشهادة ويُفعّل المسار صراحةً. الخصومات وGetAll لهما بوابتان منفصلتان.
+الإعدادات `ContractProfileCertified`, `EnablePaidTransitions`, `DiscountSemanticsCertified`, و`GetAllContractCertified` افتراضياً false في إعداد الإنتاج. يجب أن تأتي قيمة `MerchantVendorId` الفعلية من إعداد بيئة النشر. حتى استجابة Paid سليمة شكلياً لا تنتقل إلى Paid ما لم تُعتمد الشهادة ويُفعّل المسار صراحةً. الخصومات وGetAll لهما بوابتان منفصلتان.
 
 ## نتائج الاختبار
 

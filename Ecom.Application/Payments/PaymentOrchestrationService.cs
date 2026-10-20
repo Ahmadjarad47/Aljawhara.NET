@@ -253,35 +253,85 @@ public sealed class PaymentOrchestrationService(
         {
             await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
             var attempt = await db.PaymentAttempts.Include(a => a.Order).SingleAsync(a => a.Id == paymentAttemptId, cancellationToken);
-            var expectedMerchantIdentity = configuration["Sadad:MerchantVendorId"] ?? configuration["Sadad:MerchantIdentity"];
+            var expectedMerchantIdentity = configuration["Sadad:MerchantVendorId"];
+            if (string.IsNullOrWhiteSpace(expectedMerchantIdentity))
+                expectedMerchantIdentity = configuration["Sadad:MerchantIdentity"];
             if (!string.Equals(attempt.GatewayInvoiceId, payment.GatewayInvoiceId, StringComparison.Ordinal) ||
                 !string.Equals(attempt.MerchantReference, payment.MerchantReference, StringComparison.Ordinal) ||
                 string.IsNullOrWhiteSpace(expectedMerchantIdentity) ||
                 !string.Equals(expectedMerchantIdentity, merchantIdentity, StringComparison.Ordinal) ||
-                !string.Equals(payment.Currency, "KWD", StringComparison.Ordinal) || payment.Amount != attempt.Amount ||
-                payment.Total != attempt.Amount || payment.Subtotal != attempt.Amount || payment.RefundedAmount != 0m)
+                !string.Equals(payment.Currency, attempt.Currency, StringComparison.Ordinal) ||
+                !string.Equals(payment.Currency, "KWD", StringComparison.Ordinal) ||
+                !KwdMoney.EqualsAtSettlementPrecision(payment.Amount, attempt.Amount) ||
+                !KwdMoney.EqualsAtSettlementPrecision(payment.Total, attempt.Amount) ||
+                !KwdMoney.EqualsAtSettlementPrecision(payment.RefundedAmount, 0m))
                 return false;
+            var verifiedAmount = KwdMoney.Round(payment.Amount);
+            var verifiedTotal = KwdMoney.Round(payment.Total);
+            var verifiedSubtotal = KwdMoney.Round(payment.Subtotal);
+            var verifiedRefundedAmount = KwdMoney.Round(payment.RefundedAmount);
             if (attempt.Status == PaymentAttemptStatus.Paid) { await tx.CommitAsync(cancellationToken); return true; }
-            var activeCount = await db.InventoryReservations.CountAsync(r => r.OrderId == attempt.OrderId && r.Status == ReservationStatus.Active && r.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);
+            var now = DateTime.UtcNow;
+            var activeCount = await db.InventoryReservations.CountAsync(r => r.OrderId == attempt.OrderId && r.Status == ReservationStatus.Active && r.ExpiresAtUtc > now, cancellationToken);
             var totalCount = await db.InventoryReservations.CountAsync(r => r.OrderId == attempt.OrderId, cancellationToken);
             if (attempt.Order.Status != OrderStatus.Pending || activeCount == 0 || activeCount != totalCount)
             {
-                await db.PaymentAttempts.Where(a => a.Id == attempt.Id).ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
+                await db.PaymentAttempts.Where(a => a.Id == attempt.Id && a.Status != PaymentAttemptStatus.Paid).ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
                     .SetProperty(a => a.LastErrorCode, "VERIFIED_AFTER_RESERVATION_RELEASE")
+                    .SetProperty(a => a.GatewayVerifiedAtUtc, now)
+                    .SetProperty(a => a.LastVerificationAtUtc, now)
+                    .SetProperty(a => a.VerificationEvidenceId, payment.EvidenceId)
+                    .SetProperty(a => a.GatewayTransactionId, payment.GatewayTransactionId)
+                    .SetProperty(a => a.VerifiedAmount, verifiedAmount)
+                    .SetProperty(a => a.VerifiedTotal, verifiedTotal)
+                    .SetProperty(a => a.VerifiedSubtotal, verifiedSubtotal)
+                    .SetProperty(a => a.VerifiedRefundedAmount, verifiedRefundedAmount)
                     .SetProperty(a => a.LeaseOwner, (string?)null).SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
                 await db.Orders.Where(o => o.Id == attempt.OrderId).ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, OrderStatus.RequiresReconciliation), cancellationToken);
+                var reconciliationEventKey = $"verified:{payment.EvidenceId}:reconciliation";
+                if (!await db.PaymentTransitionAudits.AnyAsync(a => a.EventKey == reconciliationEventKey, cancellationToken))
+                    db.PaymentTransitionAudits.Add(new PaymentTransitionAudit
+                    {
+                        PaymentAttemptId = attempt.Id,
+                        FromStatus = attempt.Status,
+                        ToStatus = PaymentAttemptStatus.RequiresReconciliation,
+                        EventKey = reconciliationEventKey,
+                        ReasonCode = "VERIFIED_AFTER_RESERVATION_RELEASE"
+                    });
+                await db.SaveChangesAsync(cancellationToken);
                 await tx.CommitAsync(cancellationToken);
                 return false;
             }
-            var now = DateTime.UtcNow;
             var orderClaimed = await db.Orders.Where(o => o.Id == attempt.OrderId && o.Status == OrderStatus.Pending)
                 .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, OrderStatus.Processing), cancellationToken);
             if (orderClaimed != 1)
             {
-                await db.PaymentAttempts.Where(a => a.Id == attempt.Id && a.Status == PaymentAttemptStatus.AwaitingPayment)
+                await db.PaymentAttempts.Where(a => a.Id == attempt.Id &&
+                        (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation))
                     .ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
                         .SetProperty(a => a.LastErrorCode, "VERIFIED_DURING_CONCURRENT_ORDER_TRANSITION")
+                        .SetProperty(a => a.GatewayVerifiedAtUtc, now)
+                        .SetProperty(a => a.LastVerificationAtUtc, now)
+                        .SetProperty(a => a.VerificationEvidenceId, payment.EvidenceId)
+                        .SetProperty(a => a.GatewayTransactionId, payment.GatewayTransactionId)
+                        .SetProperty(a => a.VerifiedAmount, verifiedAmount)
+                        .SetProperty(a => a.VerifiedTotal, verifiedTotal)
+                        .SetProperty(a => a.VerifiedSubtotal, verifiedSubtotal)
+                        .SetProperty(a => a.VerifiedRefundedAmount, verifiedRefundedAmount)
                         .SetProperty(a => a.LeaseOwner, (string?)null).SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
+                await db.Orders.Where(o => o.Id == attempt.OrderId && o.Status != OrderStatus.RequiresReconciliation)
+                    .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, OrderStatus.RequiresReconciliation), cancellationToken);
+                var reconciliationEventKey = $"verified:{payment.EvidenceId}:order-conflict";
+                if (!await db.PaymentTransitionAudits.AnyAsync(a => a.EventKey == reconciliationEventKey, cancellationToken))
+                    db.PaymentTransitionAudits.Add(new PaymentTransitionAudit
+                    {
+                        PaymentAttemptId = attempt.Id,
+                        FromStatus = attempt.Status,
+                        ToStatus = PaymentAttemptStatus.RequiresReconciliation,
+                        EventKey = reconciliationEventKey,
+                        ReasonCode = "VERIFIED_DURING_CONCURRENT_ORDER_TRANSITION"
+                    });
+                await db.SaveChangesAsync(cancellationToken);
                 await tx.CommitAsync(cancellationToken);
                 return false;
             }
@@ -292,10 +342,10 @@ public sealed class PaymentOrchestrationService(
                     .SetProperty(a => a.LastVerificationAtUtc, now)
                     .SetProperty(a => a.VerificationEvidenceId, payment.EvidenceId)
                     .SetProperty(a => a.GatewayTransactionId, payment.GatewayTransactionId)
-                    .SetProperty(a => a.VerifiedAmount, payment.Amount)
-                    .SetProperty(a => a.VerifiedTotal, payment.Total)
-                    .SetProperty(a => a.VerifiedSubtotal, payment.Subtotal)
-                    .SetProperty(a => a.VerifiedRefundedAmount, payment.RefundedAmount)
+                    .SetProperty(a => a.VerifiedAmount, verifiedAmount)
+                    .SetProperty(a => a.VerifiedTotal, verifiedTotal)
+                    .SetProperty(a => a.VerifiedSubtotal, verifiedSubtotal)
+                    .SetProperty(a => a.VerifiedRefundedAmount, verifiedRefundedAmount)
                     .SetProperty(a => a.LastErrorCode, (string?)null)
                     .SetProperty(a => a.LeaseOwner, (string?)null)
                     .SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
@@ -310,7 +360,10 @@ public sealed class PaymentOrchestrationService(
             await db.CouponReservations.Where(r => r.OrderId == attempt.OrderId && r.Status == ReservationStatus.Active)
                 .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ReservationStatus.Confirmed).SetProperty(r => r.ConfirmedAtUtc, now), cancellationToken);
             await db.Transactions.Where(t => t.Id == attempt.TransactionId)
-                .ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, TransactionStatus.Paid).SetProperty(t => t.GatewayVerifiedAtUtc, now).SetProperty(t => t.ProcessedDate, now), cancellationToken);
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, TransactionStatus.Paid)
+                    .SetProperty(t => t.GatewayVerifiedAtUtc, now)
+                    .SetProperty(t => t.ProcessedDate, now)
+                    .SetProperty(t => t.PaymentGatewayResponse, "Verified by Sadad GetById"), cancellationToken);
             db.PaymentTransitionAudits.Add(new PaymentTransitionAudit { PaymentAttemptId = attempt.Id, FromStatus = attempt.Status, ToStatus = PaymentAttemptStatus.Paid, EventKey = $"verified:{payment.EvidenceId}", ReasonCode = "STRICT_SADAD_GETBYID_VERIFICATION" });
             await db.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
@@ -416,13 +469,23 @@ public sealed class PaymentOrchestrationService(
                     cancellationToken);
                 if (!finalized)
                 {
-                    await MarkRequiresReconciliationAsync(attempt.Id, worker, "FINALIZATION_REJECTED", checkedAt, cancellationToken);
+                    db.ChangeTracker.Clear();
+                    var finalizationState = await db.PaymentAttempts.AsNoTracking()
+                        .Where(a => a.Id == attempt.Id)
+                        .Select(a => new { a.LeaseOwner, a.LastErrorCode })
+                        .SingleAsync(cancellationToken);
+                    var finalizationReason = finalizationState.LastErrorCode;
+                    if (string.Equals(finalizationState.LeaseOwner, worker, StringComparison.Ordinal))
+                    {
+                        finalizationReason = "FINALIZATION_REJECTED";
+                        await MarkRequiresReconciliationAsync(attempt.Id, worker, finalizationReason, checkedAt, cancellationToken);
+                    }
+                    finalizationReason ??= "FINALIZATION_REJECTED";
                     logger.LogWarning("Sadad payment finalization rejected for PaymentAttemptId={PaymentAttemptId}. ReasonCode={ReasonCode}",
-                        attempt.Id, "FINALIZATION_REJECTED");
+                        attempt.Id, finalizationReason);
+                    return new(PaymentVerificationOutcome.RequiresReconciliation, finalizationReason);
                 }
-                return finalized
-                    ? new(PaymentVerificationOutcome.Paid, result.ReasonCode)
-                    : new(PaymentVerificationOutcome.RequiresReconciliation, "FINALIZATION_REJECTED");
+                return new(PaymentVerificationOutcome.Paid, result.ReasonCode);
             }
 
             await MarkRequiresReconciliationAsync(attempt.Id, worker, result.ReasonCode, checkedAt, cancellationToken);

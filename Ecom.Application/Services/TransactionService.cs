@@ -332,70 +332,6 @@ namespace Ecom.Application.Services
             return string.IsNullOrEmpty(getByIdResponse.response.url) ? null : getByIdResponse.response.url.Trim();
         }
 
-        /// <summary>
-        /// Verifies invoice payment status via Sadad API. MANDATORY before updating order/transaction.
-        /// </summary>
-        private Task<bool> VerifySadadInvoicePaymentAsync(string invoiceId)
-        {
-            if (string.IsNullOrWhiteSpace(invoiceId))
-                return Task.FromResult(false);
-
-            // Fail closed: the public Sadad contract available to this project does
-            // not document an authoritative response schema for amount, currency,
-            // merchant reference, merchant identity, or final payment status. A
-            // guessed schema must never be used to create financial truth.
-            _logger.LogWarning("Sadad payment confirmation is disabled until the authoritative merchant verification contract is configured.");
-            return Task.FromResult(false);
-        }
-
-        public async Task<bool> HandleSadadPaidWebhookAsync(SadadWebhookDto webhookPayload)
-        {
-            if (webhookPayload == null || webhookPayload.InvoiceId <= 0)
-                return false;
-
-            if (!string.Equals(webhookPayload.Status, "Paid", StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            var transaction = await _unitOfWork.Transactions.GetTransactionByGatewayInvoiceIdAsync(webhookPayload.InvoiceId);
-            if (transaction == null)
-                return false;
-
-            if (transaction.Status == TransactionStatus.Paid)
-                return transaction.GatewayVerifiedAtUtc is not null;
-
-            // MANDATORY: Verify with Sadad API before any action
-            var isPaid = await VerifySadadInvoicePaymentAsync(webhookPayload.InvoiceId.ToString());
-            if (!isPaid)
-                return false;
-
-            return await ApplyVerifiedElectronicPaymentAsync(transaction);
-        }
-
-        /// <summary>
-        /// Checks all pending transactions with GatewayInvoiceId (Sadad) and updates status if paid.
-        /// Called by background job every 5 minutes.
-        /// </summary>
-        public async Task CheckPendingSadadPaymentsAsync()
-        {
-            var pending = await _unitOfWork.Transactions.GetPendingTransactionsWithGatewayInvoiceIdAsync();
-            foreach (var transaction in pending)
-            {
-                if (string.IsNullOrWhiteSpace(transaction.GatewayInvoiceId))
-                    continue;
-                try
-                {
-                    var isPaid = await VerifySadadInvoicePaymentAsync(transaction.GatewayInvoiceId);
-                    if (!isPaid)
-                        continue;
-                    await ApplyVerifiedElectronicPaymentAsync(transaction);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Sadad status check failed for TransactionId={TransactionId}.", transaction.Id);
-                }
-            }
-        }
-
         public async Task<TokenResponse> GenerateTokens(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -914,27 +850,6 @@ namespace Ecom.Application.Services
                 CouponType.FreeShipping => "FreeShipping",
                 _ => "Fixed"
             };
-        }
-
-        private async Task<bool> ApplyVerifiedElectronicPaymentAsync(Transaction transaction)
-        {
-            if (transaction.PaymentMethod == PaymentMethod.Cod || string.IsNullOrWhiteSpace(transaction.GatewayInvoiceId))
-                return false;
-
-            transaction.Status = TransactionStatus.Paid;
-            transaction.ProcessedDate = DateTime.UtcNow;
-            transaction.GatewayVerifiedAtUtc = DateTime.UtcNow;
-            transaction.PaymentGatewayResponse = "Verified";
-
-            if (transaction.Order != null && transaction.Order.Status == OrderStatus.Pending)
-            {
-                transaction.Order.Status = OrderStatus.Processing;
-                _unitOfWork.Orders.Update(transaction.Order);
-            }
-
-            _unitOfWork.Transactions.Update(transaction);
-            await _unitOfWork.SaveChangesAsync();
-            return true;
         }
 
         private static void EnsureAdministrativeStatusTransitionAllowed(Transaction transaction, TransactionStatus status)

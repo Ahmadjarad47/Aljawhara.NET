@@ -252,9 +252,8 @@ public sealed class SadadInvoiceGateway(
             return new(SadadInvoiceVerificationOutcome.Invalid, "MERCHANT_REFERENCE_MISMATCH");
         if (!string.Equals(currency, attempt.Currency, StringComparison.Ordinal) || !string.Equals(currency, "KWD", StringComparison.Ordinal))
             return new(SadadInvoiceVerificationOutcome.Invalid, "CURRENCY_MISMATCH");
-        if (!HasKwdScale(amount) || !HasKwdScale(total) || !HasKwdScale(subtotal) || !HasKwdScale(refundedAmount))
-            return new(SadadInvoiceVerificationOutcome.Invalid, "KWD_SCALE_INVALID");
-        if (amount != attempt.Amount || total != attempt.Amount || subtotal != attempt.Amount)
+        if (!KwdMoney.EqualsAtSettlementPrecision(amount, attempt.Amount) ||
+            !KwdMoney.EqualsAtSettlementPrecision(total, attempt.Amount))
         {
             logger.LogWarning(
                 "Sadad amount comparison failed for PaymentAttemptId={PaymentAttemptId}. ReasonCode={ReasonCode}. ExpectedAmount={ExpectedAmount}, ExpectedGrossAmount={ExpectedGrossAmount}, ExpectedDiscountAmount={ExpectedDiscountAmount}, GatewayAmount={GatewayAmount}, GatewayTotal={GatewayTotal}, GatewaySubtotal={GatewaySubtotal}",
@@ -262,7 +261,7 @@ public sealed class SadadInvoiceGateway(
                 amount, total, subtotal);
             return new(SadadInvoiceVerificationOutcome.Invalid, "AMOUNT_FIELDS_MISMATCH");
         }
-        if (refundedAmount != 0m)
+        if (!KwdMoney.EqualsAtSettlementPrecision(refundedAmount, 0m))
             return new(SadadInvoiceVerificationOutcome.Unsupported, "REFUND_OR_PARTIAL_REFUND_REQUIRES_RECONCILIATION");
 
         if (string.Equals(status, "Unpaid", StringComparison.OrdinalIgnoreCase))
@@ -270,17 +269,91 @@ public sealed class SadadInvoiceGateway(
         if (!string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase))
             return new(SadadInvoiceVerificationOutcome.Invalid, "UNKNOWN_PAYMENT_STATUS");
 
-        if (!TryRequiredIdentifier(invoice, "transactionID", out var transactionId) ||
+        if (!TryRequiredIdentifier(invoice, "transactionID", out var invoiceTransactionId) ||
             !invoice.TryGetProperty("transactions", out var transactionsElement) ||
             transactionsElement.ValueKind != JsonValueKind.Array || transactionsElement.GetArrayLength() == 0)
             return new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_PAYMENT_TRANSACTION_EVIDENCE");
 
+        var capture = FindSuccessfulCapture(
+            transactionsElement,
+            invoiceId,
+            invoiceTransactionId,
+            attempt.Amount,
+            attempt.Currency);
+        if (capture.Result != null)
+            return capture.Result;
+
         var evidenceId = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
         var payment = new SadadVerifiedPayment(
-            evidenceId, invoiceId, vendorId, reference, amount, total, subtotal,
-            refundedAmount, currency, transactionId);
+            evidenceId, invoiceId, vendorId, reference,
+            KwdMoney.Round(amount), KwdMoney.Round(total), KwdMoney.Round(subtotal),
+            KwdMoney.Round(refundedAmount), currency, capture.TransactionId!);
         return new(SadadInvoiceVerificationOutcome.VerifiedPaid, "STRICT_GETBYID_VERIFIED", payment);
     }
+
+    private static (string? TransactionId, SadadInvoiceVerificationResult? Result) FindSuccessfulCapture(
+        JsonElement transactionsElement,
+        string invoiceId,
+        string invoiceTransactionId,
+        decimal expectedAmount,
+        string expectedCurrency)
+    {
+        var sawCapture = false;
+        var sawPendingCapture = false;
+        string? successfulCaptureId = null;
+        foreach (var transaction in transactionsElement.EnumerateArray())
+        {
+            if (transaction.ValueKind != JsonValueKind.Object)
+                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "MALFORMED_PAYMENT_TRANSACTION_EVIDENCE"));
+
+            if (!TryRequiredString(transaction, ["type", "transactionType", "transaction_Type"], out var type) ||
+                !TryRequiredString(transaction, ["status", "transactionStatus", "transaction_Status"], out var transactionStatus))
+                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_PAYMENT_TRANSACTION_FIELD"));
+
+            if (IsRefundType(type) && string.Equals(transactionStatus, "Success", StringComparison.OrdinalIgnoreCase))
+                return (null, new(SadadInvoiceVerificationOutcome.Unsupported, "SUCCESSFUL_REFUND_REQUIRES_RECONCILIATION"));
+            if (!string.Equals(type, "Capture", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            sawCapture = true;
+            if (!string.Equals(transactionStatus, "Success", StringComparison.OrdinalIgnoreCase))
+            {
+                sawPendingCapture = true;
+                continue;
+            }
+
+            if (!TryRequiredIdentifier(transaction, ["id", "transactionID", "transactionId", "transaction_Id"], out var transactionId) ||
+                !TryRequiredDecimal(transaction, ["amount", "transactionAmount", "transaction_Amount"], out var transactionAmount) ||
+                !TryRequiredString(transaction, ["currency_Code", "currencyCode", "currency"], out var transactionCurrency))
+                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_CAPTURE_TRANSACTION_FIELD"));
+
+            if (!string.Equals(transactionId, invoiceTransactionId, StringComparison.Ordinal))
+                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_TRANSACTION_ID_MISMATCH"));
+
+            if (TryRequiredIdentifier(transaction, ["invoice_Id", "invoiceId", "invoiceID"], out var transactionInvoiceId) &&
+                !string.Equals(transactionInvoiceId, invoiceId, StringComparison.Ordinal))
+                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_INVOICE_ID_MISMATCH"));
+
+            if (!KwdMoney.EqualsAtSettlementPrecision(transactionAmount, expectedAmount))
+                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_AMOUNT_MISMATCH"));
+            if (!string.Equals(transactionCurrency, expectedCurrency, StringComparison.Ordinal) ||
+                !string.Equals(transactionCurrency, "KWD", StringComparison.Ordinal))
+                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_CURRENCY_MISMATCH"));
+
+            successfulCaptureId ??= transactionId;
+        }
+
+        if (successfulCaptureId != null)
+            return (successfulCaptureId, null);
+        return sawCapture || sawPendingCapture
+            ? (null, new(SadadInvoiceVerificationOutcome.RequiresReconciliation, "CAPTURE_TRANSACTION_NOT_SUCCESSFUL"))
+            : (null, new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_CAPTURE_TRANSACTION_EVIDENCE"));
+    }
+
+    private static bool IsRefundType(string type) =>
+        type.Equals("Refund", StringComparison.OrdinalIgnoreCase) ||
+        type.Equals("PartialRefund", StringComparison.OrdinalIgnoreCase) ||
+        type.Equals("Partial Refund", StringComparison.OrdinalIgnoreCase);
 
     private static bool TryRequiredBoolean(JsonElement parent, string name, out bool value)
     {
@@ -301,6 +374,19 @@ public sealed class SadadInvoiceGateway(
         return value.Length > 0;
     }
 
+    private static bool TryRequiredString(JsonElement parent, string[] names, out string value)
+    {
+        foreach (var name in names)
+        {
+            if (!TryGetPropertyIgnoreCase(parent, name, out var element) || element.ValueKind != JsonValueKind.String)
+                continue;
+            value = element.GetString()?.Trim() ?? string.Empty;
+            if (value.Length > 0) return true;
+        }
+        value = string.Empty;
+        return false;
+    }
+
     private static bool TryRequiredIdentifier(JsonElement parent, string name, out string value)
     {
         value = string.Empty;
@@ -312,6 +398,23 @@ public sealed class SadadInvoiceGateway(
             _ => string.Empty
         };
         return value.Length > 0;
+    }
+
+    private static bool TryRequiredIdentifier(JsonElement parent, string[] names, out string value)
+    {
+        foreach (var name in names)
+        {
+            if (!TryGetPropertyIgnoreCase(parent, name, out var element)) continue;
+            value = element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString()?.Trim() ?? string.Empty,
+                JsonValueKind.Number => element.GetRawText(),
+                _ => string.Empty
+            };
+            if (value.Length > 0) return true;
+        }
+        value = string.Empty;
+        return false;
     }
 
     private static bool TryRequiredInt64(JsonElement parent, string name, out long value)
@@ -328,7 +431,29 @@ public sealed class SadadInvoiceGateway(
             element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out value);
     }
 
-    private static bool HasKwdScale(decimal value) => decimal.Round(value, KwdMoney.Scale, MidpointRounding.AwayFromZero) == value;
+    private static bool TryRequiredDecimal(JsonElement parent, string[] names, out decimal value)
+    {
+        foreach (var name in names)
+            if (TryGetPropertyIgnoreCase(parent, name, out var element) &&
+                element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out value)) return true;
+        value = 0m;
+        return false;
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement parent, string name, out JsonElement value)
+    {
+        if (parent.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in parent.EnumerateObject())
+            {
+                if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+                value = property.Value;
+                return true;
+            }
+        }
+        value = default;
+        return false;
+    }
 
     private bool InvoiceDiagnosticsEnabled => configuration.GetValue<bool>(DiagnosticsEnabledKey);
 

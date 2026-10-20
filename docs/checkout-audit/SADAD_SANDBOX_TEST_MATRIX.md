@@ -19,7 +19,7 @@ The Phase 3 tests use isolated SQL Server LocalDB databases and mocked authentic
 | Missing transaction evidence | PASS | Rejected/fail closed. |
 | Missing required fields | PASS | Rejected/fail closed. |
 | Refund/partial-refund signal | PASS | Requires reconciliation. |
-| More than three KWD decimals | PASS | Rejected/fail closed. |
+| Binary floating-point noise beyond three decimals | PASS | Normalized at KWD precision; a full fils mismatch is rejected. |
 | Coupon/discount invoice without certified semantics | PASS | No Sadad call; remains unsupported/reconciliation. |
 | Duplicate webhook delivery and replay | PASS | One gateway verification and one Paid transition. |
 | Concurrent verifiers | PASS | One lease owner, one GetById, one Paid transition. |

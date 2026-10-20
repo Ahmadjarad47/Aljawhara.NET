@@ -352,7 +352,8 @@ namespace Ecom.API.Controllers
                 Payment = payment,
                 Updated = result.Outcome is PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid,
                 VerificationStatus = result.Outcome.ToString(),
-                ReasonCode = result.ReasonCode
+                ReasonCode = result.ReasonCode,
+                Message = PaymentVerificationMessage(result.Outcome)
             };
             return result.Outcome switch
             {
@@ -362,6 +363,19 @@ namespace Ecom.API.Controllers
                 _ => Accepted(response)
             };
         }
+
+        private static string PaymentVerificationMessage(PaymentVerificationOutcome outcome) => outcome switch
+        {
+            PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid =>
+                "تم توثيق الدفع واكتمال معالجة الطلب.",
+            PaymentVerificationOutcome.NotPaid =>
+                "لم تؤكد Sadad اكتمال الدفع بعد.",
+            PaymentVerificationOutcome.Busy or PaymentVerificationOutcome.RequiresReconciliation =>
+                "الدفع قيد التحقق والمطابقة الداخلية. لا تُعد محاولة الدفع.",
+            PaymentVerificationOutcome.NotFound =>
+                "تعذر العثور على محاولة الدفع المرتبطة بهذه الفاتورة.",
+            _ => "تعذر توثيق الدفع من Sadad، لذلك لم يتم اعتماد الطلب."
+        };
 
         private Task<bool> HasOrderAccessAsync(int orderId)
         {

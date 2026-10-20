@@ -285,61 +285,10 @@ public class BusinessAndPaymentTests
     }
 
     [Fact]
-    public async Task Undocumented_or_mismatched_gateway_response_cannot_mark_transaction_paid()
+    public void Legacy_transaction_service_exposes_no_independent_Sadad_confirmation_path()
     {
-        using var environment = new EnvironmentVariableScope();
-        var order = Order(25m, 25m);
-        var transaction = new Transaction
-        {
-            Id = 7,
-            OrderId = order.Id,
-            Order = order,
-            Amount = 25m,
-            GatewayInvoiceId = "9001",
-            Status = TransactionStatus.Pending
-        };
-        var mismatched = "{\"isValid\":true,\"response\":{\"status\":\"Paid\",\"amount\":0.001,\"currency_Code\":\"USD\",\"ref_Number\":\"different-order\"}}";
-        var handler = new SadadHandler((request, _) => SadadResponses.HappyPath(request, get: mismatched));
-        var harness = new TransactionHarness(order, handler, transaction);
-
-        var updated = await harness.Service.HandleSadadPaidWebhookAsync(new SadadWebhookDto
-        {
-            InvoiceId = 9001,
-            Status = "Paid",
-            Amount = 0.001m
-        });
-
-        Assert.False(updated);
-        Assert.Equal(TransactionStatus.Pending, transaction.Status);
-        Assert.Equal(OrderStatus.Pending, order.Status);
-        Assert.Equal(0, harness.Saves);
-    }
-
-    [Fact]
-    public async Task Duplicate_verified_paid_webhook_is_idempotent_without_an_additional_gateway_call()
-    {
-        using var environment = new EnvironmentVariableScope();
-        var order = Order(25m, 25m);
-        var transaction = new Transaction
-        {
-            Id = 7,
-            OrderId = order.Id,
-            Order = order,
-            Amount = 25m,
-            GatewayInvoiceId = "9001",
-            Status = TransactionStatus.Paid,
-            GatewayVerifiedAtUtc = DateTime.UtcNow
-        };
-        var paid = "{\"isValid\":true,\"response\":{\"status\":\"Paid\"}}";
-        var handler = new SadadHandler((request, _) => SadadResponses.HappyPath(request, get: paid));
-        var harness = new TransactionHarness(order, handler, transaction);
-
-        var result = await harness.Service.HandleSadadPaidWebhookAsync(new SadadWebhookDto { InvoiceId = 9001, Status = "Paid" });
-
-        Assert.True(result);
-        Assert.Equal(0, handler.Calls);
-        Assert.Equal(0, harness.Saves);
-        Assert.Equal(0, harness.TransactionUpdates);
+        Assert.Null(typeof(TransactionService).GetMethod("HandleSadadPaidWebhookAsync"));
+        Assert.Null(typeof(TransactionService).GetMethod("CheckPendingSadadPaymentsAsync"));
     }
 
     [Fact]

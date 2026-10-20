@@ -110,6 +110,35 @@ public class AuthorizationAndControllerTests
     }
 
     [Fact]
+    public async Task Admin_reconciliation_rechecks_each_known_invoice_through_the_unified_verifier()
+    {
+        var checkedInvoices = new List<string>();
+        var verifier = InterfaceStub.Create<ISadadPaymentVerificationService>((method, args) =>
+        {
+            Assert.Equal("VerifyByInvoiceIdAsync", method.Name);
+            checkedInvoices.Add((string)args![0]!);
+            return Task.FromResult(new PaymentVerificationResult(
+                PaymentVerificationOutcome.RequiresReconciliation,
+                "CAPTURE_TRANSACTION_NOT_SUCCESSFUL"));
+        });
+        var controller = new AdminTransactionController(null!, verifier)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+
+        var response = await controller.ReconcileSadadInvoices(new SadadReconciliationRequest
+        {
+            InvoiceIds = [70934, 70935, 70935]
+        });
+
+        var body = Assert.IsAssignableFrom<IReadOnlyList<SadadReconciliationItem>>(
+            Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal(["70934", "70935"], checkedInvoices);
+        Assert.Equal(2, body.Count);
+        Assert.All(body, item => Assert.Equal(PaymentVerificationOutcome.RequiresReconciliation, item.Outcome));
+    }
+
+    [Fact]
     public void Application_has_no_global_fallback_authorization_policy()
     {
         var source = File.ReadAllText(Path.Combine(Workspace.Root(), "Ecom.API", "Program.cs"));

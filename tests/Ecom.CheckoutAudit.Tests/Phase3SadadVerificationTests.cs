@@ -226,6 +226,67 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Paid_invoice_accepts_a_different_subtotal_and_preserves_it_for_audit()
+    {
+        var seeded = await SeedAttemptAsync();
+        await using var db = CreateContext();
+        var (gateway, _) = CreateRealGateway(db, InvoiceBody(seeded.Reference, subtotal: 11.111m));
+
+        var result = await gateway.VerifyInvoiceAsync(
+            await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(SadadInvoiceVerificationOutcome.VerifiedPaid, result.Outcome);
+        Assert.Equal(11.111m, result.Payment!.Subtotal);
+    }
+
+    [Fact]
+    public async Task Different_subtotal_flows_through_atomic_finalization_without_blocking_payment()
+    {
+        var seeded = await SeedAttemptAsync(withActiveReservation: true);
+        await using var db = CreateContext();
+        var gateway = CreateRealGateway(db, InvoiceBody(seeded.Reference, subtotal: 11.111m)).Gateway;
+
+        var result = await CreateProcessor(db, gateway)
+            .VerifyByInvoiceIdAsync("9001", "regression:subtotal", TestContext.Current.CancellationToken);
+
+        Assert.Equal(PaymentVerificationOutcome.Paid, result.Outcome);
+        await using var verification = CreateContext();
+        var attempt = await verification.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(PaymentAttemptStatus.Paid, attempt.Status);
+        Assert.Equal(11.111m, attempt.VerifiedSubtotal);
+        Assert.Equal(TransactionStatus.Paid,
+            await verification.Transactions.Select(transaction => transaction.Status).SingleAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(OrderStatus.Processing,
+            await verification.Orders.Select(order => order.Status).SingleAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Paid_invoice_normalizes_binary_floating_point_noise_at_Kwd_precision()
+    {
+        var seeded = await SeedAttemptAsync();
+        await using var db = CreateContext();
+        var attempt = await db.PaymentAttempts.SingleAsync(TestContext.Current.CancellationToken);
+        attempt.Amount = 354.669m;
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var (gateway, _) = CreateRealGateway(db, InvoiceBody(
+            seeded.Reference,
+            amount: 354.66900000000004m,
+            total: 354.66900000000004m,
+            subtotal: 340.482m,
+            transactionAmount: 354.66900000000004m));
+
+        var result = await gateway.VerifyInvoiceAsync(
+            await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(SadadInvoiceVerificationOutcome.VerifiedPaid, result.Outcome);
+        Assert.Equal(354.669m, result.Payment!.Amount);
+        Assert.Equal(354.669m, result.Payment.Total);
+        Assert.Equal(340.482m, result.Payment.Subtotal);
+    }
+
+    [Fact]
     public async Task Invoice_diagnostics_are_disabled_when_the_configuration_flag_is_absent()
     {
         var seeded = await SeedAttemptAsync();
@@ -313,14 +374,17 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         { InvoiceBody("REF", status: "Processing"), "UNKNOWN_PAYMENT_STATUS" },
         { InvoiceBody("REF", includeTransaction: false), "MISSING_PAYMENT_TRANSACTION_EVIDENCE" },
         { InvoiceBody("REF", refundedAmount: 1m), "REFUND_OR_PARTIAL_REFUND_REQUIRES_RECONCILIATION" },
-        { InvoiceBody("REF", amount: 12.3456m), "KWD_SCALE_INVALID" },
+        { InvoiceBody("REF", amount: 12.346m), "AMOUNT_FIELDS_MISMATCH" },
+        { InvoiceBody("REF", transactionAmount: 12.346m), "CAPTURE_AMOUNT_MISMATCH" },
+        { InvoiceBody("REF", transactionCurrency: "USD"), "CAPTURE_CURRENCY_MISMATCH" },
+        { InvoiceBody("REF", transactionInvoiceId: "9002"), "CAPTURE_INVOICE_ID_MISMATCH" },
+        { InvoiceBody("REF", includeRefundTransaction: true), "SUCCESSFUL_REFUND_REQUIRES_RECONCILIATION" },
         { "{\"isValid\":true,\"response\":{\"id\":9001}}", "MISSING_REQUIRED_FIELD" }
     };
 
     [Theory]
     [InlineData("amount")]
     [InlineData("total")]
-    [InlineData("subtotal")]
     public async Task Amount_mismatch_logs_the_numeric_comparison_without_customer_data(string field)
     {
         var seeded = await SeedAttemptAsync();
@@ -342,8 +406,23 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         Assert.Equal(0m, logger.Properties["ExpectedDiscountAmount"]);
         Assert.Equal(field == "amount" ? 12.344m : 12.345m, logger.Properties["GatewayAmount"]);
         Assert.Equal(field == "total" ? 12.344m : 12.345m, logger.Properties["GatewayTotal"]);
-        Assert.Equal(field == "subtotal" ? 12.344m : 12.345m, logger.Properties["GatewaySubtotal"]);
+        Assert.Equal(12.345m, logger.Properties["GatewaySubtotal"]);
         Assert.DoesNotContain("private-customer", string.Join('\n', logger.Messages));
+    }
+
+    [Fact]
+    public async Task Paid_invoice_with_pending_capture_requires_reconciliation()
+    {
+        var seeded = await SeedAttemptAsync();
+        await using var db = CreateContext();
+        var (gateway, _) = CreateRealGateway(db, InvoiceBody(seeded.Reference, transactionStatus: "Pending"));
+
+        var result = await gateway.VerifyInvoiceAsync(
+            await db.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(SadadInvoiceVerificationOutcome.RequiresReconciliation, result.Outcome);
+        Assert.Equal("CAPTURE_TRANSACTION_NOT_SUCCESSFUL", result.ReasonCode);
     }
 
     [Theory]
@@ -448,6 +527,10 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         await using var verification = CreateContext();
         Assert.Equal(TransactionStatus.Pending, await verification.Transactions.Select(t => t.Status).SingleAsync(TestContext.Current.CancellationToken));
         Assert.Equal(PaymentAttemptStatus.RequiresReconciliation, await verification.PaymentAttempts.Select(a => a.Status).SingleAsync(TestContext.Current.CancellationToken));
+        var attempt = await verification.PaymentAttempts.AsNoTracking().SingleAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(attempt.VerificationEvidenceId);
+        Assert.Equal(12.345m, attempt.VerifiedAmount);
+        Assert.Equal("TX-9001", attempt.GatewayTransactionId);
     }
 
     [Fact]
@@ -585,9 +668,46 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
         long vendorId = 51,
         string status = "Paid",
         decimal amount = 12.345m,
+        decimal? total = null,
+        decimal? subtotal = null,
         string currency = "KWD",
         decimal refundedAmount = 0m,
-        bool includeTransaction = true) => JsonSerializer.Serialize(new
+        bool includeTransaction = true,
+        string transactionType = "Capture",
+        string transactionStatus = "Success",
+        decimal? transactionAmount = null,
+        string? transactionCurrency = null,
+        string? transactionInvoiceId = null,
+        bool includeRefundTransaction = false)
+    {
+        var transactionId = "TX-9001";
+        var transactionEvidence = new List<Dictionary<string, object?>>();
+        if (includeTransaction)
+        {
+            transactionEvidence.Add(new()
+            {
+                ["id"] = transactionId,
+                ["invoice_Id"] = transactionInvoiceId ?? invoiceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["type"] = transactionType,
+                ["status"] = transactionStatus,
+                ["amount"] = transactionAmount ?? amount,
+                ["currency_Code"] = transactionCurrency ?? currency
+            });
+        }
+        if (includeRefundTransaction)
+        {
+            transactionEvidence.Add(new()
+            {
+                ["id"] = "REFUND-9001",
+                ["invoice_Id"] = invoiceId,
+                ["type"] = "Refund",
+                ["status"] = "Success",
+                ["amount"] = 1m,
+                ["currency_Code"] = currency
+            });
+        }
+
+        return JsonSerializer.Serialize(new
         {
             isValid = true,
             errorKey = (string?)null,
@@ -597,15 +717,16 @@ public sealed class Phase3SadadVerificationTests : IAsyncLifetime
                 vendor_Id = vendorId,
                 status,
                 amount,
-                total = amount,
-                subtotal = amount,
+                total = total ?? amount,
+                subtotal = subtotal ?? amount,
                 refunded_Amount = refundedAmount,
                 ref_Number = reference,
                 currency_Code = currency,
-                transactions = includeTransaction ? new object[] { new { evidence = "present" } } : [],
-                transactionID = includeTransaction ? "TX-9001" : null
+                transactions = transactionEvidence,
+                transactionID = includeTransaction ? transactionId : null
             }
         });
+    }
 
     private static SadadVerifiedPayment Verified(string reference) =>
         new(new string('E', 64), "9001", 51, reference, 12.345m, 12.345m, 12.345m, 0m, "KWD", "TX-9001");

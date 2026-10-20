@@ -1,6 +1,7 @@
 using Ecom.Application.DTOs.Common;
 using Ecom.Application.DTOs.Order;
 using Ecom.Application.Services.Interfaces;
+using Ecom.Application.Payments;
 using Ecom.Domain.constant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,10 +15,45 @@ namespace Ecom.API.Controllers
     public class AdminTransactionController : ControllerBase
     {
         private readonly ITransactionService _transactionService;
+        private readonly ISadadPaymentVerificationService _paymentVerification;
 
-        public AdminTransactionController(ITransactionService transactionService)
+        public AdminTransactionController(
+            ITransactionService transactionService,
+            ISadadPaymentVerificationService paymentVerification)
         {
             _transactionService = transactionService;
+            _paymentVerification = paymentVerification;
+        }
+
+        /// <summary>
+        /// Rechecks already-known Sadad invoices through the same authenticated
+        /// GetById path used by callbacks, webhooks and the background worker.
+        /// This never creates an invoice or initiates another payment.
+        /// </summary>
+        [HttpPost("sadad/reconcile")]
+        public async Task<ActionResult<IReadOnlyList<SadadReconciliationItem>>> ReconcileSadadInvoices(
+            [FromBody] SadadReconciliationRequest request)
+        {
+            if (request.InvoiceIds is not { Count: > 0 })
+                return BadRequest("At least one Sadad invoice ID is required.");
+            if (request.InvoiceIds.Count > 100)
+                return BadRequest("At most 100 Sadad invoice IDs can be reconciled at once.");
+
+            var invoiceIds = request.InvoiceIds.Distinct().ToArray();
+            if (invoiceIds.Any(id => id <= 0))
+                return BadRequest("Sadad invoice IDs must be positive.");
+
+            var results = new List<SadadReconciliationItem>(invoiceIds.Length);
+            foreach (var invoiceId in invoiceIds)
+            {
+                var result = await _paymentVerification.VerifyByInvoiceIdAsync(
+                    invoiceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    $"admin-reconciliation:{HttpContext.TraceIdentifier}",
+                    HttpContext.RequestAborted);
+                results.Add(new(invoiceId, result.Outcome, result.ReasonCode));
+            }
+
+            return Ok(results);
         }
 
         /// <summary>
@@ -582,4 +618,17 @@ namespace Ecom.API.Controllers
         [Required]
         public string Reason { get; set; } = string.Empty;
     }
+
+    public sealed class SadadReconciliationRequest
+    {
+        [Required]
+        [MinLength(1)]
+        [MaxLength(100)]
+        public List<long> InvoiceIds { get; set; } = [];
+    }
+
+    public sealed record SadadReconciliationItem(
+        long InvoiceId,
+        PaymentVerificationOutcome Outcome,
+        string ReasonCode);
 }
