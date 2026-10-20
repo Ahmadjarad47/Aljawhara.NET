@@ -14,8 +14,9 @@ Only `Paid` and `Unpaid` are accepted. A Paid candidate must pass every check be
 6. Currency equals both the stored currency and uppercase `KWD`.
 7. Monetary values parse as .NET `decimal`. `amount` and `total` equal the stored expected amount after KWD three-decimal normalization. This accepts binary serialization noise such as `354.66900000000004`, but a complete `0.001` KWD difference still fails. `subtotal` is retained as audit evidence and is not treated as the charged total.
 8. `refunded_Amount` is zero at KWD precision and there is no successful Refund/PartialRefund transaction. Any effective refund is reconciled, not fulfilled.
-9. Paid includes a non-empty `transactionID` and a non-empty `transactions` array containing a `Capture` transaction whose status is `Success`, ID matches `transactionID`, amount equals the expected KWD amount, currency is `KWD`, and any supplied transaction invoice ID matches the invoice.
-10. Order is still Pending and every inventory reservation is active and unexpired.
+9. Transaction evidence is inspected using the observed Sadad aliases, including `request_Type`, `status`, `invoice_Id`, `amount` and `currencyCode`. One successful transaction with the same invoice, KWD amount and currency is sufficient; unrelated pending rows do not make all transactions fail. `response.transactionID` is not compared with `transactions[].id` because Sadad returns different identifiers in those fields and its public contract does not document equality.
+10. A successful Refund/PartialRefund or an explicit successful-transaction mismatch never gets ignored and moves the attempt to reconciliation. A Paid invoice whose transaction data is pending is retried a bounded number of times and then stays in reconciliation. Missing or undocumented transaction shape is also retried; after the retry budget, the strict authenticated invoice-level checks above remain authoritative because Sadad's public GetById contract does not require a `Capture + Success` schema.
+11. Order is still Pending and every inventory reservation is active and unexpired.
 
 The SHA-256 digest of the authoritative GetById body is persisted as `VerificationEvidenceId`; the gateway transaction ID and all verified monetary fields are also persisted. No raw customer response body is stored.
 
@@ -24,7 +25,7 @@ The SHA-256 digest of the authoritative GetById body is persisted as `Verificati
 - A database lease permits one verifier per attempt. Concurrent webhook, callback and poll operations return Busy/AlreadyPaid or converge on one Paid transition.
 - The `PaymentAttempt` and `Order` are claimed with conditional SQL updates inside a transaction.
 - Duplicate/replayed events are idempotent after Paid and cannot downgrade the payment.
-- Invalid, incomplete, unknown, refunded or unavailable results move/stay in `RequiresReconciliation` with a bounded reason code.
+- Invalid, contradictory, refunded or unavailable results move/stay in `RequiresReconciliation` with a bounded reason code. Transaction evidence that may be delayed receives a short bounded retry first.
 - Paid after reservation release moves the order and attempt to reconciliation; it never starts fulfilment.
 - Callback query `payment` and webhook fields are informational triggers only.
 
@@ -55,7 +56,9 @@ All settings default to false/empty:
       "ContractProfileCertified": false,
       "EnablePaidTransitions": false,
       "DiscountSemanticsCertified": false,
-      "GetAllContractCertified": false
+      "GetAllContractCertified": false,
+      "TransactionEvidenceRetryCount": 2,
+      "TransactionEvidenceRetryDelayMilliseconds": 750
     }
   }
 }

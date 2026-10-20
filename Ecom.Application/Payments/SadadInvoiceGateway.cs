@@ -20,11 +20,23 @@ public sealed class SadadInvoiceGateway(
     ILogger<SadadInvoiceGateway> logger) : ISadadInvoiceGateway
 {
     private const string DiagnosticsEnabledKey = "Sadad:Diagnostics:EnableInvoiceLogging";
+    private const string EvidenceRetryCountKey = "Sadad:Verification:TransactionEvidenceRetryCount";
+    private const string EvidenceRetryDelayMillisecondsKey = "Sadad:Verification:TransactionEvidenceRetryDelayMilliseconds";
     private sealed class InsertEnvelope { public bool isValid { get; set; } public InsertData? response { get; set; } }
     private sealed class InsertData { public string? invoiceId { get; set; } }
     private sealed class InvoiceEnvelope { public bool isValid { get; set; } public InvoiceData? response { get; set; } }
     private sealed class InvoiceData { public string? url { get; set; } }
     private sealed record OrderAmounts(decimal Gross, decimal Discount);
+    private enum TransactionEvidenceKind { MatchedSuccess, MissingOrUnknown, Pending, Contradictory, SuccessfulRefund }
+    private sealed record TransactionEvidence(
+        TransactionEvidenceKind Kind,
+        string? TransactionId,
+        int Count,
+        int SuccessfulCount,
+        int PendingCount,
+        int ExplicitMismatchCount,
+        int IncompleteCount,
+        int SuccessfulRefundCount);
 
     public async Task<GatewayDispatchResult> CreateInvoiceAsync(Domain.Entity.PaymentAttempt attempt, CancellationToken cancellationToken)
     {
@@ -131,17 +143,40 @@ public sealed class SadadInvoiceGateway(
         try
         {
             var tokens = await transactions.GenerateTokens(cancellationToken);
-            using var request = new HttpRequestMessage(
-                HttpMethod.Get,
-                $"api/Invoice/getbyid?id={Uri.EscapeDataString(attempt.GatewayInvoiceId)}");
-            request.Headers.TryAddWithoutValidation("authorization", $"Bearer {tokens.AccessToken}");
-            using var response = await httpClientFactory.CreateClient("Sadad").SendAsync(request, cancellationToken);
-                var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            LogGetByIdAmounts(attempt.Id, response.StatusCode, body);
-            if (!response.IsSuccessStatusCode)
-                return new(SadadInvoiceVerificationOutcome.RequiresReconciliation, $"GETBYID_HTTP_{(int)response.StatusCode}");
+            var evidenceRetryCount = Math.Clamp(configuration.GetValue(EvidenceRetryCountKey, 2), 0, 3);
+            var evidenceRetryDelayMilliseconds = Math.Clamp(
+                configuration.GetValue(EvidenceRetryDelayMillisecondsKey, 750), 0, 5_000);
 
-            return ParseVerificationResponse(body, attempt, expectedVendorId, orderAmounts);
+            for (var requestNumber = 0; requestNumber <= evidenceRetryCount; requestNumber++)
+            {
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Get,
+                    $"api/Invoice/getbyid?id={Uri.EscapeDataString(attempt.GatewayInvoiceId)}");
+                request.Headers.TryAddWithoutValidation("authorization", $"Bearer {tokens.AccessToken}");
+                using var response = await httpClientFactory.CreateClient("Sadad").SendAsync(request, cancellationToken);
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                LogGetByIdAmounts(attempt.Id, response.StatusCode, body);
+                if (!response.IsSuccessStatusCode)
+                    return new(SadadInvoiceVerificationOutcome.RequiresReconciliation, $"GETBYID_HTTP_{(int)response.StatusCode}");
+
+                var isFinalEvidenceAttempt = requestNumber == evidenceRetryCount;
+                var result = ParseVerificationResponse(
+                    body,
+                    attempt,
+                    expectedVendorId,
+                    orderAmounts,
+                    isFinalEvidenceAttempt);
+                if (!ShouldRetryTransactionEvidence(result) || isFinalEvidenceAttempt)
+                    return result;
+
+                logger.LogInformation(
+                    "Sadad transaction evidence is not complete yet for PaymentAttemptId={PaymentAttemptId}. ReasonCode={ReasonCode} RetryNumber={RetryNumber} MaxRetries={MaxRetries}.",
+                    attempt.Id, result.ReasonCode, requestNumber + 1, evidenceRetryCount);
+                if (evidenceRetryDelayMilliseconds > 0)
+                    await Task.Delay(evidenceRetryDelayMilliseconds, cancellationToken);
+            }
+
+            throw new InvalidOperationException("Sadad verification retry loop terminated unexpectedly.");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -226,7 +261,8 @@ public sealed class SadadInvoiceGateway(
         string body,
         Domain.Entity.PaymentAttempt attempt,
         long expectedVendorId,
-        OrderAmounts orderAmounts)
+        OrderAmounts orderAmounts,
+        bool isFinalEvidenceAttempt)
     {
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
@@ -270,86 +306,151 @@ public sealed class SadadInvoiceGateway(
         if (!string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase))
             return new(SadadInvoiceVerificationOutcome.Invalid, "UNKNOWN_PAYMENT_STATUS");
 
-        if (!TryRequiredIdentifier(invoice, "transactionID", out var invoiceTransactionId) ||
-            !invoice.TryGetProperty("transactions", out var transactionsElement) ||
-            transactionsElement.ValueKind != JsonValueKind.Array || transactionsElement.GetArrayLength() == 0)
-            return new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_PAYMENT_TRANSACTION_EVIDENCE");
-
-        var capture = FindSuccessfulCapture(
-            transactionsElement,
-            invoiceId,
-            invoiceTransactionId,
-            attempt.Amount,
-            attempt.Currency);
-        if (capture.Result != null)
-            return capture.Result;
+        string? invoiceTransactionId = null;
+        if (TryRequiredIdentifier(invoice, "transactionID", out var parsedInvoiceTransactionId))
+            invoiceTransactionId = parsedInvoiceTransactionId;
+        var evidence = AnalyzeTransactionEvidence(invoice, invoiceId, attempt.Amount, attempt.Currency);
+        var evidenceDecision = DecideTransactionEvidence(attempt.Id, invoiceId, evidence, isFinalEvidenceAttempt);
+        if (evidenceDecision != null)
+            return evidenceDecision;
 
         var evidenceId = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
         var payment = new SadadVerifiedPayment(
             evidenceId, invoiceId, vendorId, reference,
             KwdMoney.Round(amount), KwdMoney.Round(total), KwdMoney.Round(subtotal),
-            KwdMoney.Round(refundedAmount), currency, capture.TransactionId!);
-        return new(SadadInvoiceVerificationOutcome.VerifiedPaid, "STRICT_GETBYID_VERIFIED", payment);
+            KwdMoney.Round(refundedAmount), currency, evidence.TransactionId ?? invoiceTransactionId);
+        var reason = evidence.Kind == TransactionEvidenceKind.MatchedSuccess
+            ? "STRICT_GETBYID_VERIFIED_WITH_TRANSACTION"
+            : "STRICT_GETBYID_VERIFIED_INVOICE_LEVEL";
+        return new(SadadInvoiceVerificationOutcome.VerifiedPaid, reason, payment);
     }
 
-    private static (string? TransactionId, SadadInvoiceVerificationResult? Result) FindSuccessfulCapture(
-        JsonElement transactionsElement,
+    private SadadInvoiceVerificationResult? DecideTransactionEvidence(
+        int paymentAttemptId,
         string invoiceId,
-        string invoiceTransactionId,
+        TransactionEvidence evidence,
+        bool isFinalEvidenceAttempt)
+    {
+        string? reason = evidence.Kind switch
+        {
+            TransactionEvidenceKind.MatchedSuccess => null,
+            TransactionEvidenceKind.SuccessfulRefund => "SUCCESSFUL_REFUND_REQUIRES_RECONCILIATION",
+            TransactionEvidenceKind.Contradictory => "TRANSACTION_EVIDENCE_CONTRADICTS_INVOICE",
+            TransactionEvidenceKind.Pending => "TRANSACTION_EVIDENCE_PENDING",
+            TransactionEvidenceKind.MissingOrUnknown when !isFinalEvidenceAttempt => "TRANSACTION_SCHEMA_NOT_YET_AVAILABLE",
+            TransactionEvidenceKind.MissingOrUnknown => null,
+            _ => "TRANSACTION_EVIDENCE_REQUIRES_RECONCILIATION"
+        };
+
+        if (evidence.Kind != TransactionEvidenceKind.MatchedSuccess)
+        {
+            logger.LogWarning(
+                "Sadad transaction evidence summary for PaymentAttemptId={PaymentAttemptId} InvoiceId={InvoiceId}. ReasonCode={ReasonCode} TransactionCount={TransactionCount} SuccessfulCount={SuccessfulCount} PendingCount={PendingCount} ExplicitMismatchCount={ExplicitMismatchCount} IncompleteCount={IncompleteCount} SuccessfulRefundCount={SuccessfulRefundCount} FinalEvidenceAttempt={FinalEvidenceAttempt}.",
+                paymentAttemptId, invoiceId, reason ?? "INVOICE_LEVEL_FALLBACK", evidence.Count,
+                evidence.SuccessfulCount, evidence.PendingCount, evidence.ExplicitMismatchCount,
+                evidence.IncompleteCount, evidence.SuccessfulRefundCount, isFinalEvidenceAttempt);
+        }
+
+        return reason == null
+            ? null
+            : new(SadadInvoiceVerificationOutcome.RequiresReconciliation, reason);
+    }
+
+    private static TransactionEvidence AnalyzeTransactionEvidence(
+        JsonElement invoice,
+        string invoiceId,
         decimal expectedAmount,
         string expectedCurrency)
     {
-        var sawCapture = false;
-        var sawPendingCapture = false;
-        string? successfulCaptureId = null;
+        if (!TryGetPropertyIgnoreCase(invoice, "transactions", out var transactionsElement) ||
+            transactionsElement.ValueKind != JsonValueKind.Array || transactionsElement.GetArrayLength() == 0)
+            return new(TransactionEvidenceKind.MissingOrUnknown, null, 0, 0, 0, 0, 0, 0);
+
+        var count = 0;
+        var successful = 0;
+        var pending = 0;
+        var mismatches = 0;
+        var incomplete = 0;
+        var successfulRefunds = 0;
+        var matchedSuccessfulTransaction = false;
+        string? matchingTransactionId = null;
+
         foreach (var transaction in transactionsElement.EnumerateArray())
         {
+            count++;
             if (transaction.ValueKind != JsonValueKind.Object)
-                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "MALFORMED_PAYMENT_TRANSACTION_EVIDENCE"));
-
-            if (!TryRequiredString(transaction, ["type", "transactionType", "transaction_Type"], out var type) ||
-                !TryRequiredString(transaction, ["status", "transactionStatus", "transaction_Status"], out var transactionStatus))
-                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_PAYMENT_TRANSACTION_FIELD"));
-
-            if (IsRefundType(type) && string.Equals(transactionStatus, "Success", StringComparison.OrdinalIgnoreCase))
-                return (null, new(SadadInvoiceVerificationOutcome.Unsupported, "SUCCESSFUL_REFUND_REQUIRES_RECONCILIATION"));
-            if (!string.Equals(type, "Capture", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            sawCapture = true;
-            if (!string.Equals(transactionStatus, "Success", StringComparison.OrdinalIgnoreCase))
             {
-                sawPendingCapture = true;
+                incomplete++;
                 continue;
             }
 
-            if (!TryRequiredIdentifier(transaction, ["id", "transactionID", "transactionId", "transaction_Id"], out var transactionId) ||
-                !TryRequiredDecimal(transaction, ["amount", "transactionAmount", "transaction_Amount"], out var transactionAmount) ||
-                !TryRequiredString(transaction, ["currency_Code", "currencyCode", "currency"], out var transactionCurrency))
-                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_CAPTURE_TRANSACTION_FIELD"));
+            TryRequiredString(transaction,
+                ["request_Type", "requestType", "type", "transactionType", "transaction_Type"], out var requestType);
+            if (!TryRequiredString(transaction,
+                    ["status", "transactionStatus", "transaction_Status"], out var transactionStatus))
+            {
+                incomplete++;
+                continue;
+            }
 
-            if (!string.Equals(transactionId, invoiceTransactionId, StringComparison.Ordinal))
-                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_TRANSACTION_ID_MISMATCH"));
+            var isSuccess = transactionStatus.Equals("Success", StringComparison.OrdinalIgnoreCase) ||
+                            transactionStatus.Equals("Succeeded", StringComparison.OrdinalIgnoreCase) ||
+                            transactionStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase);
+            if (isSuccess) successful++;
+            else pending++;
 
-            if (TryRequiredIdentifier(transaction, ["invoice_Id", "invoiceId", "invoiceID"], out var transactionInvoiceId) &&
-                !string.Equals(transactionInvoiceId, invoiceId, StringComparison.Ordinal))
-                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_INVOICE_ID_MISMATCH"));
+            if (isSuccess && IsRefundType(requestType))
+            {
+                successfulRefunds++;
+                continue;
+            }
 
-            if (!KwdMoney.EqualsAtSettlementPrecision(transactionAmount, expectedAmount))
-                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_AMOUNT_MISMATCH"));
-            if (!string.Equals(transactionCurrency, expectedCurrency, StringComparison.Ordinal) ||
-                !string.Equals(transactionCurrency, "KWD", StringComparison.Ordinal))
-                return (null, new(SadadInvoiceVerificationOutcome.Invalid, "CAPTURE_CURRENCY_MISMATCH"));
+            var hasInvoiceId = TryRequiredIdentifier(transaction, ["invoice_Id", "invoiceId", "invoiceID"], out var transactionInvoiceId);
+            var hasAmount = TryRequiredDecimal(transaction, ["amount", "transactionAmount", "transaction_Amount"], out var transactionAmount);
+            var hasCurrency = TryRequiredString(transaction, ["currencyCode", "currency_Code", "currency"], out var transactionCurrency);
 
-            successfulCaptureId ??= transactionId;
+            var invoiceMatches = !hasInvoiceId || string.Equals(transactionInvoiceId, invoiceId, StringComparison.Ordinal);
+            var amountMatches = !hasAmount || KwdMoney.EqualsAtSettlementPrecision(transactionAmount, expectedAmount);
+            var currencyMatches = !hasCurrency ||
+                (string.Equals(transactionCurrency, expectedCurrency, StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(transactionCurrency, "KWD", StringComparison.OrdinalIgnoreCase));
+
+            if (isSuccess && ((!invoiceMatches && hasInvoiceId) || (!amountMatches && hasAmount) || (!currencyMatches && hasCurrency)))
+            {
+                mismatches++;
+                continue;
+            }
+
+            if (!isSuccess)
+                continue;
+
+            if (!hasInvoiceId || !hasAmount || !hasCurrency)
+            {
+                incomplete++;
+                continue;
+            }
+
+            matchedSuccessfulTransaction = true;
+            if (TryRequiredIdentifier(transaction,
+                    ["id", "transactionId", "transactionID", "transaction_Id"], out var transactionId))
+                matchingTransactionId ??= transactionId;
         }
 
-        if (successfulCaptureId != null)
-            return (successfulCaptureId, null);
-        return sawCapture || sawPendingCapture
-            ? (null, new(SadadInvoiceVerificationOutcome.RequiresReconciliation, "CAPTURE_TRANSACTION_NOT_SUCCESSFUL"))
-            : (null, new(SadadInvoiceVerificationOutcome.Invalid, "MISSING_CAPTURE_TRANSACTION_EVIDENCE"));
+        var kind = successfulRefunds > 0
+            ? TransactionEvidenceKind.SuccessfulRefund
+            : mismatches > 0
+                ? TransactionEvidenceKind.Contradictory
+                : matchedSuccessfulTransaction
+                    ? TransactionEvidenceKind.MatchedSuccess
+                    : pending > 0
+                        ? TransactionEvidenceKind.Pending
+                        : TransactionEvidenceKind.MissingOrUnknown;
+        return new(kind, matchingTransactionId, count, successful, pending, mismatches, incomplete, successfulRefunds);
     }
+
+    private static bool ShouldRetryTransactionEvidence(SadadInvoiceVerificationResult result) =>
+        result.Outcome == SadadInvoiceVerificationOutcome.RequiresReconciliation &&
+        result.ReasonCode is "TRANSACTION_EVIDENCE_PENDING" or "TRANSACTION_SCHEMA_NOT_YET_AVAILABLE";
 
     private static bool IsRefundType(string type) =>
         type.Equals("Refund", StringComparison.OrdinalIgnoreCase) ||

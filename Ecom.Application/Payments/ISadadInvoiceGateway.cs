@@ -25,7 +25,7 @@ public sealed record SadadVerifiedPayment(
     decimal Subtotal,
     decimal RefundedAmount,
     string Currency,
-    string GatewayTransactionId);
+    string? GatewayTransactionId);
 
 public sealed record SadadInvoiceVerificationResult(
     SadadInvoiceVerificationOutcome Outcome,

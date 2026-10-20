@@ -16,9 +16,11 @@
 ```text
 Sadad__Verification__ContractProfileCertified=false
 Sadad__Verification__EnablePaidTransitions=false
+Sadad__Verification__TransactionEvidenceRetryCount=2
+Sadad__Verification__TransactionEvidenceRetryDelayMilliseconds=750
 ```
 
-تحقق في نفس البيئة من أن GetById لفاتورة اختبار مدفوعة يعيد `Paid` ومعاملة `Capture/Success` بالمبلغ والعملة والمعرّفات المتوقعة، ومن أن اختبارات النشر نجحت. بعدها فقط غيّر القيمتين معاً إلى `true`. فعّل `DiscountSemanticsCertified` فقط بعد اختبار فاتورة خصم، و`GetAllContractCertified` فقط إذا كان استرداد invoice ID عبر GetAll مطلوباً ومختبراً.
+تحقق في نفس البيئة من أن GetById لفاتورة اختبار مدفوعة يعيد `Paid` مع InvoiceId وVendorId وMerchantReference وAmount وTotal وCurrency صحيحة وبدون استرداد. افحص `transactions` كما تعيدها Sadad فعلياً؛ لا تفترض أن `response.transactionID` يساوي `transactions[].id`، ولا تجعل اسم `Capture` شرطاً غير موثق. بعدها فقط غيّر بوابتي الاعتماد إلى `true`. فعّل `DiscountSemanticsCertified` فقط بعد اختبار فاتورة خصم، و`GetAllContractCertified` فقط إذا كان استرداد invoice ID عبر GetAll مطلوباً ومختبراً.
 
 ## تشغيل ومطابقة الفواتير السابقة
 
