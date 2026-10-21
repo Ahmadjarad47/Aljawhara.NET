@@ -107,7 +107,7 @@ namespace Ecom.Application.DTOs.Auth
     {
         [Required]
         [Phone]
-        [StringLength(20, MinimumLength = 10)]
+        [StringLength(20, MinimumLength = 8)]
         public string PhoneNumber { get; set; } = string.Empty;
     }
 
