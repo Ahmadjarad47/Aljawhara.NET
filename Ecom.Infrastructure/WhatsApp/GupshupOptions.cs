@@ -9,6 +9,7 @@ public sealed class GupshupOptions
     public string AppName { get; set; } = "whatsappaljawhara";
     public string Source { get; set; } = "";
     public string TemplateId { get; set; } = "";
+    public string PhoneVerificationTemplateId { get; set; } = "";
     public string Environment { get; set; } = "Sandbox";
     public string CountryCode { get; set; } = "965";
     public string NationalNumberPattern { get; set; } = "[569][0-9]{7}";

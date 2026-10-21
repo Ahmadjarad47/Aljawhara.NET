@@ -17,4 +17,6 @@ public interface IGupshupWhatsAppService
 {
     Task<WhatsAppSendResult> SendInvoiceAsync(string destination, string orderNumber, string mediaUrl,
         CancellationToken cancellationToken);
+    Task<WhatsAppSendResult> SendPhoneVerificationCodeAsync(string destination, string code,
+        CancellationToken cancellationToken);
 }

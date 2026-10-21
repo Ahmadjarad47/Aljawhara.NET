@@ -9,6 +9,9 @@ namespace Ecom.Application.DTOs.Auth
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public bool EmailConfirmed { get; set; }
+        public bool PhoneNumberConfirmed { get; set; }
+        public bool WhatsAppNotificationsEnabled { get; set; }
+        public string? WhatsAppConsentPhone { get; set; }
         public bool IsBlocked { get; set; }
         public bool IsActive { get; set; }
         public DateTime? LockoutEnd { get; set; }

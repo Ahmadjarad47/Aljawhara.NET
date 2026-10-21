@@ -47,6 +47,8 @@ namespace Ecom.Infrastructure.Data
         public DbSet<OrderNumberCounter> OrderNumberCounters { get; set; }
         public DbSet<WhatsAppInvoice> WhatsAppInvoices { get; set; }
         public DbSet<WhatsAppDeliveryEvent> WhatsAppDeliveryEvents { get; set; }
+        public DbSet<WhatsAppConsentAudit> WhatsAppConsentAudits { get; set; }
+        public DbSet<WhatsAppPhoneVerification> WhatsAppPhoneVerifications { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -212,6 +214,25 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.WhatsAppMessageId).HasMaxLength(200);
                 entity.Property(e => e.Type).HasMaxLength(20);
             });
+            modelBuilder.Entity<WhatsAppConsentAudit>(entity =>
+            {
+                entity.HasIndex(e => new { e.Phone, e.OccurredAtUtc });
+                entity.Property(e => e.Phone).HasMaxLength(15);
+                entity.Property(e => e.Source).HasMaxLength(50);
+                entity.Property(e => e.ProviderSyncStatus).HasMaxLength(30);
+                entity.Property(e => e.ProviderSyncError).HasMaxLength(200);
+                entity.HasOne(e => e.AppUser).WithMany().HasForeignKey(e => e.AppUserId).OnDelete(DeleteBehavior.SetNull);
+                entity.HasOne(e => e.Order).WithMany().HasForeignKey(e => e.OrderId).OnDelete(DeleteBehavior.SetNull);
+            });
+            modelBuilder.Entity<WhatsAppPhoneVerification>(entity =>
+            {
+                entity.HasIndex(e => new { e.AppUserId, e.Phone, e.ExpiresAtUtc });
+                entity.Property(e => e.Phone).HasMaxLength(15);
+                entity.Property(e => e.CodeHash).HasMaxLength(32);
+                entity.Property(e => e.CodeSalt).HasMaxLength(16);
+                entity.Property(e => e.ProviderMessageId).HasMaxLength(200);
+                entity.HasOne(e => e.AppUser).WithMany().HasForeignKey(e => e.AppUserId).OnDelete(DeleteBehavior.Cascade);
+            });
             modelBuilder.Entity<Order>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -221,6 +242,7 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.Tax).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.Total).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.WhatsAppConsentPhone).HasMaxLength(40);
+                entity.Property(e => e.WhatsAppConsentSource).HasMaxLength(50);
                 entity.Property(e => e.GuestAccessTokenHash).HasMaxLength(64);
                 entity.Property(e => e.CheckoutIdempotencyKeyHash).HasMaxLength(64);
                 entity.Property(e => e.CheckoutRequestHash).HasMaxLength(64);
@@ -239,6 +261,11 @@ namespace Ecom.Infrastructure.Data
                       .OnDelete(DeleteBehavior.SetNull);
                 entity.Property(e => e.CouponDiscountAmount).HasColumnType("decimal(18,3)");
                 entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<AppUsers>(entity =>
+            {
+                entity.Property(e => e.WhatsAppConsentPhone).HasMaxLength(15);
             });
 
             // Configure OrderItem

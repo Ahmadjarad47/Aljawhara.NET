@@ -89,6 +89,19 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<DateTime?>("WhatsAppConsentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WhatsAppConsentPhone")
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)");
+
+                    b.Property<DateTime?>("WhatsAppConsentRevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WhatsAppNotificationsEnabled")
+                        .HasColumnType("boolean");
+
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedEmail")
@@ -568,6 +581,10 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Property<string>("WhatsAppConsentPhone")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("WhatsAppConsentSource")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
 
@@ -1692,6 +1709,75 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.ToTable("Visitors");
                 });
 
+            modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppConsentAudit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AppUserId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)");
+
+                    b.Property<string>("ProviderSyncError")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ProviderSyncStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("Phone", "OccurredAtUtc");
+
+                    b.ToTable("WhatsAppConsentAudits");
+                });
+
             modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppDeliveryEvent", b =>
                 {
                     b.Property<int>("Id")
@@ -1870,6 +1956,72 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.HasIndex("Status", "NextAttemptAtUtc");
 
                     b.ToTable("WhatsAppInvoices");
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppPhoneVerification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("CodeSalt")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime?>("ConsumedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FailedAttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId", "Phone", "ExpiresAtUtc");
+
+                    b.ToTable("WhatsAppPhoneVerifications");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -2247,6 +2399,23 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppConsentAudit", b =>
+                {
+                    b.HasOne("Ecom.Domain.Entity.AppUsers", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Ecom.Domain.Entity.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppInvoice", b =>
                 {
                     b.HasOne("Ecom.Domain.Entity.PaymentAttempt", "PaymentAttempt")
@@ -2256,6 +2425,17 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         .IsRequired();
 
                     b.Navigation("PaymentAttempt");
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppPhoneVerification", b =>
+                {
+                    b.HasOne("Ecom.Domain.Entity.AppUsers", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

@@ -195,6 +195,8 @@ builder.Services.AddOptions<GupshupOptions>()
     {
         builder.Configuration.GetSection("Gupshup").Bind(options);
         if (options.Environment == "Sandbox") builder.Configuration.GetSection("Gupshup_sandbox").Bind(options);
+        // Automated tests must never contact WhatsApp or require local provider secrets.
+        if (builder.Environment.IsEnvironment("Testing")) options.Enabled = false;
     })
     .Validate(options => options.IsValid(), "Invalid Gupshup settings. Configure sender, country, webhook secret, public HTTPS URL and template/test allowlist before enabling.")
     .ValidateOnStart();
@@ -203,6 +205,7 @@ builder.Services.AddHttpClient<IGupshupWhatsAppService, GupshupWhatsAppService>(
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton<IInvoicePdfRenderer, InvoicePdfRenderer>();
 builder.Services.AddScoped<WhatsAppInvoiceProcessor>();
+builder.Services.AddScoped<WhatsAppConsentService>();
 builder.Services.AddScoped<PaymentOrchestrationService>();
 builder.Services.AddScoped<IPaymentOrchestrationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());
 builder.Services.AddScoped<IPaymentFinalizationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());

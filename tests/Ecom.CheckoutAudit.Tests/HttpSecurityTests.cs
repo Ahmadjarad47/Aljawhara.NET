@@ -7,6 +7,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Ecom.Domain.Entity;
 using Ecom.Domain.constant;
+using Ecom.Domain.Interfaces;
 using Ecom.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -439,7 +440,11 @@ internal sealed class CheckoutApiFactory(string connectionString) : WebApplicati
                 ["JwtSettings:SecretKey"] = "test-only-signing-key-that-is-at-least-thirty-two-bytes",
                 ["JwtSettings:Issuer"] = "EcomTaaniAPI",
                 ["JwtSettings:Audience"] = "EcomTaaniUsers",
-                ["Sadad:BaseUrl"] = "https://sadad.test/"
+                ["Sadad:BaseUrl"] = "https://sadad.test/",
+                ["Gupshup:Environment"] = "Sandbox",
+                ["Gupshup_sandbox:Enabled"] = "false",
+                ["Gupshup_sandbox:CountryCode"] = "965",
+                ["Gupshup_sandbox:NationalNumberPattern"] = "[569][0-9]{7}"
             }));
         builder.ConfigureServices(services =>
         {
@@ -455,7 +460,27 @@ internal sealed class CheckoutApiFactory(string connectionString) : WebApplicati
 
             services.AddHttpClient("Sadad")
                 .ConfigurePrimaryHttpMessageHandler(() => SadadHandler);
+            services.RemoveAll<IGupshupWhatsAppService>();
+            services.AddSingleton<TestGupshupSender>();
+            services.AddSingleton<IGupshupWhatsAppService>(sp => sp.GetRequiredService<TestGupshupSender>());
         });
+    }
+}
+
+internal sealed class TestGupshupSender : IGupshupWhatsAppService
+{
+    public string? LastVerificationCode { get; private set; }
+    public string? LastDestination { get; private set; }
+
+    public Task<WhatsAppSendResult> SendInvoiceAsync(string destination, string orderNumber, string mediaUrl,
+        CancellationToken cancellationToken) => Task.FromResult(new WhatsAppSendResult(WhatsAppSendOutcome.Accepted, "test-invoice"));
+
+    public Task<WhatsAppSendResult> SendPhoneVerificationCodeAsync(string destination, string code,
+        CancellationToken cancellationToken)
+    {
+        LastDestination = destination;
+        LastVerificationCode = code;
+        return Task.FromResult(new WhatsAppSendResult(WhatsAppSendOutcome.Accepted, "test-verification"));
     }
 }
 

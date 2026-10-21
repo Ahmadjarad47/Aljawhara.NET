@@ -5,6 +5,9 @@ using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Ecom.Infrastructure.Data;
+using Ecom.Infrastructure.WhatsApp;
 using System.Linq;
 
 namespace Ecom.Application.Services
@@ -15,17 +18,23 @@ namespace Ecom.Application.Services
         private readonly IEmailService _emailService;
         private readonly IOtpService _otpService;
         private readonly ILogger<UserManagerService> _logger;
+        private readonly EcomDbContext _db;
+        private readonly GupshupOptions _whatsAppOptions;
 
         public UserManagerService(
             UserManager<AppUsers> userManager,
             IEmailService emailService,
             IOtpService otpService,
-            ILogger<UserManagerService> logger)
+            ILogger<UserManagerService> logger,
+            EcomDbContext db,
+            IOptions<GupshupOptions> whatsAppOptions)
         {
             _userManager = userManager;
             _emailService = emailService;
             _otpService = otpService;
             _logger = logger;
+            _db = db;
+            _whatsAppOptions = whatsAppOptions.Value;
         }
 
         public async Task<PagedResult<UserManagerDto>> GetUsersAsync(UserSearchDto searchDto)
@@ -113,6 +122,9 @@ namespace Ecom.Application.Services
                     Email = user.Email!,
                     PhoneNumber = user.PhoneNumber!,
                     EmailConfirmed = user.EmailConfirmed,
+                    PhoneNumberConfirmed = user.PhoneNumberConfirmed,
+                    WhatsAppNotificationsEnabled = user.WhatsAppNotificationsEnabled,
+                    WhatsAppConsentPhone = user.WhatsAppConsentPhone,
                     IsBlocked = user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow,
                     LockoutEnd = user.LockoutEnd?.DateTime,
                     CreatedAt = user.CreatedAt,
@@ -540,6 +552,9 @@ namespace Ecom.Application.Services
                     Email = user.Email ?? string.Empty,
                     PhoneNumber = user.PhoneNumber ?? string.Empty,
                     EmailConfirmed = user.EmailConfirmed,
+                    PhoneNumberConfirmed = user.PhoneNumberConfirmed,
+                    WhatsAppNotificationsEnabled = user.WhatsAppNotificationsEnabled,
+                    WhatsAppConsentPhone = user.WhatsAppConsentPhone,
                     IsActive = !user.LockoutEnd.HasValue || user.LockoutEnd <= DateTimeOffset.UtcNow,
                     CreatedAt = user.CreatedAt
                 };
@@ -595,7 +610,38 @@ namespace Ecom.Application.Services
                     return (false, "User not found");
                 }
 
-                user.PhoneNumber = newPhoneNumber;
+                var normalized = WhatsAppPhone.Normalize(newPhoneNumber, _whatsAppOptions);
+                if (normalized == null)
+                    return (false, "A valid Kuwaiti phone number is required");
+                var now = DateTime.UtcNow;
+                var revokedPreviousConsent = user.WhatsAppNotificationsEnabled && user.WhatsAppConsentPhone is not null;
+                if (revokedPreviousConsent && user.WhatsAppConsentPhone is { } previous)
+                {
+                    _db.WhatsAppConsentAudits.Add(new WhatsAppConsentAudit
+                    {
+                        AppUserId = user.Id,
+                        Phone = previous,
+                        Action = WhatsAppConsentAction.Revoked,
+                        Source = "PhoneChanged",
+                        OccurredAtUtc = now,
+                        ProviderSyncStatus = "NotRequired",
+                        CreatedBy = user.Id
+                    });
+                    await _db.WhatsAppInvoices
+                        .Where(i => (i.Status == WhatsAppInvoiceStatus.Pending || i.Status == WhatsAppInvoiceStatus.Preparing) &&
+                            i.PaymentAttempt.Order.WhatsAppConsentPhone == previous)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(i => i.Status, WhatsAppInvoiceStatus.Skipped)
+                            .SetProperty(i => i.LastErrorCode, "CUSTOMER_CONSENT_REVOKED")
+                            .SetProperty(i => i.LeaseOwner, (string?)null)
+                            .SetProperty(i => i.LeaseUntilUtc, (DateTime?)null));
+                }
+                user.PhoneNumber = normalized;
+                user.PhoneNumberConfirmed = false;
+                user.WhatsAppNotificationsEnabled = false;
+                user.WhatsAppConsentPhone = null;
+                user.WhatsAppConsentAtUtc = null;
+                if (revokedPreviousConsent) user.WhatsAppConsentRevokedAtUtc = now;
                 var result = await _userManager.UpdateAsync(user);
                 if (!result.Succeeded)
                 {

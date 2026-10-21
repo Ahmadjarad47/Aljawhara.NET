@@ -126,6 +126,7 @@ namespace Ecom.Application.Mappings
             CreateMap<OrderCreateDto, Order>()
                 .ForMember(dest => dest.WhatsAppConsentAtUtc, opt => opt.Ignore())
                 .ForMember(dest => dest.WhatsAppConsentPhone, opt => opt.Ignore())
+                .ForMember(dest => dest.WhatsAppConsentSource, opt => opt.Ignore())
                 .ForMember(dest => dest.OrderNumber, opt => opt.Ignore())
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Domain.constant.OrderStatus.Pending))
                 .ForMember(dest => dest.Subtotal, opt => opt.Ignore())

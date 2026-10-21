@@ -147,6 +147,9 @@ public class AuthController : ControllerBase
             Email = result.User.Email ?? string.Empty,
             PhoneNumber = result.User.PhoneNumber ?? string.Empty,
             EmailConfirmed = result.User.EmailConfirmed,
+            PhoneNumberConfirmed = result.User.PhoneNumberConfirmed,
+            WhatsAppNotificationsEnabled = result.User.WhatsAppNotificationsEnabled,
+            WhatsAppConsentPhone = result.User.WhatsAppConsentPhone,
             CreatedAt = result.User.CreatedAt
         };
 

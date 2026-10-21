@@ -106,6 +106,42 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
         Assert.DoesNotContain(invoice.MediaTokenHash, sender.LastUrl!);
     }
 
+    [Fact]
+    public async Task Equivalent_phone_formats_do_not_trigger_missing_consent()
+    {
+        await SeedAsync(consentPhone: "+965 5000-0000");
+        var sender = new FakeSender(new(WhatsAppSendOutcome.Accepted, "GS-NORMALIZED"));
+        await using var db = Db();
+        await Processor(db, sender).ProcessBatchAsync("worker", Ct);
+        var job = await db.WhatsAppInvoices.SingleAsync(Ct);
+        Assert.Equal(WhatsAppInvoiceStatus.Accepted, job.Status);
+        Assert.Equal("96550000000", job.Destination);
+        Assert.Null(job.LastErrorCode);
+    }
+
+    [Fact]
+    public async Task Revocation_after_order_consent_prevents_an_unconfirmed_send()
+    {
+        await SeedAsync();
+        await using (var db = Db())
+        {
+            var order = await db.Orders.SingleAsync(Ct);
+            db.WhatsAppConsentAudits.Add(new WhatsAppConsentAudit
+            {
+                OrderId = order.Id, Phone = "96550000000", Action = WhatsAppConsentAction.Revoked,
+                Source = "AccountSettings", OccurredAtUtc = order.WhatsAppConsentAtUtc!.Value.AddSeconds(1)
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+        var sender = new FakeSender(new(WhatsAppSendOutcome.Accepted, "NEVER"));
+        await using var check = Db();
+        await Processor(check, sender).ProcessBatchAsync("worker", Ct);
+        Assert.Equal(0, sender.Calls);
+        var job = await check.WhatsAppInvoices.SingleAsync(Ct);
+        Assert.Equal(WhatsAppInvoiceStatus.Skipped, job.Status);
+        Assert.Equal("CUSTOMER_CONSENT_REVOKED", job.LastErrorCode);
+    }
+
     [Theory]
     [InlineData(PaymentAttemptStatus.AwaitingPayment, PaymentMethod.Bank, true, "50000000", "PAYMENT_NOT_ELIGIBLE")]
     [InlineData(PaymentAttemptStatus.Failed, PaymentMethod.Bank, true, "50000000", "PAYMENT_NOT_ELIGIBLE")]
@@ -278,14 +314,14 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
     });
 
     private async Task SeedAsync(PaymentAttemptStatus status = PaymentAttemptStatus.Paid, PaymentMethod method = PaymentMethod.Bank,
-        bool consent = true, string phone = "50000000")
+        bool consent = true, string phone = "50000000", string? consentPhone = null)
     {
         await using var db = Db();
         var product = new Product { Title = "منتج", Description = "منتج", newPrice = 12.345m,
             subCategory = new SubCategory { Name = "sub", Category = new Category { Name = "cat" } } };
         var order = new Order { OrderNumber = "ORDER-1", Status = OrderStatus.Processing, Subtotal = 12.345m, Total = 12.345m,
             ShippingAddress = new ShippingAddress { FullName = "أحمد", Phone = phone, Street = "شارع" },
-            WhatsAppConsentAtUtc = consent ? DateTime.UtcNow : null, WhatsAppConsentPhone = consent ? phone : null,
+            WhatsAppConsentAtUtc = consent ? DateTime.UtcNow : null, WhatsAppConsentPhone = consent ? consentPhone ?? phone : null,
             Items = [new OrderItem { Name = "منتج", Product = product, Quantity = 1, Price = 12.345m }] };
         var attempt = new PaymentAttempt { Order = order, Amount = 12.345m, Currency = "KWD", Status = status,
             IdempotencyKeyHash = new string('A', 64), RequestHash = new string('B', 64), MerchantReference = "MERCHANT-1",
@@ -308,6 +344,8 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
         public string? LastUrl { get; private set; }
         public Task<WhatsAppSendResult> SendInvoiceAsync(string destination, string orderNumber, string mediaUrl, CancellationToken cancellationToken)
         { Interlocked.Increment(ref _calls); LastUrl = mediaUrl; return Task.FromResult(Result); }
+        public Task<WhatsAppSendResult> SendPhoneVerificationCodeAsync(string destination, string code, CancellationToken cancellationToken) =>
+            Task.FromResult(Result);
     }
     private sealed class RecordingHandler(HttpStatusCode status, string response) : HttpMessageHandler
     {

@@ -69,11 +69,21 @@ public sealed class WhatsAppInvoiceProcessor(EcomDbContext db, IInvoicePdfRender
             string.IsNullOrWhiteSpace(attempt.GatewayInvoiceId) || attempt.Currency != "KWD" ||
             attempt.VerifiedAmount != attempt.Amount || attempt.VerifiedTotal != order.Total || attempt.VerifiedRefundedAmount != 0m)
         { await SkipAsync(id, worker, "PAYMENT_NOT_ELIGIBLE", ct); return; }
-        if (order.WhatsAppConsentAtUtc == null || order.ShippingAddress == null ||
-            order.WhatsAppConsentPhone != order.ShippingAddress.Phone)
+        if (order.WhatsAppConsentAtUtc == null || string.IsNullOrWhiteSpace(order.WhatsAppConsentPhone))
         { await SkipAsync(id, worker, "NO_MATCHING_CUSTOMER_CONSENT", ct); return; }
-        var destination = WhatsAppPhone.Normalize(order.ShippingAddress.Phone, o);
-        if (destination == null) { await SkipAsync(id, worker, "INVALID_CUSTOMER_PHONE", ct); return; }
+        var destination = WhatsAppPhone.Normalize(order.WhatsAppConsentPhone, o);
+        var recipient = WhatsAppPhone.Normalize(order.ShippingAddress.Phone, o);
+        if (destination == null || recipient == null)
+        { await SkipAsync(id, worker, "INVALID_CUSTOMER_PHONE", ct); return; }
+        if (!string.Equals(destination, recipient, StringComparison.Ordinal))
+        { await SkipAsync(id, worker, "NO_MATCHING_CUSTOMER_CONSENT", ct); return; }
+        var latestConsent = await db.WhatsAppConsentAudits.AsNoTracking()
+            .Where(a => a.Phone == destination)
+            .OrderByDescending(a => a.OccurredAtUtc).ThenByDescending(a => a.Id)
+            .Select(a => new { a.Action, a.OccurredAtUtc }).FirstOrDefaultAsync(ct);
+        if (latestConsent?.Action == WhatsAppConsentAction.Revoked &&
+            latestConsent.OccurredAtUtc >= order.WhatsAppConsentAtUtc.Value)
+        { await SkipAsync(id, worker, "CUSTOMER_CONSENT_REVOKED", ct); return; }
         if (o.Environment == "Sandbox" && !o.SandboxAllowedDestinations.Contains(destination, StringComparer.Ordinal))
         { await SkipAsync(id, worker, "SANDBOX_DESTINATION_NOT_ALLOWED", ct); return; }
         if (job.AttemptCount > o.MaxAttempts) { await SkipAsync(id, worker, "RETRY_LIMIT_EXCEEDED", ct); return; }

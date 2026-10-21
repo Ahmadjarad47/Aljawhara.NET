@@ -47,6 +47,51 @@ public sealed class WhatsAppController(EcomDbContext db, WhatsAppInvoiceProcesso
         static string? S(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object &&
             e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
         if (S(body, "app") != o.AppName) return BadRequest();
+        if (S(body, "type") == "user-event")
+        {
+            if (!body.TryGetProperty("payload", out var userPayload) ||
+                S(userPayload, "type") is not ("opted-in" or "opted-out") ||
+                WhatsAppPhone.Normalize(S(userPayload, "phone"), o) is not { } phone ||
+                !body.TryGetProperty("timestamp", out var userTimestamp) || userTimestamp.ValueKind != JsonValueKind.Number ||
+                !userTimestamp.TryGetInt64(out var userMilliseconds) ||
+                userMilliseconds < 946684800000 || userMilliseconds > DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds())
+                return BadRequest();
+            var userType = S(userPayload, "type")!;
+            var userOccurred = DateTimeOffset.FromUnixTimeMilliseconds(userMilliseconds).UtcDateTime;
+            var eventKey = WhatsAppInvoiceProcessor.HashToken(JsonSerializer.Serialize(new { o.AppName, phone, userType, userMilliseconds }));
+            var createdBy = $"GupshupWebhook:{eventKey}";
+            if (!await db.WhatsAppConsentAudits.AnyAsync(a => a.CreatedBy == createdBy, ct))
+            {
+                db.WhatsAppConsentAudits.Add(new WhatsAppConsentAudit
+                {
+                    Phone = phone,
+                    Action = userType == "opted-in" ? WhatsAppConsentAction.Granted : WhatsAppConsentAction.Revoked,
+                    Source = "GupshupWebhook",
+                    OccurredAtUtc = userOccurred,
+                    ProviderSyncStatus = "ProviderConfirmed",
+                    CreatedBy = createdBy
+                });
+                if (userType == "opted-out")
+                {
+                    await db.Users.Where(u => u.WhatsAppConsentPhone == phone)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(u => u.WhatsAppNotificationsEnabled, false)
+                            .SetProperty(u => u.WhatsAppConsentPhone, (string?)null)
+                            .SetProperty(u => u.WhatsAppConsentAtUtc, (DateTime?)null)
+                            .SetProperty(u => u.WhatsAppConsentRevokedAtUtc, userOccurred), ct);
+                    await db.WhatsAppInvoices
+                        .Where(i => (i.Status == WhatsAppInvoiceStatus.Pending || i.Status == WhatsAppInvoiceStatus.Preparing) &&
+                            i.PaymentAttempt.Order.WhatsAppConsentPhone == phone)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(i => i.Status, WhatsAppInvoiceStatus.Skipped)
+                            .SetProperty(i => i.LastErrorCode, "CUSTOMER_CONSENT_REVOKED")
+                            .SetProperty(i => i.LeaseOwner, (string?)null)
+                            .SetProperty(i => i.LeaseUntilUtc, (DateTime?)null), ct);
+                }
+                await db.SaveChangesAsync(ct);
+            }
+            return Ok();
+        }
         if (S(body, "type") != "message-event") return Ok();
         if (!body.TryGetProperty("payload", out var payload)) return BadRequest();
         var type = S(payload, "type");
@@ -79,7 +124,7 @@ public sealed class WhatsAppController(EcomDbContext db, WhatsAppInvoiceProcesso
     public async Task<IActionResult> Status(CancellationToken ct) => Ok(await db.WhatsAppInvoices.AsNoTracking()
         .OrderByDescending(j => j.Id).Take(100).Select(j => new
         {
-            j.Id, j.PaymentAttemptId, j.InvoiceNumber, j.Status, j.AttemptCount, j.ProviderMessageId,
+            j.Id, j.PaymentAttemptId, OrderId = j.PaymentAttempt.OrderId, j.InvoiceNumber, j.Status, j.AttemptCount, j.ProviderMessageId,
             j.LastErrorCode, j.NextAttemptAtUtc, j.LastEventAtUtc
         }).ToListAsync(ct));
 

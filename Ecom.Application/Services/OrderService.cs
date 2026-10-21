@@ -14,6 +14,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Ecom.Application.Payments;
 using Ecom.Infrastructure.Data;
+using Ecom.Infrastructure.WhatsApp;
+using Microsoft.Extensions.Options;
 
 namespace Ecom.Application.Services
 {
@@ -24,7 +26,8 @@ namespace Ecom.Application.Services
        IProductService productService,
        ITransactionService transaction,
        IShippingService shippingService,
-       IConfiguration? configuration = null
+       IConfiguration? configuration = null,
+       IOptions<GupshupOptions>? gupshupOptions = null
    ) : IOrderService
     {
         private static readonly TimeSpan GuestAccessLifetime = TimeSpan.FromDays(30);
@@ -35,6 +38,7 @@ namespace Ecom.Application.Services
         private readonly IProductService _productService = productService;
         private readonly ITransactionService _transaction = transaction;
         private readonly IConfiguration? _configuration = configuration;
+        private readonly GupshupOptions _gupshupOptions = gupshupOptions?.Value ?? new GupshupOptions();
 
     // باقي الميثودات هنا
 
@@ -79,6 +83,17 @@ namespace Ecom.Application.Services
             if (!Enum.IsDefined(orderDto.PaymentMethod))
                 throw new ArgumentException("Invalid payment method.");
 
+            string? normalizedConsentPhone = null;
+            if (orderDto.WhatsAppInvoiceOptIn)
+            {
+                var normalizedShippingPhone = WhatsAppPhone.Normalize(orderDto.ShippingAddress?.Phone, _gupshupOptions);
+                normalizedConsentPhone = WhatsAppPhone.Normalize(
+                    orderDto.WhatsAppConsentPhone ?? orderDto.ShippingAddress?.Phone, _gupshupOptions);
+                if (normalizedShippingPhone == null || normalizedConsentPhone == null ||
+                    !string.Equals(normalizedShippingPhone, normalizedConsentPhone, StringComparison.Ordinal))
+                    throw new ArgumentException("WhatsApp consent requires a valid Kuwaiti phone matching the checkout recipient.");
+            }
+
             idempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
             if (idempotencyKey?.Length > 200)
                 throw new ArgumentException("Idempotency-Key cannot exceed 200 characters.");
@@ -114,12 +129,16 @@ namespace Ecom.Application.Services
                             await _unitOfWork.ShippingAddresses.AddAsync(shipping);
                             await _unitOfWork.SaveChangesAsync();
                         }
+                        if (orderDto.WhatsAppInvoiceOptIn &&
+                            WhatsAppPhone.Normalize(shipping.Phone, _gupshupOptions) != normalizedConsentPhone)
+                            throw new ArgumentException("WhatsApp consent requires a phone matching the saved shipping recipient.");
 
                         var order = _mapper.Map<Order>(orderDto);
                         order.AppUserId = userId;
                         order.ShippingAddressId = shipping.Id;
                         order.WhatsAppConsentAtUtc = orderDto.WhatsAppInvoiceOptIn ? DateTime.UtcNow : null;
-                        order.WhatsAppConsentPhone = orderDto.WhatsAppInvoiceOptIn ? shipping.Phone : null;
+                        order.WhatsAppConsentPhone = normalizedConsentPhone;
+                        order.WhatsAppConsentSource = orderDto.WhatsAppInvoiceOptIn ? "Checkout" : null;
                         order.OrderNumber = await GenerateOrderNumberAsync();
                         order.CheckoutIdempotencyKeyHash = keyHash;
                         order.CheckoutRequestHash = requestHash;
@@ -169,6 +188,19 @@ namespace Ecom.Application.Services
 
                         await _unitOfWork.Orders.AddAsync(order);
                         await _unitOfWork.SaveChangesAsync();
+                        if (orderDto.WhatsAppInvoiceOptIn)
+                        {
+                            ecomDb.WhatsAppConsentAudits.Add(new WhatsAppConsentAudit
+                            {
+                                AppUserId = userId,
+                                OrderId = order.Id,
+                                Phone = normalizedConsentPhone!,
+                                Action = WhatsAppConsentAction.Granted,
+                                Source = "Checkout",
+                                OccurredAtUtc = order.WhatsAppConsentAtUtc!.Value,
+                                ProviderSyncStatus = "NotRequired"
+                            });
+                        }
                         foreach (var item in orderItems)
                         {
                             item.OrderId = order.Id;
@@ -261,6 +293,67 @@ namespace Ecom.Application.Services
                 }
                 throw;
             }
+        }
+
+        public async Task<bool> RetryWhatsAppInvoiceAsync(int orderId, string phone, string? userId,
+            string? guestToken)
+        {
+            // Consent must come from the order owner (or the original guest capability),
+            // never from an administrator acting on the customer's behalf.
+            if (!await CanAccessOrderAsync(orderId, userId, guestToken, isAdmin: false))
+                return false;
+
+            var db = (EcomDbContext)_unitOfWork.Context;
+            var order = await db.Orders.IgnoreQueryFilters().Include(o => o.ShippingAddress)
+                .SingleOrDefaultAsync(o => o.Id == orderId && !o.IsDeleted);
+            if (order == null) return false;
+
+            var normalized = WhatsAppPhone.Normalize(phone, _gupshupOptions);
+            var shippingPhone = WhatsAppPhone.Normalize(order.ShippingAddress.Phone, _gupshupOptions);
+            if (normalized == null || shippingPhone == null || normalized != shippingPhone)
+                throw new ArgumentException("WhatsApp consent phone must match the order recipient.");
+
+            var invoice = await db.WhatsAppInvoices
+                .Include(i => i.PaymentAttempt)
+                .SingleOrDefaultAsync(i => i.PaymentAttempt.OrderId == orderId);
+            if (invoice == null) throw new InvalidOperationException("The paid order has no WhatsApp invoice job.");
+            if (invoice.ProviderMessageId != null || invoice.WhatsAppMessageId != null || invoice.DispatchStartedAtUtc != null)
+                throw new InvalidOperationException("An invoice that may already have been sent cannot be retried.");
+            if (invoice.Status != WhatsAppInvoiceStatus.Skipped ||
+                invoice.LastErrorCode != "NO_MATCHING_CUSTOMER_CONSENT")
+                throw new InvalidOperationException("Only an invoice skipped for missing consent can be retried here.");
+
+            var now = DateTime.UtcNow;
+            await using var tx = await db.Database.BeginTransactionAsync();
+            var claimed = await db.WhatsAppInvoices.Where(i => i.Id == invoice.Id &&
+                    i.Status == WhatsAppInvoiceStatus.Skipped &&
+                    i.LastErrorCode == "NO_MATCHING_CUSTOMER_CONSENT" &&
+                    i.ProviderMessageId == null && i.WhatsAppMessageId == null && i.DispatchStartedAtUtc == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(i => i.Status, WhatsAppInvoiceStatus.Pending)
+                    .SetProperty(i => i.LastErrorCode, (string?)null)
+                    .SetProperty(i => i.AttemptCount, 0)
+                    .SetProperty(i => i.NextAttemptAtUtc, now)
+                    .SetProperty(i => i.LeaseOwner, (string?)null)
+                    .SetProperty(i => i.LeaseUntilUtc, (DateTime?)null));
+            if (claimed != 1)
+                throw new InvalidOperationException("The invoice was already retried or is no longer safe to send.");
+            order.WhatsAppConsentAtUtc = now;
+            order.WhatsAppConsentPhone = normalized;
+            order.WhatsAppConsentSource = "HistoricalInvoiceRetry";
+            db.WhatsAppConsentAudits.Add(new WhatsAppConsentAudit
+            {
+                AppUserId = order.AppUserId,
+                OrderId = order.Id,
+                Phone = normalized,
+                Action = WhatsAppConsentAction.Granted,
+                Source = "HistoricalInvoiceRetry",
+                OccurredAtUtc = now,
+                ProviderSyncStatus = "NotRequired"
+            });
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return true;
         }
 
         public async Task<OrderDto> UpdateOrderStatusAsync(OrderUpdateStatusDto orderUpdateDto)
@@ -671,7 +764,8 @@ namespace Ecom.Application.Services
                 Shipping = dto.ShippingAddress
             };
             var canonicalJson = JsonSerializer.Serialize(canonical);
-            if (dto.WhatsAppInvoiceOptIn) canonicalJson += "|whatsapp-invoice-consent:true";
+            if (dto.WhatsAppInvoiceOptIn)
+                canonicalJson += $"|whatsapp-invoice-consent:true|whatsapp-phone:{dto.WhatsAppConsentPhone ?? dto.ShippingAddress?.Phone}";
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalJson)));
         }
 

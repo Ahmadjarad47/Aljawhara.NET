@@ -14,5 +14,9 @@ namespace Ecom.Domain.Entity
         public List<Transaction> Transactions { get; set; } = new List<Transaction>();
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiresAtUtc { get; set; }
+        public bool WhatsAppNotificationsEnabled { get; set; }
+        public string? WhatsAppConsentPhone { get; set; }
+        public DateTime? WhatsAppConsentAtUtc { get; set; }
+        public DateTime? WhatsAppConsentRevokedAtUtc { get; set; }
     }
 }

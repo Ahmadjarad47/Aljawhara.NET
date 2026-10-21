@@ -13,6 +13,7 @@ namespace Ecom.Application.Services.Interfaces
         Task<IEnumerable<OrderSummaryDto>> GetRecentOrdersAsync(int count = 10);
         
         Task<TransactionAdvancedDto> CreateOrderAsync(OrderCreateDto orderDto, string? userId = null, string? idempotencyKey = null);
+        Task<bool> RetryWhatsAppInvoiceAsync(int orderId, string phone, string? userId, string? guestToken);
         Task<OrderDto> UpdateOrderStatusAsync(OrderUpdateStatusDto orderUpdateDto);
         Task<bool> CancelOrderAsync(int orderId);
         

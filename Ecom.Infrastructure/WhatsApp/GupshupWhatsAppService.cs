@@ -30,6 +30,39 @@ public sealed class GupshupWhatsAppService(HttpClient client, IOptions<GupshupOp
             session ? "https://api.gupshup.io/wa/api/v1/msg" : "https://api.gupshup.io/wa/api/v1/template/msg");
         request.Headers.Add("apikey", o.ApiKey);
         request.Content = new FormUrlEncodedContent(form);
+        return await SendAsync(request, cancellationToken);
+    }
+
+    public async Task<WhatsAppSendResult> SendPhoneVerificationCodeAsync(string destination, string code,
+        CancellationToken cancellationToken)
+    {
+        var o = options.Value;
+        if (!o.Enabled || !o.IsValid() || WhatsAppPhone.Normalize(destination, o) != destination ||
+            code.Length != 6 || !code.All(char.IsAsciiDigit))
+            return new(WhatsAppSendOutcome.Rejected, ErrorCode: "INVALID_CONFIGURATION_OR_PHONE");
+        if (o.Environment == "Sandbox" && !o.SandboxAllowedDestinations.Contains(destination, StringComparer.Ordinal))
+            return new(WhatsAppSendOutcome.Rejected, ErrorCode: "SANDBOX_DESTINATION_NOT_ALLOWED");
+
+        var session = o.Environment == "Sandbox" && o.SandboxSessionMessages;
+        if (!session && string.IsNullOrWhiteSpace(o.PhoneVerificationTemplateId))
+            return new(WhatsAppSendOutcome.Rejected, ErrorCode: "PHONE_VERIFICATION_TEMPLATE_NOT_CONFIGURED");
+        var form = new Dictionary<string, string>
+        {
+            ["channel"] = "whatsapp", ["source"] = o.Source, ["destination"] = destination, ["src.name"] = o.AppName
+        };
+        if (session)
+            form["message"] = JsonSerializer.Serialize(new { type = "text", text = $"رمز التحقق من رقم واتساب للجوهرة بلس هو: {code}" });
+        else
+            form["template"] = JsonSerializer.Serialize(new { id = o.PhoneVerificationTemplateId, @params = new[] { code } });
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            session ? "https://api.gupshup.io/wa/api/v1/msg" : "https://api.gupshup.io/wa/api/v1/template/msg");
+        request.Headers.Add("apikey", o.ApiKey);
+        request.Content = new FormUrlEncodedContent(form);
+        return await SendAsync(request, cancellationToken);
+    }
+
+    private async Task<WhatsAppSendResult> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
         try
         {
             using var response = await client.SendAsync(request, cancellationToken);
