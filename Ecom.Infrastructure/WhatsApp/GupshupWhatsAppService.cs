@@ -13,14 +13,14 @@ public sealed class GupshupWhatsAppService(HttpClient client, IOptions<GupshupOp
         var o = options.Value;
         if (!o.Enabled || !o.IsValid() || WhatsAppPhone.Normalize(destination, o) != destination)
             return new(WhatsAppSendOutcome.Rejected, ErrorCode: "INVALID_CONFIGURATION_OR_PHONE");
-        if (o.Environment == "Sandbox" && !o.SandboxAllowedDestinations.Contains(destination, StringComparer.Ordinal))
+        if (o.Environment == "Sandbox" && !WhatsAppPhone.IsSandboxAllowed(destination, o))
             return new(WhatsAppSendOutcome.Rejected, ErrorCode: "SANDBOX_DESTINATION_NOT_ALLOWED");
         var session = o.Environment == "Sandbox" && o.SandboxSessionMessages;
         var caption = $"مرحباً، تم استلام دفعتك بنجاح للطلب رقم {orderNumber} من الجوهرة بلس. مرفق فاتورتك بصيغة PDF. شكراً لتسوقك معنا.";
         var filename = "invoice-" + new string(orderNumber.Where(c => char.IsAsciiLetterOrDigit(c) || c == '-').Take(60).ToArray()) + ".pdf";
         var form = new Dictionary<string, string>
         {
-            ["channel"] = "whatsapp", ["source"] = o.Source, ["destination"] = destination, ["src.name"] = o.AppName,
+            ["channel"] = "whatsapp", ["source"] = o.Source, ["destination"] = WhatsAppPhone.ToProvider(destination, o)!, ["src.name"] = o.AppName,
             ["message"] = session
                 ? JsonSerializer.Serialize(new { type = "file", caption, url = mediaUrl, filename })
                 : JsonSerializer.Serialize(new { type = "document", document = new { link = mediaUrl, filename } })
@@ -40,7 +40,7 @@ public sealed class GupshupWhatsAppService(HttpClient client, IOptions<GupshupOp
         if (!o.Enabled || !o.IsValid() || WhatsAppPhone.Normalize(destination, o) != destination ||
             code.Length != 6 || !code.All(char.IsAsciiDigit))
             return new(WhatsAppSendOutcome.Rejected, ErrorCode: "INVALID_CONFIGURATION_OR_PHONE");
-        if (o.Environment == "Sandbox" && !o.SandboxAllowedDestinations.Contains(destination, StringComparer.Ordinal))
+        if (o.Environment == "Sandbox" && !WhatsAppPhone.IsSandboxAllowed(destination, o))
             return new(WhatsAppSendOutcome.Rejected, ErrorCode: "SANDBOX_DESTINATION_NOT_ALLOWED");
 
         var session = o.Environment == "Sandbox" && o.SandboxSessionMessages;
@@ -48,7 +48,7 @@ public sealed class GupshupWhatsAppService(HttpClient client, IOptions<GupshupOp
             return new(WhatsAppSendOutcome.Rejected, ErrorCode: "PHONE_VERIFICATION_TEMPLATE_NOT_CONFIGURED");
         var form = new Dictionary<string, string>
         {
-            ["channel"] = "whatsapp", ["source"] = o.Source, ["destination"] = destination, ["src.name"] = o.AppName
+            ["channel"] = "whatsapp", ["source"] = o.Source, ["destination"] = WhatsAppPhone.ToProvider(destination, o)!, ["src.name"] = o.AppName
         };
         if (session)
             form["message"] = JsonSerializer.Serialize(new { type = "text", text = $"رمز التحقق من رقم واتساب للجوهرة بلس هو: {code}" });

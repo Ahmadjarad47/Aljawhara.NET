@@ -3,6 +3,8 @@ using Ecom.Application.DTOs.Auth;
 using Ecom.Application.DTOs.Order;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Infrastructure.UnitOfWork;
+using Ecom.Infrastructure.WhatsApp;
+using Microsoft.Extensions.Options;
 
 namespace Ecom.Application.Services
 {
@@ -10,11 +12,13 @@ namespace Ecom.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly GupshupOptions _phoneOptions;
 
-        public AddressService(IUnitOfWork unitOfWork, IMapper mapper)
+        public AddressService(IUnitOfWork unitOfWork, IMapper mapper, IOptions<GupshupOptions> phoneOptions)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _phoneOptions = phoneOptions.Value;
         }
 
         // User address management methods
@@ -39,6 +43,9 @@ namespace Ecom.Application.Services
 
         public async Task<UserAddressDto> CreateAddressAsync(CreateAddressDto addressDto, string userId)
         {
+            addressDto.PhoneNumber = WhatsAppPhone.Normalize(addressDto.PhoneNumber, _phoneOptions)
+                ?? throw new ArgumentException("A valid phone is required; use + and the calling code for international numbers.");
+
             // If this is set as default, unset all other default addresses
             if (addressDto.IsDefault)
             {
@@ -59,6 +66,9 @@ namespace Ecom.Application.Services
 
         public async Task<UserAddressDto> UpdateAddressAsync(UpdateAddressDto addressDto, string userId)
         {
+            addressDto.PhoneNumber = WhatsAppPhone.Normalize(addressDto.PhoneNumber, _phoneOptions)
+                ?? throw new ArgumentException("A valid phone is required; use + and the calling code for international numbers.");
+
             var existingAddress = await _unitOfWork.ShippingAddresses.GetByIdAsync(addressDto.Id);
             
             if (existingAddress == null || existingAddress.AppUserId != userId || existingAddress.IsDeleted)
@@ -165,6 +175,9 @@ namespace Ecom.Application.Services
 
         public async Task<ShippingAddressDto> CreateAddressLegacyAsync(ShippingAddressCreateDto addressDto, string userId)
         {
+            addressDto.Phone = WhatsAppPhone.Normalize(addressDto.Phone, _phoneOptions)
+                ?? throw new ArgumentException("A valid phone is required; use + and the calling code for international numbers.");
+
             var address = _mapper.Map<Domain.Entity.ShippingAddress>(addressDto);
             address.AppUserId = userId;
             address.CreatedAt = DateTime.UtcNow;
@@ -178,6 +191,9 @@ namespace Ecom.Application.Services
 
         public async Task<ShippingAddressDto> UpdateAddressLegacyAsync(ShippingAddressUpdateDto addressDto, string userId)
         {
+            addressDto.Phone = WhatsAppPhone.Normalize(addressDto.Phone, _phoneOptions)
+                ?? throw new ArgumentException("A valid phone is required; use + and the calling code for international numbers.");
+
             var existingAddress = await _unitOfWork.ShippingAddresses.GetByIdAsync(addressDto.Id);
             
             if (existingAddress == null || existingAddress.AppUserId != userId)

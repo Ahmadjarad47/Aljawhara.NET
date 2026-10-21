@@ -84,7 +84,7 @@ public sealed class WhatsAppInvoiceProcessor(EcomDbContext db, IInvoicePdfRender
         if (latestConsent?.Action == WhatsAppConsentAction.Revoked &&
             latestConsent.OccurredAtUtc >= order.WhatsAppConsentAtUtc.Value)
         { await SkipAsync(id, worker, "CUSTOMER_CONSENT_REVOKED", ct); return; }
-        if (o.Environment == "Sandbox" && !o.SandboxAllowedDestinations.Contains(destination, StringComparer.Ordinal))
+        if (o.Environment == "Sandbox" && !WhatsAppPhone.IsSandboxAllowed(destination, o))
         { await SkipAsync(id, worker, "SANDBOX_DESTINATION_NOT_ALLOWED", ct); return; }
         if (job.AttemptCount > o.MaxAttempts) { await SkipAsync(id, worker, "RETRY_LIMIT_EXCEEDED", ct); return; }
         var pdf = job.Pdf ?? await renderer.RenderAsync(new InvoiceData(job.InvoiceNumber, order.OrderNumber,

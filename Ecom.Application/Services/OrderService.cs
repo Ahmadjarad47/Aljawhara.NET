@@ -83,6 +83,9 @@ namespace Ecom.Application.Services
             if (!Enum.IsDefined(orderDto.PaymentMethod))
                 throw new ArgumentException("Invalid payment method.");
 
+            var orderPhone = WhatsAppPhone.Normalize(orderDto.ShippingAddress?.Phone, _gupshupOptions)
+                ?? throw new ArgumentException("A valid shipping phone is required. Select a country or use + and the calling code.");
+            orderDto.ShippingAddress!.Phone = orderPhone;
             string? normalizedConsentPhone = null;
             if (orderDto.WhatsAppInvoiceOptIn)
             {
@@ -91,7 +94,7 @@ namespace Ecom.Application.Services
                     orderDto.WhatsAppConsentPhone ?? orderDto.ShippingAddress?.Phone, _gupshupOptions);
                 if (normalizedShippingPhone == null || normalizedConsentPhone == null ||
                     !string.Equals(normalizedShippingPhone, normalizedConsentPhone, StringComparison.Ordinal))
-                    throw new ArgumentException("WhatsApp consent requires a valid Kuwaiti phone matching the checkout recipient.");
+                    throw new ArgumentException("WhatsApp consent requires a valid phone matching the checkout recipient.");
             }
 
             idempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
@@ -125,6 +128,7 @@ namespace Ecom.Application.Services
                         if (shipping == null)
                         {
                             shipping = _mapper.Map<ShippingAddress>(orderDto.ShippingAddress);
+                            shipping.Phone = orderPhone;
                             shipping.AppUserId = userId;
                             await _unitOfWork.ShippingAddresses.AddAsync(shipping);
                             await _unitOfWork.SaveChangesAsync();

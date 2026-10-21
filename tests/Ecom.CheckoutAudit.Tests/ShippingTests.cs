@@ -242,7 +242,7 @@ public sealed class ShippingTests : IAsyncLifetime
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/orders")
         {
             Content = JsonContent.Create(new { items = new[] { new { productId, quantity = 1 } },
-                shippingAddress = new { fullName = "Test", phone = "12345678", street = "Street", city, state }, paymentMethod = (int)PaymentMethod.Cod })
+                shippingAddress = new { fullName = "Test", phone = "50000000", street = "Street", city, state }, paymentMethod = (int)PaymentMethod.Cod })
         };
         request.Headers.Add("Idempotency-Key", key);
         var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);

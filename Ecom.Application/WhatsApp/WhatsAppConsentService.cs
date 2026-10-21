@@ -31,13 +31,29 @@ public sealed class WhatsAppConsentService(
     {
         var user = await users.FindByIdAsync(userId) ?? throw new ArgumentException("User not found.");
         var normalized = WhatsAppPhone.Normalize(phone, _options)
-            ?? throw new ArgumentException("A valid Kuwaiti WhatsApp phone is required.");
+            ?? throw new ArgumentException("A valid WhatsApp phone is required; use + and the calling code for international numbers.");
 
         var now = DateTime.UtcNow;
         var recent = await db.WhatsAppPhoneVerifications.AsNoTracking()
             .Where(v => v.AppUserId == userId && v.CreatedAt > now.AddMinutes(-1))
             .AnyAsync(ct);
         if (recent) throw new InvalidOperationException("Please wait before requesting another verification code.");
+
+        if (user.WhatsAppNotificationsEnabled && user.WhatsAppConsentPhone is { } previous &&
+            WhatsAppPhone.Normalize(previous, _options) != normalized)
+        {
+            AddAudit(user.Id, null, WhatsAppPhone.Normalize(previous, _options) ?? previous,
+                WhatsAppConsentAction.Revoked, "PhoneChanged", now);
+            user.WhatsAppNotificationsEnabled = false;
+            user.WhatsAppConsentPhone = null;
+            user.WhatsAppConsentAtUtc = null;
+            user.WhatsAppConsentRevokedAtUtc = now;
+            await StopPendingSendsAsync(previous, now, ct);
+            var changed = await users.UpdateAsync(user);
+            if (!changed.Succeeded) throw new InvalidOperationException("Unable to revoke previous phone consent.");
+            await db.SaveChangesAsync(ct);
+        }
+
 
         await db.WhatsAppPhoneVerifications
             .Where(v => v.AppUserId == userId && v.ConsumedAtUtc == null && v.IsActive)
@@ -75,7 +91,7 @@ public sealed class WhatsAppConsentService(
     {
         var user = await users.FindByIdAsync(userId) ?? throw new ArgumentException("User not found.");
         var normalized = WhatsAppPhone.Normalize(phone, _options)
-            ?? throw new ArgumentException("A valid Kuwaiti WhatsApp phone is required.");
+            ?? throw new ArgumentException("A valid WhatsApp phone is required; use + and the calling code for international numbers.");
         var now = DateTime.UtcNow;
         var challenge = await db.WhatsAppPhoneVerifications
             .Where(v => v.AppUserId == userId && v.Phone == normalized && v.ConsumedAtUtc == null && v.IsActive)
@@ -123,7 +139,7 @@ public sealed class WhatsAppConsentService(
         if (enabled)
         {
             var normalized = WhatsAppPhone.Normalize(phone ?? user.PhoneNumber, _options)
-                ?? throw new ArgumentException("A valid Kuwaiti WhatsApp phone is required.");
+                ?? throw new ArgumentException("A valid WhatsApp phone is required; use + and the calling code for international numbers.");
             var accountPhone = WhatsAppPhone.Normalize(user.PhoneNumber, _options);
             if (!user.PhoneNumberConfirmed || accountPhone != normalized)
                 throw new InvalidOperationException("Verify ownership of this phone before enabling WhatsApp notifications.");

@@ -103,6 +103,8 @@ public sealed class WhatsAppController(EcomDbContext db, WhatsAppInvoiceProcesso
             !body.TryGetProperty("timestamp", out var timestamp) || timestamp.ValueKind != JsonValueKind.Number ||
             !timestamp.TryGetInt64(out var milliseconds) ||
             milliseconds < 946684800000 || milliseconds > DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds()) return BadRequest();
+        destination = WhatsAppPhone.Normalize("+" + destination, o);
+        if (destination == null) return BadRequest();
         var occurred = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).UtcDateTime;
         var whatsappId = S(payload, "gsId") != null ? S(payload, "id") : null;
         if (whatsappId?.Length > 200) return BadRequest();

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using PhoneNumbers;
 
 namespace Ecom.Infrastructure.WhatsApp;
 
@@ -12,6 +13,7 @@ public sealed class GupshupOptions
     public string PhoneVerificationTemplateId { get; set; } = "";
     public string Environment { get; set; } = "Sandbox";
     public string CountryCode { get; set; } = "965";
+    // Legacy configuration retained for compatibility; validation uses international metadata.
     public string NationalNumberPattern { get; set; } = "[569][0-9]{7}";
     public string PublicBaseUrl { get; set; } = "";
     public string WebhookSecret { get; set; } = "";
@@ -38,29 +40,50 @@ public sealed class GupshupOptions
         if (Environment == "Production" && (Source == "917834811114" || string.IsNullOrWhiteSpace(TemplateId))) return false;
         if (Environment == "Sandbox" && (SandboxAllowedDestinations.Length == 0 ||
             (!SandboxSessionMessages && string.IsNullOrWhiteSpace(TemplateId)))) return false;
-        try { _ = new Regex($"\\A(?:{NationalNumberPattern})\\z", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)); }
-        catch (ArgumentException) { return false; }
         return true;
     }
 }
 
 public static class WhatsAppPhone
 {
-    public static string? Normalize(string? value, GupshupOptions options)
+    private static readonly PhoneNumberUtil Phones = PhoneNumberUtil.GetInstance();
+
+    // CountryCode is only the default for national input. Explicit + / 00 always wins.
+    public static string? Normalize(string? value, GupshupOptions options, string? country = null)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length > 40) return null;
         var text = value.Trim();
         if (text.Any(c => !(char.IsAsciiDigit(c) || c is '+' or ' ' or '-' or '(' or ')'))) return null;
         text = text.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "");
-        var international = text.StartsWith('+') || text.StartsWith("00", StringComparison.Ordinal);
-        if (text.StartsWith('+')) text = text[1..];
-        else if (text.StartsWith("00", StringComparison.Ordinal)) text = text[2..];
-        if (text.Length == 0 || !text.All(char.IsAsciiDigit)) return null;
-        bool ValidNational(string national) => Regex.IsMatch(national, $"\\A(?:{options.NationalNumberPattern})\\z",
-            RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
-        string? result = null;
-        if (!international && ValidNational(text)) result = options.CountryCode + text;
-        else if (text.StartsWith(options.CountryCode, StringComparison.Ordinal) && ValidNational(text[options.CountryCode.Length..])) result = text;
-        return result is { Length: >= 8 and <= 15 } ? result : null;
+        if (text.StartsWith("00", StringComparison.Ordinal)) text = "+" + text[2..];
+        if (!Regex.IsMatch(text, @"^\+?[0-9]+$")) return null;
+        var region = country?.ToUpperInvariant();
+        if (region == null)
+        {
+            if (!int.TryParse(options.CountryCode, out var code)) return null;
+            region = Phones.GetRegionCodeForCountryCode(code);
+        }
+        if (!Phones.GetSupportedRegions().Contains(region)) return null;
+        try
+        {
+            var callingCode = Phones.GetCountryCodeForRegion(region).ToString();
+            if (!text.StartsWith('+') && text.StartsWith(callingCode, StringComparison.Ordinal))
+            {
+                var explicitPhone = Phones.Parse("+" + text, null);
+                if (Phones.IsValidNumber(explicitPhone) && explicitPhone.CountryCode.ToString() == callingCode)
+                    return Phones.Format(explicitPhone, PhoneNumberFormat.E164);
+            }
+            var phone = Phones.Parse(text, region);
+            if (!Phones.IsValidNumber(phone) || phone.HasExtension ||
+                (!text.StartsWith('+') && !Phones.IsValidNumberForRegion(phone, region))) return null;
+            return Phones.Format(phone, PhoneNumberFormat.E164);
+        }
+        catch (NumberParseException) { return null; }
     }
+
+    public static string? ToProvider(string? value, GupshupOptions options) => Normalize(value, options)?[1..];
+
+    public static bool IsSandboxAllowed(string destination, GupshupOptions options) =>
+        options.SandboxAllowedDestinations.Any(allowed =>
+            Normalize(allowed.StartsWith('+') || allowed.StartsWith("00") ? allowed : "+" + allowed, options) == destination);
 }

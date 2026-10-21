@@ -93,8 +93,8 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("WhatsAppConsentPhone")
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<DateTime?>("WhatsAppConsentRevokedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1744,8 +1744,8 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<string>("ProviderSyncError")
                         .HasMaxLength(200)
@@ -1800,8 +1800,8 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
 
                     b.Property<string>("Destination")
                         .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<string>("EventKey")
                         .IsRequired()
@@ -1870,8 +1870,8 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("text");
 
                     b.Property<string>("Destination")
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<DateTime?>("DispatchStartedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -2004,8 +2004,8 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<string>("ProviderMessageId")
                         .HasMaxLength(200)

@@ -193,7 +193,7 @@ namespace Ecom.Infrastructure.Data
                 entity.HasIndex(e => new { e.Status, e.NextAttemptAtUtc });
                 entity.HasOne(e => e.PaymentAttempt).WithMany().HasForeignKey(e => e.PaymentAttemptId).OnDelete(DeleteBehavior.Restrict);
                 entity.Property(e => e.InvoiceNumber).HasMaxLength(100);
-                entity.Property(e => e.Destination).HasMaxLength(15);
+                entity.Property(e => e.Destination).HasMaxLength(16);
                 entity.Property(e => e.AppName).HasMaxLength(100);
                 entity.Property(e => e.ProviderMessageId).HasMaxLength(200);
                 entity.Property(e => e.WhatsAppMessageId).HasMaxLength(200);
@@ -210,14 +210,14 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.EventKey).HasMaxLength(64);
                 entity.Property(e => e.AppName).HasMaxLength(100);
                 entity.Property(e => e.ProviderMessageId).HasMaxLength(200);
-                entity.Property(e => e.Destination).HasMaxLength(15);
+                entity.Property(e => e.Destination).HasMaxLength(16);
                 entity.Property(e => e.WhatsAppMessageId).HasMaxLength(200);
                 entity.Property(e => e.Type).HasMaxLength(20);
             });
             modelBuilder.Entity<WhatsAppConsentAudit>(entity =>
             {
                 entity.HasIndex(e => new { e.Phone, e.OccurredAtUtc });
-                entity.Property(e => e.Phone).HasMaxLength(15);
+                entity.Property(e => e.Phone).HasMaxLength(16);
                 entity.Property(e => e.Source).HasMaxLength(50);
                 entity.Property(e => e.ProviderSyncStatus).HasMaxLength(30);
                 entity.Property(e => e.ProviderSyncError).HasMaxLength(200);
@@ -227,7 +227,7 @@ namespace Ecom.Infrastructure.Data
             modelBuilder.Entity<WhatsAppPhoneVerification>(entity =>
             {
                 entity.HasIndex(e => new { e.AppUserId, e.Phone, e.ExpiresAtUtc });
-                entity.Property(e => e.Phone).HasMaxLength(15);
+                entity.Property(e => e.Phone).HasMaxLength(16);
                 entity.Property(e => e.CodeHash).HasMaxLength(32);
                 entity.Property(e => e.CodeSalt).HasMaxLength(16);
                 entity.Property(e => e.ProviderMessageId).HasMaxLength(200);
@@ -265,7 +265,7 @@ namespace Ecom.Infrastructure.Data
 
             modelBuilder.Entity<AppUsers>(entity =>
             {
-                entity.Property(e => e.WhatsAppConsentPhone).HasMaxLength(15);
+                entity.Property(e => e.WhatsAppConsentPhone).HasMaxLength(16);
             });
 
             // Configure OrderItem

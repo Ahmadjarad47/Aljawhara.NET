@@ -173,7 +173,7 @@ public sealed class HttpSecurityTests : IAsyncLifetime
         var payload = new
         {
             items = new[] { new { productId = _productId, quantity = 1 } },
-            shippingAddress = new { fullName = "Idempotent Guest", phone = "33333333", street = "Idempotent Street" },
+            shippingAddress = new { fullName = "Idempotent Guest", phone = "50000000", street = "Idempotent Street" },
             paymentMethod = (int)PaymentMethod.Cod
         };
         async Task<HttpResponseMessage> SendAsync(HttpClient client)
@@ -224,7 +224,7 @@ public sealed class HttpSecurityTests : IAsyncLifetime
     {
         using var create = new HttpRequestMessage(HttpMethod.Post, "/api/orders")
         {
-            Content = JsonContent.Create(new { items = new[] { new { productId = _productId, quantity = 1 } }, shippingAddress = new { fullName = "Retry Guest", phone = "88888888", street = "Street" }, paymentMethod = (int)PaymentMethod.Bank })
+            Content = JsonContent.Create(new { items = new[] { new { productId = _productId, quantity = 1 } }, shippingAddress = new { fullName = "Retry Guest", phone = "50000000", street = "Street" }, paymentMethod = (int)PaymentMethod.Bank })
         };
         create.Headers.Add("Idempotency-Key", "retry-checkout-key-with-high-entropy-005");
         var created = await _client.SendAsync(create, TestContext.Current.CancellationToken);
@@ -280,7 +280,7 @@ public sealed class HttpSecurityTests : IAsyncLifetime
     {
         using var create = new HttpRequestMessage(HttpMethod.Post, "/api/orders")
         {
-            Content = JsonContent.Create(new { items = new[] { new { productId = _productId, quantity = 1 } }, shippingAddress = new { fullName = "COD Guest", phone = "77777777", street = "Street" }, paymentMethod = (int)PaymentMethod.Cod })
+            Content = JsonContent.Create(new { items = new[] { new { productId = _productId, quantity = 1 } }, shippingAddress = new { fullName = "COD Guest", phone = "50000000", street = "Street" }, paymentMethod = (int)PaymentMethod.Cod })
         };
         create.Headers.Add("Idempotency-Key", "cod-cancel-key-with-high-entropy-004");
         var created = await _client.SendAsync(create, TestContext.Current.CancellationToken);
@@ -312,7 +312,7 @@ public sealed class HttpSecurityTests : IAsyncLifetime
                 Content = JsonContent.Create(new
                 {
                     items = new[] { new { productId = _productId, quantity } },
-                    shippingAddress = new { fullName = "Conflict Guest", phone = "44444444", street = "Conflict Street" },
+                    shippingAddress = new { fullName = "Conflict Guest", phone = "50000000", street = "Conflict Street" },
                     paymentMethod = (int)PaymentMethod.Cod
                 })
             };

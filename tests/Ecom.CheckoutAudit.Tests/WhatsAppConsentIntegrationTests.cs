@@ -66,12 +66,12 @@ public sealed class WhatsAppConsentIntegrationTests : IAsyncLifetime
         var orders = await db.Orders.AsNoTracking().OrderBy(o => o.Id).ToListAsync(Ct);
         var consentOrder = orders.Single(o => o.WhatsAppConsentAtUtc != null);
         var noConsentOrder = orders.Single(o => o.WhatsAppConsentAtUtc == null);
-        Assert.Equal("96550000000", consentOrder.WhatsAppConsentPhone);
+        Assert.Equal("+96550000000", consentOrder.WhatsAppConsentPhone);
         Assert.Equal("Checkout", consentOrder.WhatsAppConsentSource);
         Assert.Null(noConsentOrder.WhatsAppConsentPhone);
         var audit = await db.WhatsAppConsentAudits.SingleAsync(a => a.OrderId == consentOrder.Id, Ct);
         Assert.Equal(WhatsAppConsentAction.Granted, audit.Action);
-        Assert.Equal("96550000000", audit.Phone);
+        Assert.Equal("+96550000000", audit.Phone);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class WhatsAppConsentIntegrationTests : IAsyncLifetime
             Assert.Equal(HttpStatusCode.Accepted, (await _client.SendAsync(request, Ct)).StatusCode);
 
         var sender = _factory.Services.GetRequiredService<TestGupshupSender>();
-        Assert.Equal("96550000000", sender.LastDestination);
+        Assert.Equal("+96550000000", sender.LastDestination);
         Assert.Matches("^[0-9]{6}$", sender.LastVerificationCode!);
 
         using (var request = Auth(HttpMethod.Post, "/api/account/whatsapp/phone-verification/confirm",
@@ -153,6 +153,60 @@ public sealed class WhatsAppConsentIntegrationTests : IAsyncLifetime
         Assert.Equal(WhatsAppInvoiceStatus.Pending, invoice.Status);
         Assert.Null(invoice.ProviderMessageId);
         Assert.Equal(1, await check.WhatsAppConsentAudits.CountAsync(a => a.OrderId == orderId, Ct));
+    }
+
+    [Theory]
+    [InlineData("+4915112345678", "004915112345678")]
+    [InlineData("004915112345678", "+4915112345678")]
+    public async Task German_checkout_persists_E164_and_rejects_mismatched_consent(string shipping, string consent)
+    {
+        using var accepted = await CheckoutAsync("german-consent", true, consent, shipping);
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+        using var rejected = await CheckoutAsync("wrong-recipient", true, "+96550000000", shipping);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        await using var db = Db();
+        var order = await db.Orders.AsNoTracking().Include(o => o.ShippingAddress).SingleAsync(Ct);
+        Assert.Equal("+4915112345678", order.WhatsAppConsentPhone);
+        Assert.Equal("+4915112345678", order.ShippingAddress.Phone);
+        Assert.Equal("Checkout", order.WhatsAppConsentSource);
+        Assert.NotNull(order.WhatsAppConsentAtUtc);
+    }
+
+    [Fact]
+    public async Task German_account_requires_verification_and_changing_number_revokes_previous_consent()
+    {
+        using (var request = Auth(HttpMethod.Put, "/api/account/whatsapp/preferences",
+            new { enabled = true, phoneNumber = "+4915112345678" }))
+            Assert.Equal(HttpStatusCode.Conflict, (await _client.SendAsync(request, Ct)).StatusCode);
+        using (var request = Auth(HttpMethod.Post, "/api/account/whatsapp/phone-verification",
+            new { phoneNumber = "004915112345678" }))
+            Assert.Equal(HttpStatusCode.Accepted, (await _client.SendAsync(request, Ct)).StatusCode);
+        var sender = _factory.Services.GetRequiredService<TestGupshupSender>();
+        Assert.Equal("+4915112345678", sender.LastDestination);
+        using (var request = Auth(HttpMethod.Post, "/api/account/whatsapp/phone-verification/confirm",
+            new { phoneNumber = "+4915112345678", code = sender.LastVerificationCode }))
+            Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(request, Ct)).StatusCode);
+        using (var request = Auth(HttpMethod.Put, "/api/account/whatsapp/preferences",
+            new { enabled = true, phoneNumber = "004915112345678" }))
+            Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(request, Ct)).StatusCode);
+        // Advance only this test's challenge timestamps past the server rate-limit window.
+        await using (var db = Db())
+            await db.WhatsAppPhoneVerifications.ExecuteUpdateAsync(set => set.SetProperty(v => v.CreatedAt, DateTime.UtcNow.AddMinutes(-2)), Ct);
+        using (var request = Auth(HttpMethod.Post, "/api/account/whatsapp/phone-verification",
+            new { phoneNumber = "+4915112345679" }))
+            Assert.Equal(HttpStatusCode.Accepted, (await _client.SendAsync(request, Ct)).StatusCode);
+        using (var get = new HttpRequestMessage(HttpMethod.Get, "/api/account/whatsapp/preferences"))
+        {
+            get.Headers.Add("X-Test-User", UserId);
+            var response = await _client.SendAsync(get, Ct);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+            Assert.False(json.GetProperty("enabled").GetBoolean());
+        }
+        using (var request = Auth(HttpMethod.Put, "/api/account/whatsapp/preferences",
+            new { enabled = true, phoneNumber = "+4915112345679" }))
+            Assert.Equal(HttpStatusCode.Conflict, (await _client.SendAsync(request, Ct)).StatusCode);
+        await using var check = Db();
+        Assert.True(await check.WhatsAppConsentAudits.AnyAsync(a => a.Phone == "+4915112345678" && a.Action == WhatsAppConsentAction.Revoked, Ct));
     }
 
     private async Task<HttpResponseMessage> CheckoutAsync(string key, bool optIn, string? consentPhone, string shippingPhone)

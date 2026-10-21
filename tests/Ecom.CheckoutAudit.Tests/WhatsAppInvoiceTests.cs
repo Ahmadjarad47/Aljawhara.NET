@@ -30,10 +30,10 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
     };
 
     [Theory]
-    [InlineData("50000000", "96550000000")]
-    [InlineData("+965 5000-0000", "96550000000")]
-    [InlineData("0096550000000", "96550000000")]
-    [InlineData("96550000000", "96550000000")]
+    [InlineData("50000000", "+96550000000")]
+    [InlineData("+965 5000-0000", "+96550000000")]
+    [InlineData("0096550000000", "+96550000000")]
+    [InlineData("96550000000", "+96550000000")]
     [InlineData("+4950000000", null)]
     [InlineData("050000000", null)]
     [InlineData("5000000", null)]
@@ -42,13 +42,23 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
     public void Country_prefix_normalization_and_validation(string input, string? expected) =>
         Assert.Equal(expected, WhatsAppPhone.Normalize(input, Config()));
 
+    [Theory]
+    [InlineData("+4915112345678", "KW", "+4915112345678")]
+    [InlineData("004915112345678", "KW", "+4915112345678")]
+    [InlineData("015112345678", "DE", "+4915112345678")]
+    [InlineData("4915112345678", "KW", null)]
+    [InlineData("015112345678", "KW", null)]
+    [InlineData("+14155552671", "DE", "+14155552671")]
+    public void International_numbers_use_explicit_prefix_or_selected_region(string input, string country, string? expected) =>
+        Assert.Equal(expected, WhatsAppPhone.Normalize(input, Config(), country));
+
     [Fact]
     public void Country_can_be_changed_in_settings()
     {
         var o = Config(); o.CountryCode = "49"; o.NationalNumberPattern = "1[5-7][0-9]{8,9}";
-        Assert.Equal("4915207610021", WhatsAppPhone.Normalize("15207610021", o));
-        Assert.Equal("4915207610021", WhatsAppPhone.Normalize("+4915207610021", o));
-        Assert.Null(WhatsAppPhone.Normalize("+96550000000", o));
+        Assert.Equal("+4915207610021", WhatsAppPhone.Normalize("15207610021", o));
+        Assert.Equal("+4915207610021", WhatsAppPhone.Normalize("+4915207610021", o));
+        Assert.Equal("+96550000000", WhatsAppPhone.Normalize("+96550000000", o));
     }
 
     [Fact]
@@ -61,12 +71,13 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
             var handler = new RecordingHandler(HttpStatusCode.Accepted, "{\"status\":\"submitted\",\"messageId\":\"GS-123\"}");
             using var client = new HttpClient(handler);
             var result = await new GupshupWhatsAppService(client, Options.Create(o))
-                .SendInvoiceAsync("96550000000", "ORDER-1", "https://api.example.test/invoice?token=test", Ct);
+                .SendInvoiceAsync("+96550000000", "ORDER-1", "https://api.example.test/invoice?token=test", Ct);
             Assert.Equal(WhatsAppSendOutcome.Accepted, result.Outcome);
             Assert.Equal("GS-123", result.MessageId);
             Assert.Contains(production ? "/template/msg" : "/v1/msg", handler.Url);
             var values = handler.Body!.Split('&').Select(s => s.Split('=', 2))
                 .ToDictionary(p => WebUtility.UrlDecode(p[0]), p => WebUtility.UrlDecode(p[1]));
+            Assert.Equal("96550000000", values["destination"]);
             using var json = JsonDocument.Parse(values["message"]);
             Assert.Equal(production ? "document" : "file", json.RootElement.GetProperty("type").GetString());
             var file = production ? json.RootElement.GetProperty("document") : json.RootElement;
@@ -74,6 +85,26 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
             Assert.Equal("https://api.example.test/invoice?token=test", file.GetProperty(production ? "link" : "url").GetString());
             Assert.Equal(production, values.ContainsKey("template"));
         }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task German_provider_wire_format_removes_plus_but_never_bypasses_sandbox(bool allowed)
+    {
+        var o = Config();
+        o.SandboxAllowedDestinations = allowed ? ["4915112345678"] : ["96550000000"];
+        var handler = new RecordingHandler(HttpStatusCode.Accepted, "{\"status\":\"submitted\",\"messageId\":\"GS-GERMAN\"}");
+        using var client = new HttpClient(handler);
+        var sender = new GupshupWhatsAppService(client, Options.Create(o));
+        var invoice = await sender.SendInvoiceAsync("+4915112345678", "DE-ORDER", "https://api.example.test/file", Ct);
+        Assert.Equal(allowed ? WhatsAppSendOutcome.Accepted : WhatsAppSendOutcome.Rejected, invoice.Outcome);
+        if (allowed) Assert.Contains("destination=4915112345678", handler.Body);
+        else { Assert.Null(handler.Body); Assert.Equal("SANDBOX_DESTINATION_NOT_ALLOWED", invoice.ErrorCode); }
+        var verification = await sender.SendPhoneVerificationCodeAsync("+4915112345678", "123456", Ct);
+        Assert.Equal(allowed ? WhatsAppSendOutcome.Accepted : WhatsAppSendOutcome.Rejected, verification.Outcome);
+        if (allowed) Assert.Contains("destination=4915112345678", handler.Body);
+        else Assert.Null(handler.Body);
     }
 
     [Theory]
@@ -85,7 +116,7 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
     {
         using var client = new HttpClient(new RecordingHandler((HttpStatusCode)status, "{}"));
         Assert.Equal(expected, (await new GupshupWhatsAppService(client, Options.Create(Config()))
-            .SendInvoiceAsync("96550000000", "ORDER-1", "https://api.example.test/file", Ct)).Outcome);
+            .SendInvoiceAsync("+96550000000", "ORDER-1", "https://api.example.test/file", Ct)).Outcome);
     }
 
     [Fact]
@@ -100,7 +131,7 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
         Assert.Equal(1, sender.Calls);
         Assert.Equal(WhatsAppInvoiceStatus.Accepted, invoice.Status);
         Assert.Equal("GS-PAID", invoice.ProviderMessageId);
-        Assert.Equal("96550000000", invoice.Destination);
+        Assert.Equal("+96550000000", invoice.Destination);
         Assert.NotNull(invoice.Pdf);
         Assert.NotNull(invoice.MediaTokenHash);
         Assert.DoesNotContain(invoice.MediaTokenHash, sender.LastUrl!);
@@ -115,7 +146,7 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
         await Processor(db, sender).ProcessBatchAsync("worker", Ct);
         var job = await db.WhatsAppInvoices.SingleAsync(Ct);
         Assert.Equal(WhatsAppInvoiceStatus.Accepted, job.Status);
-        Assert.Equal("96550000000", job.Destination);
+        Assert.Equal("+96550000000", job.Destination);
         Assert.Null(job.LastErrorCode);
     }
 
@@ -128,7 +159,7 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
             var order = await db.Orders.SingleAsync(Ct);
             db.WhatsAppConsentAudits.Add(new WhatsAppConsentAudit
             {
-                OrderId = order.Id, Phone = "96550000000", Action = WhatsAppConsentAction.Revoked,
+                OrderId = order.Id, Phone = "+96550000000", Action = WhatsAppConsentAction.Revoked,
                 Source = "AccountSettings", OccurredAtUtc = order.WhatsAppConsentAtUtc!.Value.AddSeconds(1)
             });
             await db.SaveChangesAsync(Ct);
@@ -162,6 +193,25 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
         Assert.Equal(WhatsAppInvoiceStatus.Skipped, job.Status);
         Assert.Equal(reason, job.LastErrorCode);
         Assert.Null(job.Pdf);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task German_invoice_requires_sandbox_allowlist_and_sends_only_once(bool allowed)
+    {
+        await SeedAsync(phone: "+4915112345678", consentPhone: "004915112345678");
+        var options = Config();
+        options.SandboxAllowedDestinations = allowed ? ["4915112345678"] : ["96550000000"];
+        var sender = new FakeSender(new(WhatsAppSendOutcome.Accepted, "DE-1"));
+        await using var db = Db();
+        await Processor(db, sender, options).ProcessBatchAsync("german", Ct);
+        await Processor(db, sender, options).ProcessBatchAsync("repeat", Ct);
+        Assert.Equal(allowed ? 1 : 0, sender.Calls);
+        var job = await db.WhatsAppInvoices.SingleAsync(Ct);
+        Assert.Equal(allowed ? WhatsAppInvoiceStatus.Accepted : WhatsAppInvoiceStatus.Skipped, job.Status);
+        if (allowed) Assert.Equal("+4915112345678", job.Destination);
+        else Assert.Equal("SANDBOX_DESTINATION_NOT_ALLOWED", job.LastErrorCode);
     }
 
     [Fact]

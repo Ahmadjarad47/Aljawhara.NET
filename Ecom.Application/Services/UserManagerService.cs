@@ -612,7 +612,7 @@ namespace Ecom.Application.Services
 
                 var normalized = WhatsAppPhone.Normalize(newPhoneNumber, _whatsAppOptions);
                 if (normalized == null)
-                    return (false, "A valid Kuwaiti phone number is required");
+                    return (false, "A valid phone number is required");
                 var now = DateTime.UtcNow;
                 var revokedPreviousConsent = user.WhatsAppNotificationsEnabled && user.WhatsAppConsentPhone is not null;
                 if (revokedPreviousConsent && user.WhatsAppConsentPhone is { } previous)
