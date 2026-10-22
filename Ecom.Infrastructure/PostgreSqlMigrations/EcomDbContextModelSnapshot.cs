@@ -1958,6 +1958,74 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.ToTable("WhatsAppInvoices");
                 });
 
+            modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppInvoiceRetryAudit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdminId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PdfSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("PdfValidatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PreviousAttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PreviousErrorCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId")
+                        .IsUnique();
+
+                    b.HasIndex("RequestId")
+                        .IsUnique();
+
+                    b.ToTable("WhatsAppInvoiceRetryAudits");
+                });
+
             modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppPhoneVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -2425,6 +2493,17 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         .IsRequired();
 
                     b.Navigation("PaymentAttempt");
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppInvoiceRetryAudit", b =>
+                {
+                    b.HasOne("Ecom.Domain.Entity.WhatsAppInvoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("Ecom.Domain.Entity.WhatsAppPhoneVerification", b =>

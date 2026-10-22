@@ -7,11 +7,12 @@ using Ecom.Infrastructure.Data;
 using Ecom.Infrastructure.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace Ecom.Application.WhatsApp;
 
 public sealed class WhatsAppInvoiceProcessor(EcomDbContext db, IInvoicePdfRenderer renderer,
-    IGupshupWhatsAppService sender, IOptions<GupshupOptions> options)
+    IGupshupWhatsAppService sender, IOptions<GupshupOptions> options, ILogger<WhatsAppInvoiceProcessor> logger)
 {
     public static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
@@ -43,8 +44,9 @@ public sealed class WhatsAppInvoiceProcessor(EcomDbContext db, IInvoicePdfRender
                     .SetProperty(j => j.AttemptCount, j => j.AttemptCount + 1), ct);
             if (claimed == 0) continue;
             try { await ProcessAsync(id, worker, ct); }
-            catch (Exception) when (!ct.IsCancellationRequested)
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
+                InvoiceFailureLog.Write(logger, id, ex);
                 // Preparation failures are safe to retry. Dispatch failures remain ambiguous.
                 await RetryPreparationAsync(id, worker, "INVOICE_PREPARATION_FAILED", ct);
             }

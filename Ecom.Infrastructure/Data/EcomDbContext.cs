@@ -46,6 +46,7 @@ namespace Ecom.Infrastructure.Data
         public DbSet<PaymentTransitionAudit> PaymentTransitionAudits { get; set; }
         public DbSet<OrderNumberCounter> OrderNumberCounters { get; set; }
         public DbSet<WhatsAppInvoice> WhatsAppInvoices { get; set; }
+        public DbSet<WhatsAppInvoiceRetryAudit> WhatsAppInvoiceRetryAudits { get; set; }
         public DbSet<WhatsAppDeliveryEvent> WhatsAppDeliveryEvents { get; set; }
         public DbSet<WhatsAppConsentAudit> WhatsAppConsentAudits { get; set; }
         public DbSet<WhatsAppPhoneVerification> WhatsAppPhoneVerifications { get; set; }
@@ -202,6 +203,15 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.LastErrorCode).HasMaxLength(100);
                 entity.Property(e => e.ReconciliationEvidence).HasMaxLength(1000);
                 entity.Property(e => e.RowVersion).IsRowVersion();
+            });
+            modelBuilder.Entity<WhatsAppInvoiceRetryAudit>(entity =>
+            {
+                entity.HasIndex(e => e.InvoiceId).IsUnique();
+                entity.HasIndex(e => e.RequestId).IsUnique();
+                entity.HasOne(e => e.Invoice).WithMany().HasForeignKey(e => e.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+                entity.Property(e => e.AdminId).HasMaxLength(450);
+                entity.Property(e => e.PreviousErrorCode).HasMaxLength(100);
+                entity.Property(e => e.PdfSha256).HasMaxLength(64);
             });
             modelBuilder.Entity<WhatsAppDeliveryEvent>(entity =>
             {

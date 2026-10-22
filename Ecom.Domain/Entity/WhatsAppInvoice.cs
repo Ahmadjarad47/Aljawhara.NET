@@ -44,3 +44,17 @@ public sealed class WhatsAppDeliveryEvent : BaseEntity
     public string Type { get; set; } = "";
     public DateTime OccurredAtUtc { get; set; }
 }
+
+// Immutable recovery evidence. One administrative preparation recovery per invoice.
+public sealed class WhatsAppInvoiceRetryAudit : BaseEntity
+{
+    public int InvoiceId { get; set; }
+    public WhatsAppInvoice Invoice { get; set; } = null!;
+    public int OrderId { get; set; }
+    public Guid RequestId { get; set; }
+    public string AdminId { get; set; } = "";
+    public int PreviousAttemptCount { get; set; }
+    public string PreviousErrorCode { get; set; } = "INVOICE_PREPARATION_FAILED";
+    public string PdfSha256 { get; set; } = "";
+    public DateTime PdfValidatedAtUtc { get; set; }
+}

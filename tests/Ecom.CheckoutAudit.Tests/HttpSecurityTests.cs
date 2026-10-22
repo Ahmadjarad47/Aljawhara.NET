@@ -63,6 +63,13 @@ public sealed class HttpSecurityTests : IAsyncLifetime
         using var user = new HttpRequestMessage(HttpMethod.Get, "/api/whatsapp/admin/invoices");
         user.Headers.Add("X-Test-User", "user-a");
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.SendAsync(user, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await _client.PostAsJsonAsync("/api/whatsapp/admin/invoices/6/retry-preparation",
+                new { expectedOrderId = 48, requestId = Guid.NewGuid() }, TestContext.Current.CancellationToken)).StatusCode);
+        using var retry = new HttpRequestMessage(HttpMethod.Post, "/api/whatsapp/admin/invoices/6/retry-preparation")
+        { Content = JsonContent.Create(new { expectedOrderId = 48, requestId = Guid.NewGuid() }) };
+        retry.Headers.Add("X-Test-User", "user-a");
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.SendAsync(retry, TestContext.Current.CancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await _client.GetAsync("/api/whatsapp/invoices/1/document", TestContext.Current.CancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,

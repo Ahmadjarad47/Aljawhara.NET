@@ -25,6 +25,8 @@ public sealed class GupshupOptions
     public int PdfRetentionDays { get; set; } = 7;
     // Optional installed browser channel; null uses Playwright's bundled Chromium.
     public string? PdfBrowserChannel { get; set; }
+    // Empty by default. This incident enables only invoice 6; no bulk recovery.
+    public int[] PreparationRetryInvoiceIds { get; set; } = [];
 
     public bool IsValid()
     {

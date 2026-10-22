@@ -354,7 +354,130 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
     }
 
     private WhatsAppInvoiceProcessor Processor(EcomDbContext db, IGupshupWhatsAppService sender, GupshupOptions? config = null) =>
-        new(db, new FakeRenderer(), sender, Options.Create(config ?? Config()));
+        new(db, new FakeRenderer(), sender, Options.Create(config ?? Config()),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<WhatsAppInvoiceProcessor>.Instance);
+
+    private static WhatsAppInvoicePreparationRetry Recovery(EcomDbContext db, IInvoicePdfRenderer? renderer = null, bool allow = true)
+    {
+        var config = Config(); config.PreparationRetryInvoiceIds = allow ? [1] : [];
+        return new(db, renderer ?? new FakeRenderer(), Options.Create(config),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<WhatsAppInvoicePreparationRetry>.Instance);
+    }
+
+    private async Task FailedPreparationAsync()
+    {
+        await SeedAsync();
+        await using var db = Db();
+        await db.WhatsAppInvoices.ExecuteUpdateAsync(s => s.SetProperty(j => j.Status, WhatsAppInvoiceStatus.Failed)
+            .SetProperty(j => j.LastErrorCode, "INVOICE_PREPARATION_FAILED").SetProperty(j => j.AttemptCount, 5), Ct);
+    }
+
+    [Fact]
+    public async Task Preparation_recovery_is_audited_idempotent_and_does_not_charge_again()
+    {
+        await FailedPreparationAsync(); await using var db = Db();
+        var request = Guid.NewGuid();
+        var service = Recovery(db);
+        Assert.True((await service.RetryAsync(1, 1, request, "admin-test", Ct)).Success);
+        Assert.True((await service.RetryAsync(1, 1, request, "admin-test", Ct)).Success);
+        Assert.False((await service.RetryAsync(1, 1, Guid.NewGuid(), "admin-test", Ct)).Success);
+        var audit = await db.WhatsAppInvoiceRetryAudits.SingleAsync(Ct);
+        Assert.Equal(5, audit.PreviousAttemptCount);
+        Assert.Equal("INVOICE_PREPARATION_FAILED", audit.PreviousErrorCode);
+        Assert.Equal("admin-test", audit.AdminId);
+        var job = await db.WhatsAppInvoices.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal(WhatsAppInvoiceStatus.Pending, job.Status);
+        Assert.Equal(0, job.AttemptCount);
+        Assert.NotNull(job.Pdf);
+        Assert.Null(job.DispatchStartedAtUtc);
+        Assert.Equal(TransactionStatus.Paid, await db.Transactions.Select(t => t.Status).SingleAsync(Ct));
+        Assert.Equal(PaymentAttemptStatus.Paid, await db.PaymentAttempts.Select(t => t.Status).SingleAsync(Ct));
+        Assert.Equal(1, await db.PaymentAttempts.CountAsync(Ct));
+        var sender = new FakeSender(new(WhatsAppSendOutcome.Accepted, "RECOVERED-ONCE"));
+        await Processor(db, sender).ProcessBatchAsync("recovery-test", Ct);
+        await Processor(db, sender).ProcessBatchAsync("recovery-test", Ct);
+        Assert.Equal(1, sender.Calls);
+    }
+
+    [Theory]
+    [InlineData("provider")]
+    [InlineData("whatsapp")]
+    [InlineData("dispatch")]
+    [InlineData("event")]
+    [InlineData("reconciliation")]
+    [InlineData("token")]
+    [InlineData("lease")]
+    [InlineData("destination")]
+    [InlineData("unknown")]
+    [InlineData("delivery_failure")]
+    [InlineData("unpaid")]
+    [InlineData("refund")]
+    [InlineData("no_consent")]
+    [InlineData("wrong_consent")]
+    [InlineData("revoked")]
+    [InlineData("callback")]
+    public async Task Preparation_recovery_rejects_any_dispatch_or_ineligible_order(string scenario)
+    {
+        await FailedPreparationAsync(); await using var db = Db();
+        var job = await db.WhatsAppInvoices.Include(j => j.PaymentAttempt).ThenInclude(a => a.Order)
+            .Include(j => j.PaymentAttempt).ThenInclude(a => a.Transaction).SingleAsync(Ct);
+        switch (scenario)
+        {
+            case "provider": job.ProviderMessageId = "GS-EXISTS"; break;
+            case "whatsapp": job.WhatsAppMessageId = "WA-EXISTS"; break;
+            case "dispatch": job.DispatchStartedAtUtc = DateTime.UtcNow; break;
+            case "event": job.LastEventAtUtc = DateTime.UtcNow; break;
+            case "reconciliation": job.ReconciliationEvidence = "earlier uncertainty"; break;
+            case "token": job.MediaTokenHash = new string('A', 64); break;
+            case "lease": job.LeaseOwner = "active-worker"; break;
+            case "destination": job.Destination = "+96550000000"; break;
+            case "unknown": job.Status = WhatsAppInvoiceStatus.RequiresReconciliation; break;
+            case "delivery_failure": job.LastErrorCode = "PROVIDER_DELIVERY_FAILED"; break;
+            case "unpaid": job.PaymentAttempt.Status = PaymentAttemptStatus.AwaitingPayment; break;
+            case "refund": job.PaymentAttempt.Transaction.IsRefunded = true; break;
+            case "no_consent": job.PaymentAttempt.Order.WhatsAppConsentAtUtc = null; break;
+            case "wrong_consent": job.PaymentAttempt.Order.WhatsAppConsentPhone = "+96560000000"; break;
+            case "revoked": db.WhatsAppConsentAudits.Add(new() { Phone = "+96550000000", Action = WhatsAppConsentAction.Revoked, OccurredAtUtc = DateTime.UtcNow }); break;
+            case "callback": db.WhatsAppDeliveryEvents.Add(new() { EventKey = new string('C', 64), AppName = Config().AppName,
+                Destination = "+96550000000", ProviderMessageId = "UNMATCHED", Type = "sent", OccurredAtUtc = DateTime.UtcNow }); break;
+        }
+        await db.SaveChangesAsync(Ct); db.ChangeTracker.Clear();
+        Assert.False((await Recovery(db).RetryAsync(1, 1, Guid.NewGuid(), "admin-test", Ct)).Success);
+        Assert.Empty(await db.WhatsAppInvoiceRetryAudits.ToListAsync(Ct));
+        Assert.Equal(5, await db.WhatsAppInvoices.Select(j => j.AttemptCount).SingleAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Recovery_requires_allowlist_order_identity_and_successful_pdf()
+    {
+        await FailedPreparationAsync(); await using var db = Db();
+        Assert.False((await Recovery(db, allow: false).RetryAsync(1, 1, Guid.NewGuid(), "admin-test", Ct)).Success);
+        Assert.False((await Recovery(db).RetryAsync(1, 48, Guid.NewGuid(), "admin-test", Ct)).Success);
+        Assert.False((await Recovery(db).RetryAsync(1, 1, Guid.Empty, "admin-test", Ct)).Success);
+        Assert.False((await Recovery(db).RetryAsync(1, 1, Guid.NewGuid(), "", Ct)).Success);
+        Assert.Equal("PDF_VALIDATION_FAILED", (await Recovery(db, new BrokenRenderer()).RetryAsync(1, 1, Guid.NewGuid(), "admin-test", Ct)).Code);
+        Assert.Equal(WhatsAppInvoiceStatus.Failed, await db.WhatsAppInvoices.Select(j => j.Status).SingleAsync(Ct));
+        Assert.Empty(await db.WhatsAppInvoiceRetryAudits.ToListAsync(Ct));
+    }
+
+    private sealed class BrokenRenderer : IInvoicePdfRenderer
+    {
+        public Task<byte[]> RenderAsync(InvoiceData invoice, CancellationToken cancellationToken) => throw new IOException("SECRET CUSTOMER");
+    }
+
+    [Fact]
+    public async Task Concurrent_preparation_recoveries_commit_only_one_audit()
+    {
+        await FailedPreparationAsync();
+        await using var one = Db(); await using var two = Db();
+        var results = await Task.WhenAll(
+            Recovery(one).RetryAsync(1, 1, Guid.NewGuid(), "admin-one", Ct),
+            Recovery(two).RetryAsync(1, 1, Guid.NewGuid(), "admin-two", Ct));
+        Assert.Single(results, r => r.Success);
+        await using var check = Db();
+        Assert.Equal(1, await check.WhatsAppInvoiceRetryAudits.CountAsync(Ct));
+        Assert.Equal(WhatsAppInvoiceStatus.Pending, await check.WhatsAppInvoices.Select(j => j.Status).SingleAsync(Ct));
+    }
     private static WhatsAppController Controller(EcomDbContext db, WhatsAppInvoiceProcessor processor) =>
         new(db, processor, Options.Create(Config())) { ControllerContext = new() { HttpContext = new DefaultHttpContext() } };
     private static JsonElement Event(string id, string type) => JsonSerializer.SerializeToElement(new

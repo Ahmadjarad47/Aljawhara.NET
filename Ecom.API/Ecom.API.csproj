@@ -30,4 +30,8 @@
     <ProjectReference Include="..\Ecom.Infrastructure\Ecom.Infrastructure.csproj" />
     <ProjectReference Include="..\Ecom.Domain\Ecom.Domain.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="../deploy/ubuntu/install-invoice-browser.sh" Link="deploy/install-invoice-browser.sh"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

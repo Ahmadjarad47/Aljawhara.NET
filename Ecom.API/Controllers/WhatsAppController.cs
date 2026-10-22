@@ -137,6 +137,23 @@ public sealed class WhatsAppController(EcomDbContext db, WhatsAppInvoiceProcesso
         public bool ConfirmedNotAccepted { get; set; }
     }
 
+    public sealed class PreparationRetryRequest
+    {
+        [Range(1, int.MaxValue)] public int ExpectedOrderId { get; set; }
+        public Guid RequestId { get; set; }
+    }
+
+    [HttpPost("admin/invoices/{id:int}/retry-preparation")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> RetryPreparation(int id, PreparationRetryRequest request,
+        [FromServices] WhatsAppInvoicePreparationRetry recovery, CancellationToken ct)
+    {
+        var adminId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(adminId)) return Forbid();
+        var result = await recovery.RetryAsync(id, request.ExpectedOrderId, request.RequestId, adminId, ct);
+        return result.Success ? Ok(result) : Conflict(result);
+    }
+
     [HttpPost("admin/invoices/{id:int}/reconcile")]
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Reconcile(int id, ReconcileRequest request, CancellationToken ct)

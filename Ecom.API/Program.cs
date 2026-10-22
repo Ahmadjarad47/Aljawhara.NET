@@ -205,6 +205,7 @@ builder.Services.AddHttpClient<IGupshupWhatsAppService, GupshupWhatsAppService>(
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton<IInvoicePdfRenderer, InvoicePdfRenderer>();
 builder.Services.AddScoped<WhatsAppInvoiceProcessor>();
+builder.Services.AddScoped<WhatsAppInvoicePreparationRetry>();
 builder.Services.AddScoped<WhatsAppConsentService>();
 builder.Services.AddScoped<PaymentOrchestrationService>();
 builder.Services.AddScoped<IPaymentOrchestrationService>(sp => sp.GetRequiredService<PaymentOrchestrationService>());

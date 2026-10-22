@@ -15,19 +15,28 @@ public sealed class InvoicePdfRenderer(IOptions<GupshupOptions> options) : IInvo
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var playwright = await Playwright.CreateAsync();
-        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true, Channel = options.Value.PdfBrowserChannel });
-        await using var context = await browser.NewContextAsync(new() { JavaScriptEnabled = false, Offline = true });
+        // Playwright resolves its versioned Chromium from PLAYWRIGHT_BROWSERS_PATH.
+        // Linux must use bundled Chromium, rather than a Windows-only installed Edge channel.
+        var channel = options.Value.PdfBrowserChannel;
+        if (OperatingSystem.IsLinux() && channel is not (null or "" or "chromium"))
+            throw new InvalidOperationException("INVOICE_LINUX_REQUIRES_BUNDLED_CHROMIUM");
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true, Channel = channel, Timeout = 30000 });
+        // Host-driven EvaluateAsync still runs with page scripts disabled (verified on Linux).
+        // CSP, offline mode and routing also prohibit untrusted scripts/external resources.
+        await using var context = await browser.NewContextAsync(new() { JavaScriptEnabled = false, Offline = true, ServiceWorkers = ServiceWorkerPolicy.Block });
+        await context.RouteAsync("**/*", route => route.AbortAsync());
         var page = await context.NewPageAsync();
         // Slightly narrower than A4's printable area so measured line wrapping is conservative.
         await page.SetViewportSizeAsync(680, 1100);
         await page.EmulateMediaAsync(new() { Media = Media.Print });
         page.SetDefaultTimeout(30000);
         await page.SetContentAsync(BuildHtml(invoice), new() { WaitUntil = WaitUntilState.Load });
-        await page.EvaluateAsync("async () => { await document.fonts.ready; }");
+        await page.EvaluateAsync("async () => { await document.fonts.load('12px Invoice'); await document.fonts.ready; if (!document.fonts.check('12px Invoice')) throw new Error('INVOICE_FONT_LOAD_FAILED'); }")
+            .WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
         // Separate tables avoid Chromium clipping repeated table headers at some page boundaries.
         // Pagination uses the real, font-loaded row heights, including wrapped Arabic product names.
         await page.EvaluateAsync("""
-            invoiceNumber => {
+            expectedRows => {
                 const intro = document.getElementById('invoice-intro');
                 const ending = document.getElementById('invoice-ending');
                 const table = document.querySelector('table');
@@ -65,13 +74,25 @@ public sealed class InvoicePdfRenderer(IOptions<GupshupOptions> options) : IInvo
                     ending.remove();
                     const finalSheet = newPage(false);
                     const finalBody = newTable(finalSheet);
-                    // Keep a couple of product lines with totals instead of an orphan totals page.
-                    Array.from(body.rows).slice(-2).forEach(row => finalBody.append(row));
-                    if (!body.rows.length && !sheet.contains(intro)) sheet.remove();
                     finalSheet.append(ending);
+                    // Move trailing rows only when they fit alongside the totals.
+                    for (let n = 0; n < 2 && body.rows.length; n++) {
+                        const row = body.lastElementChild;
+                        finalBody.prepend(row);
+                        if (finalSheet.getBoundingClientRect().height > limit) {
+                            body.append(row);
+                            break;
+                        }
+                    }
+                    if (!finalBody.rows.length) finalBody.closest('table').remove();
+                    if (!body.rows.length && !sheet.contains(intro)) sheet.remove();
                 }
+                if (document.querySelectorAll('tbody tr').length !== expectedRows ||
+                    document.querySelectorAll('#invoice-ending').length !== 1 ||
+                    Array.from(document.querySelectorAll('.invoice-page')).some(s => s.getBoundingClientRect().height > limit + 1))
+                    throw new Error('INVOICE_PAGINATION_VALIDATION_FAILED');
             }
-            """, invoice.InvoiceNumber);
+            """, invoice.Lines.Count).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return await page.PdfAsync(new()
         {
@@ -96,7 +117,7 @@ public sealed class InvoicePdfRenderer(IOptions<GupshupOptions> options) : IInvo
             rows.Append($"<tr><td>{H(line.Name)}</td><td class='number'>{line.Quantity}</td><td class='number'>{M(line.Price)}</td><td class='number'>{M(line.Price * line.Quantity)}</td></tr>");
         var paidAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(i.PaidAtUtc, DateTimeKind.Utc), TimeZoneInfo.FindSystemTimeZoneById("Asia/Kuwait"));
         return $$"""
-            <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><style>
+            <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><style>
             @font-face{font-family:Invoice;src:url(data:font/ttf;base64,{{fontData}}) format('truetype');font-weight:100 900}
             @page{size:A4}*{box-sizing:border-box}body{font-family:Invoice,Arial,sans-serif;font-size:12px;line-height:1.8;color:#182a35;margin:0}
             .invoice-page{display:flow-root;break-after:page}.invoice-page:last-child{break-after:auto}

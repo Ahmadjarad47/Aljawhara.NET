@@ -52,4 +52,5 @@ jobs:
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            bash /var/www/Aljawhara.NET/publish/deploy/install-invoice-browser.sh /var/www/Aljawhara.NET/publish
             systemctl restart aljawhara.service
