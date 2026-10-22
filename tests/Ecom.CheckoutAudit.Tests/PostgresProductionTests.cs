@@ -47,7 +47,7 @@ public sealed class PostgresProductionTests
         var settings = new DatabaseBackupOptions
         {
             Directory = directory,
-            RetentionDays = 2,
+            RetentionCount = 3,
             PgDumpPath = Path.Combine(binaryDirectory, "pg_dump" + suffix),
             PgRestorePath = Path.Combine(binaryDirectory, "pg_restore" + suffix)
         };
@@ -67,18 +67,44 @@ public sealed class PostgresProductionTests
             await worker.BackupOnceAsync(DateTime.UtcNow.Date, TestContext.Current.CancellationToken);
             Assert.Equal(lastWritten, File.GetLastWriteTimeUtc(archive));
 
-            // Keep an expired archive on failure, then prune it only after a successful run.
+            // Keep all three archives on failure, then prune the oldest after a fourth succeeds.
             var oldArchive = Path.Combine(directory, $"aljawhara-{DateTime.UtcNow.AddDays(-5):yyyy-MM-dd}.dump");
             File.Copy(archive, oldArchive);
+            var middleArchive = Path.Combine(directory, $"aljawhara-{DateTime.UtcNow.AddDays(-2):yyyy-MM-dd}.dump");
+            File.Copy(archive, middleArchive);
             var dumpExecutable = settings.PgDumpPath;
             settings.PgDumpPath = Path.Combine(directory, "missing-pg-dump");
             await Assert.ThrowsAnyAsync<Exception>(() => worker.BackupOnceAsync(DateTime.UtcNow.AddDays(1).Date, TestContext.Current.CancellationToken));
             Assert.True(File.Exists(oldArchive));
             Assert.True(File.Exists(archive));
+            Assert.True(File.Exists(middleArchive));
             Assert.Empty(Directory.GetFiles(directory, "*.partial"));
             settings.PgDumpPath = dumpExecutable;
+
+            // Cancelling a dump blocked by a table lock must stop the child and remove its partial file.
+            await using (var transaction = await context.Database.BeginTransactionAsync(TestContext.Current.CancellationToken))
+            {
+                await context.Database.ExecuteSqlRawAsync("LOCK TABLE \"Categories\" IN ACCESS EXCLUSIVE MODE", TestContext.Current.CancellationToken);
+                using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+                cancellation.CancelAfter(TimeSpan.FromSeconds(1));
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.BackupOnceAsync(DateTime.UtcNow.AddDays(1).Date, cancellation.Token));
+                Assert.Equal(3, Directory.GetFiles(directory, "*.dump").Length);
+                Assert.Empty(Directory.GetFiles(directory, "*.partial"));
+                await transaction.RollbackAsync(TestContext.Current.CancellationToken);
+            }
+
+            // A dump that cannot pass archive validation also leaves previous backups intact.
+            var restoreExecutable = settings.PgRestorePath;
+            settings.PgRestorePath = Path.Combine(directory, "missing-pg-restore");
+            await Assert.ThrowsAnyAsync<Exception>(() => worker.BackupOnceAsync(DateTime.UtcNow.AddDays(1).Date, TestContext.Current.CancellationToken));
+            Assert.Equal(3, Directory.GetFiles(directory, "*.dump").Length);
+            Assert.Empty(Directory.GetFiles(directory, "*.partial"));
+            settings.PgRestorePath = restoreExecutable;
+
             await worker.BackupOnceAsync(DateTime.UtcNow.AddDays(1).Date, TestContext.Current.CancellationToken);
             Assert.False(File.Exists(oldArchive));
+            Assert.True(File.Exists(middleArchive));
+            Assert.Equal(3, Directory.GetFiles(directory, "*.dump").Length);
 
             // Create only the database, then restore the actual dump (schema + data).
             await restored.GetService<Microsoft.EntityFrameworkCore.Storage.IRelationalDatabaseCreator>()

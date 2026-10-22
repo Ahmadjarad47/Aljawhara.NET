@@ -3,7 +3,7 @@ namespace Ecom.API.Monitoring;
 public sealed class MonitoringOptions
 {
     public string Directory { get; set; } = "logs";
-    public int RetentionDays { get; set; } = 14;
+    public int RetentionDays { get; set; } = 3;
     public int MaxFiles { get; set; } = 100;
     public long MaxFileBytes { get; set; } = 10 * 1024 * 1024;
     public int RecentEventLimit { get; set; } = 5000;

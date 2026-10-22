@@ -52,7 +52,7 @@ Events are queued without blocking requests, retained in a bounded recent-event
 buffer, and appended to rotating JSON Lines files independently of PostgreSQL.
 By default the dashboard searches the **latest 5,000 events**; older retained events
 remain in disk files. Recent events are restored from those files after restart.
-At most 100 files of approximately 10 MB each are retained for up to 14 days;
+At most 100 files of approximately 10 MB each are retained for up to 3 days;
 age and file count cleanup runs on writes. Rotation may exceed a size limit by
 one event. Use a separate persistent directory for each app instance.
 
@@ -68,7 +68,7 @@ All settings are under `Monitoring` and support environment variable overrides:
 | Environment variable | Default |
 | --- | --- |
 | `Monitoring__Directory` | `logs` relative to the API content root |
-| `Monitoring__RetentionDays` | `14` |
+| `Monitoring__RetentionDays` | `3` |
 | `Monitoring__MaxFiles` | `100` |
 | `Monitoring__MaxFileBytes` | `10485760` |
 | `Monitoring__RecentEventLimit` | `5000` |
@@ -79,7 +79,9 @@ All settings are under `Monitoring` and support environment variable overrides:
 Use `/var/log/aljawhara` on the Ubuntu deployment. The supplied systemd drop-in
 creates it with mode 0700, grants write access and sets `UMask=0077`. Apply the
 updated environment file and drop-in, reload systemd and restart the service as
-part of deployment. New files are created with mode 0600 on Linux. Keep this
+part of deployment. For existing deployments, set `Monitoring__RetentionDays=3`
+in the environment file to replace any previous retention override. New files
+are created with mode 0600 on Linux. Keep this
 directory outside the web root, on persistent storage with space monitoring.
 No database migration or new package is required.
 

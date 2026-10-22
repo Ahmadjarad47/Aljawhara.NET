@@ -228,7 +228,7 @@ if (builder.Environment.IsProduction() && builder.Configuration.GetValue("Databa
         .Bind(builder.Configuration.GetSection("DatabaseBackup"))
         .Validate(o => Path.IsPathFullyQualified(o.Directory), "DatabaseBackup:Directory must be an absolute path.")
         .Validate(o => o.HourUtc is >= 0 and <= 23, "DatabaseBackup:HourUtc must be between 0 and 23.")
-        .Validate(o => o.RetentionDays >= 1 && o.TimeoutMinutes >= 1, "Backup retention and timeout must be positive.")
+        .Validate(o => o.RetentionCount >= 1 && o.TimeoutMinutes >= 1, "Backup retention count and timeout must be positive.")
         .ValidateOnStart();
     builder.Services.AddHostedService<PostgresBackupService>();
 }

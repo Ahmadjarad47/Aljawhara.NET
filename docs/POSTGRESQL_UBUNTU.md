@@ -167,7 +167,7 @@ start the backup worker. The defaults are:
 | `DatabaseBackup__Enabled` | `true` |
 | `DatabaseBackup__Directory` | `/var/backups/aljawhara` |
 | `DatabaseBackup__HourUtc` | `0` (03:00 Damascus) |
-| `DatabaseBackup__RetentionDays` | `14` |
+| `DatabaseBackup__RetentionCount` | `3` |
 | `DatabaseBackup__TimeoutMinutes` | `60` |
 | `DatabaseBackup__PgDumpPath` | `/usr/bin/pg_dump` |
 | `DatabaseBackup__PgRestorePath` | `/usr/bin/pg_restore` |
@@ -181,7 +181,13 @@ a full restore test.
 
 On startup, the worker backs up the latest scheduled day if its completed archive
 is missing. Failed runs retry after 15 minutes, with errors in the service journal.
-Old completed backups are removed only after a new one succeeds. Multiple API
+The newest three completed backups (by the date in their filenames) are retained,
+even when backup dates have gaps. Older completed backups are removed after a new
+one succeeds, or when the scheduled backup already exists. Failed backups never
+trigger cleanup. `DatabaseBackup__RetentionCount` replaces the old
+`DatabaseBackup__RetentionDays` setting; update existing environment files accordingly.
+Cleanup enumerates files with memory bounded by the retention count, and tool output
+is discarded through fixed-size buffers. Multiple API
 processes on the same backup volume coordinate through a file lock. Separate VPSs
 need separate backup directories/coordination. The application must be running;
 after downtime it takes one current backup, not historical snapshots of missed days.

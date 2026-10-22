@@ -11,7 +11,7 @@ public sealed class DatabaseBackupOptions
     public bool Enabled { get; set; } = true;
     public string Directory { get; set; } = "/var/backups/aljawhara";
     public int HourUtc { get; set; } = 0;
-    public int RetentionDays { get; set; } = 14;
+    public int RetentionCount { get; set; } = 3;
     public int TimeoutMinutes { get; set; } = 60;
     public string PgDumpPath { get; set; } = "/usr/bin/pg_dump";
     public string PgRestorePath { get; set; } = "/usr/bin/pg_restore";
@@ -64,7 +64,11 @@ public sealed class PostgresBackupService(
             FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var file = Path.Combine(_options.Directory,
             $"aljawhara-{scheduledDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.dump");
-        if (File.Exists(file)) return;
+        if (File.Exists(file))
+        {
+            DeleteOlderBackups(cancellationToken);
+            return;
+        }
 
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -87,7 +91,7 @@ public sealed class PostgresBackupService(
                 File.SetUnixFileMode(temporaryFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             File.Move(temporaryFile, file);
             logger.LogInformation("PostgreSQL backup completed: {File}, {Bytes} bytes.", file, new FileInfo(file).Length);
-            DeleteExpiredBackups(scheduledDate);
+            DeleteOlderBackups(cancellationToken);
         }
         finally
         {
@@ -95,14 +99,34 @@ public sealed class PostgresBackupService(
         }
     }
 
-    private void DeleteExpiredBackups(DateTime scheduledDate)
+    private void DeleteOlderBackups(CancellationToken cancellationToken)
     {
-        foreach (var file in System.IO.Directory.EnumerateFiles(_options.Directory, "aljawhara-*.dump"))
+        // Keep only the newest dates in memory, even when the directory contains many backups.
+        var newestDates = new PriorityQueue<DateTime, DateTime>();
+        foreach (var (_, date) in EnumerateCompletedBackups())
         {
-            var date = Path.GetFileNameWithoutExtension(file)["aljawhara-".Length..];
+            cancellationToken.ThrowIfCancellationRequested();
+            newestDates.Enqueue(date, date);
+            if (newestDates.Count > _options.RetentionCount) newestDates.Dequeue();
+        }
+
+        if (newestDates.Count < _options.RetentionCount) return;
+        var oldestRetainedDate = newestDates.Peek();
+        foreach (var (path, date) in EnumerateCompletedBackups())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (date < oldestRetainedDate) File.Delete(path);
+        }
+    }
+
+    private IEnumerable<(string Path, DateTime Date)> EnumerateCompletedBackups()
+    {
+        foreach (var path in System.IO.Directory.EnumerateFiles(_options.Directory, "aljawhara-*.dump"))
+        {
+            var date = Path.GetFileNameWithoutExtension(path)["aljawhara-".Length..];
             if (DateTime.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture,
-                    DateTimeStyles.None, out var backupDate) && backupDate <= scheduledDate.AddDays(-_options.RetentionDays))
-                File.Delete(file);
+                    DateTimeStyles.None, out var backupDate))
+                yield return (path, backupDate);
         }
     }
 
@@ -137,23 +161,26 @@ public sealed class PostgresBackupService(
             start.Environment["PGSSLROOTCERT"] = connection.RootCertificate;
 
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start PostgreSQL backup tool.");
-        // Drain both streams to prevent pipe deadlocks without retaining database output in memory.
-        var stdout = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
-        var stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
+        // Use small, fixed-size buffers, and drain until exit (including after cancellation kills
+        // the process). Always await both readers before disposing their process/pipe handles.
+        const int outputBufferSize = 16 * 1024;
+        var stdout = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, outputBufferSize);
+        var stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, outputBufferSize);
         try
         {
             await process.WaitForExitAsync(cancellationToken);
-            await Task.WhenAll(stdout, stderr);
-            if (process.ExitCode != 0)
-                throw new InvalidOperationException($"{Path.GetFileName(executable)} failed with exit code {process.ExitCode}. Check PostgreSQL permissions and client/server versions.");
         }
         finally
         {
             if (!process.HasExited)
             {
-                process.Kill(entireProcessTree: true);
+                try { process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) when (process.HasExited) { }
                 await process.WaitForExitAsync(CancellationToken.None);
             }
+            await Task.WhenAll(stdout, stderr);
         }
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"{Path.GetFileName(executable)} failed with exit code {process.ExitCode}. Check PostgreSQL permissions and client/server versions.");
     }
 }
