@@ -538,6 +538,7 @@ if (!app.Environment.IsEnvironment("Testing"))
   
 }
 
+
 await app.RunAsync();
 
 public partial class Program;
