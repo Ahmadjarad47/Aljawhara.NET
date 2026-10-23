@@ -1,11 +1,19 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="Ecom.AIShopping.Infrastructure/Ecom.AIShopping.Infrastructure.csproj" />
+    <Project Path="Ecom.AIShopping/Ecom.AIShopping.csproj" />
     <Project Path="Ecom.API/Ecom.API.csproj" />
     <Project Path="Ecom.Application/Ecom.Application.csproj" />
     <Project Path="Ecom.Domain/Ecom.Domain.csproj" />
     <Project Path="Ecom.Infrastructure/Ecom.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Ecom.AIShopping.IntegrationTests/Ecom.AIShopping.IntegrationTests.csproj" />
+    <Project Path="tests/Ecom.AIShopping.SecurityTests/Ecom.AIShopping.SecurityTests.csproj" />
+    <Project Path="tests/Ecom.AIShopping.Tests/Ecom.AIShopping.Tests.csproj" />
     <Project Path="tests/Ecom.CheckoutAudit.Tests/Ecom.CheckoutAudit.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Ecom.AIShopping.Cli/Ecom.AIShopping.Cli.csproj" />
   </Folder>
 </Solution>

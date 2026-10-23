@@ -1,0 +1,10 @@
+{
+  "mode": "deterministic downstream fixtures; no live language interpretation",
+  "scenarios": 10,
+  "passed": 10,
+  "liveModelCalls": 0,
+  "estimatedPaidCostUsd": 0,
+  "meanMilliseconds": 1.7304899999999996,
+  "maximumMilliseconds": 14.8074,
+  "evidence": "Assertions verify fixture product grounding, physical package quantities, budget bounds, and unavailable handling; HTTP and provider boundary tests cover authorization/tool injection separately."
+}

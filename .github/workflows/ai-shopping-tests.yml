@@ -1,0 +1,37 @@
+name: AI Shopping verification
+on:
+  pull_request:
+  push:
+    branches: ['codex/**']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18-trixie
+        env:
+          POSTGRES_PASSWORD: local-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      ECOM_TEST_POSTGRES: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=local-ci-only
+      ECOM_TEST_VECTOR: '1'
+      ECOM_ALLOW_PAID_AI_TESTS: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore Ecom.taani.slnx
+      - run: dotnet build Ecom.taani.slnx --no-restore -c Release
+      - run: dotnet test Ecom.taani.slnx --no-build -c Release --filter 'FullyQualifiedName~Ecom.AIShopping' --logger trx --results-directory artifacts/ai-ci-results
+      - run: dotnet list Ecom.taani.slnx package --vulnerable --include-transitive
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-shopping-test-results
+          path: artifacts/ai-ci-results

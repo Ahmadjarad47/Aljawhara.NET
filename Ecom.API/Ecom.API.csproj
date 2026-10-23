@@ -26,6 +26,7 @@
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Ecom.AIShopping.Infrastructure\Ecom.AIShopping.Infrastructure.csproj" />
     <ProjectReference Include="..\Ecom.Application\Ecom.Application.csproj" />
     <ProjectReference Include="..\Ecom.Infrastructure\Ecom.Infrastructure.csproj" />
     <ProjectReference Include="..\Ecom.Domain\Ecom.Domain.csproj" />

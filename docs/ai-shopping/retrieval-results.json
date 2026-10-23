@@ -1,0 +1,11 @@
+{
+  "mode": "local PostgreSQL lexical retrieval",
+  "catalogSize": 2,
+  "queries": 5,
+  "recallAt8": 1,
+  "meanMilliseconds": 7.1040399999999995,
+  "p95Milliseconds": 14.7431,
+  "semanticBenchmarked": false,
+  "paidProviderCalls": 0,
+  "limitation": "Tiny deterministic fixtures establish regression behavior only; not production catalog accuracy, throughput, latency or semantic quality."
+}
