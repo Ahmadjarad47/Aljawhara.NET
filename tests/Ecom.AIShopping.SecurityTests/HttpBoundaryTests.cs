@@ -24,6 +24,18 @@ public sealed class HttpBoundaryTests
     private CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task Account_and_missing_API_responses_are_never_cacheable()
+    {
+        await using var factory = new ShoppingApiFactory(); using var client = factory.Client();
+        foreach (var path in new[] { "/api/auth/me", "/api/not-a-real-route" })
+        {
+            using var response = await client.GetAsync(path, Ct);
+            Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+            Assert.False(response.IsSuccessStatusCode);
+        }
+    }
+
+    [Fact]
     public async Task Disabled_feature_needs_no_AI_secret_database_or_provider()
     {
         await using var factory = new ShoppingApiFactory(enabled: false);

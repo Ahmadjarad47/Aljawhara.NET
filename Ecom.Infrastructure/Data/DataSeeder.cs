@@ -14,6 +14,8 @@ namespace Ecom.Infrastructure.Data
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
+            if (serviceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
+                return;
           
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();

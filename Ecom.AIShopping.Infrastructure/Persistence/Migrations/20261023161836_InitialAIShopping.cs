@@ -94,7 +94,7 @@ namespace Ecom.AIShopping.Infrastructure.Persistence.Migrations
                 table: "Conversations",
                 column: "ExpiresAtUtc");
 
-            migrationBuilder.Sql("CREATE INDEX \"IX_SearchDocuments_FTS\" ON ai_shopping.\"SearchDocuments\" USING GIN (to_tsvector('simple', \"NormalizedText\"))");
+            migrationBuilder.Sql("CREATE INDEX \"IX_SearchDocuments_FTS\" ON ai_shopping.\"SearchDocuments\" USING GIN (to_tsvector('simple', \"NormalizedText\"));");
         }
 
         /// <inheritdoc />

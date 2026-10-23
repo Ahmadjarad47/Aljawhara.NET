@@ -5,6 +5,13 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
+concurrency:
+  group: aljawhara-production-deploy
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -20,37 +27,31 @@ jobs:
 
       - name: Publish API
         run: |
+          sudo python3 tests/deployment_release_smoke.py
+          dotnet test tests/Ecom.AIShopping.Tests/Ecom.AIShopping.Tests.csproj -c Release
+          dotnet test tests/Ecom.AIShopping.SecurityTests/Ecom.AIShopping.SecurityTests.csproj -c Release
+          dotnet test tests/Ecom.CheckoutAudit.Tests/Ecom.CheckoutAudit.Tests.csproj -c Release --filter FullyQualifiedName~ProductionSeedingTests
           cd Ecom.API
           dotnet publish -c Release -o publish
+          # Secrets/configuration are retained on the server by activate-release.sh.
+          find publish -maxdepth 1 -name 'appsettings*.json' -delete
 
-      - name: Clean old publish folder on server
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: 72.61.187.165
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            rm -rf /var/www/Aljawhara.NET/publish
-            mkdir -p /var/www/Aljawhara.NET/publish
-
-      - name: SCP publish folder to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 72.61.187.165
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "Ecom.API/publish"
-          target: "/var/www/Aljawhara.NET"
-          strip_components: 1
-          rm: true
-          overwrite: true
-
-      - name: Restart service
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: 72.61.187.165
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            bash /var/www/Aljawhara.NET/publish/deploy/install-invoice-browser.sh /var/www/Aljawhara.NET/publish
-            systemctl restart aljawhara.service
+      - name: Upload and activate verified release
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          command -v rsync >/dev/null
+          key_file="$(mktemp)"
+          trap 'rm -f "$key_file"' EXIT
+          chmod 0600 "$key_file"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key_file"
+          unset SSH_PRIVATE_KEY
+          ssh_options=(-i "$key_file" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$GITHUB_WORKSPACE/deploy/ubuntu/known_hosts"
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+          target="/var/www/Aljawhara.NET/incoming/$GITHUB_SHA"
+          ssh "${ssh_options[@]}" root@72.61.187.165 "install -d -m 0755 '$target'"
+          printf -v remote_shell '%q ' ssh "${ssh_options[@]}"
+          rsync -a -e "$remote_shell" Ecom.API/publish/ "root@72.61.187.165:$target/"
+          ssh "${ssh_options[@]}" root@72.61.187.165 "bash '$target/deploy/activate-release.sh' '$GITHUB_SHA'"

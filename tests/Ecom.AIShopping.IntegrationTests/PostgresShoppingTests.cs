@@ -72,6 +72,18 @@ public sealed class PostgresShoppingTests : IAsyncLifetime
     private async Task<ShoppingResponse> Preview() => await Agent(_commerce, _db).ChatAsync("owner-a", new(null, null, "نزهة لخمس أشخاص"), Ct);
 
     [Fact(Skip = "Set ECOM_TEST_POSTGRES to a dedicated test server", SkipUnless = nameof(Enabled))]
+    public async Task Generated_idempotent_deployment_SQL_can_run_twice_without_changing_commerce()
+    {
+        var migrator = _db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
+        var script = migrator.GenerateScript(options: Microsoft.EntityFrameworkCore.Migrations.MigrationsSqlGenerationOptions.Idempotent);
+        await migrator.MigrateAsync("0", Ct);
+        await _db.Database.ExecuteSqlRawAsync(script, Ct);
+        await _db.Database.ExecuteSqlRawAsync(script, Ct);
+        Assert.Equal(2, await _commerce.Products.CountAsync(Ct));
+        Assert.Single(await _db.Database.GetAppliedMigrationsAsync(Ct));
+    }
+
+    [Fact(Skip = "Set ECOM_TEST_POSTGRES to a dedicated test server", SkipUnless = nameof(Enabled))]
     public async Task Arabic_FTS_synonyms_current_price_material_and_no_catalog_instructions()
     {
         var result = await _retrieval.SearchAsync("كاسات", "ورق", 8, Ct);

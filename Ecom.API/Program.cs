@@ -26,8 +26,11 @@ using Ecom.Application.WhatsApp;
 using Ecom.Infrastructure.WhatsApp;
 using Ecom.AIShopping.Infrastructure.DependencyInjection;
 using Ecom.API.AIShopping;
+using Ecom.API.Hosting;
+using Microsoft.AspNetCore.Builder;
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<ForwardedHeadersOptions>(TrustedReverseProxy.Configure);
 builder.Services.AddAIShopping(builder.Configuration);
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ShoppingIdentity>();
@@ -247,13 +250,6 @@ builder.Services.AddMemoryCache(options =>
     options.SizeLimit = 4096; // Limit cache size
 });
 
-// Add Response Caching for performance
-builder.Services.AddResponseCaching(options =>
-{
-    options.MaximumBodySize = 64 * 1024 * 1024; // 64 MB
-    options.UseCaseSensitivePaths = false;
-});
-
 // Add Response Compression for performance
 builder.Services.AddResponseCompression(options =>
 {
@@ -407,6 +403,7 @@ builder.WebHost.ConfigureKestrel(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseMiddleware<MonitoringMiddleware>();
 
 // Configure the HTTP request pipeline.
@@ -414,6 +411,16 @@ app.UseMiddleware<MonitoringMiddleware>();
 // Security: Add security headers middleware (must be early in pipeline)
 app.Use(async (context, next) =>
 {
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        // Prices, stock, identity, cart preparation and payment responses must never enter a shared/browser response cache.
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return Task.CompletedTask;
+        });
+    }
     // Security Headers
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
@@ -451,9 +458,6 @@ app.Use(async (context, next) =>
 
 // Performance: Enable response compression (must be before other middleware)
 app.UseResponseCompression();
-
-// Performance: Enable response caching
-app.UseResponseCaching();
 
 // Security: Request timeout (configured via Kestrel options above)
 // app.UseRequestTimeouts(); // Uncomment if RequestTimeouts package is added
