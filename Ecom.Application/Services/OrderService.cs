@@ -83,6 +83,9 @@ namespace Ecom.Application.Services
             if (!Enum.IsDefined(orderDto.PaymentMethod))
                 throw new ArgumentException("Invalid payment method.");
 
+            // WhatsApp invoice delivery is retired. Ignore opt-ins from stale storefront clients.
+            orderDto.WhatsAppInvoiceOptIn = false;
+            orderDto.WhatsAppConsentPhone = null;
             var orderPhone = WhatsAppPhone.Normalize(orderDto.ShippingAddress?.Phone, _gupshupOptions)
                 ?? throw new ArgumentException("A valid shipping phone is required. Select a country or use + and the calling code.");
             orderDto.ShippingAddress!.Phone = orderPhone;

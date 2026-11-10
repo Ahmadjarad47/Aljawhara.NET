@@ -152,24 +152,6 @@ namespace Ecom.API.Controllers
             catch (InvalidOperationException ex) { return Conflict(ex.Message); }
         }
 
-        [HttpPost("{id}/whatsapp-invoice/retry")]
-        [AllowAnonymous]
-        public async Task<IActionResult> RetryWhatsAppInvoice(int id, [FromBody] RetryWhatsAppInvoiceDto request)
-        {
-            if (!request.Consent)
-                return BadRequest("Explicit WhatsApp consent is required for this retry.");
-            try
-            {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var retried = await _orderService.RetryWhatsAppInvoiceAsync(id, request.WhatsAppPhone, userId,
-                    Request.Headers[GuestAccessHeader].FirstOrDefault());
-                return retried ? Accepted() : NotFound();
-            }
-            catch (ArgumentException ex) { return BadRequest(ex.Message); }
-            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
-        }
-
-
         [HttpPut("{id}/cancel")]
         [AllowAnonymous]
         public async Task<ActionResult> CancelOrder(int id)

@@ -62,7 +62,7 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Sandbox_sends_a_pdf_file_and_production_uses_document_template()
+    public async Task Invoice_delivery_is_disabled_without_contacting_the_provider()
     {
         foreach (var production in new[] { false, true })
         {
@@ -72,18 +72,9 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
             using var client = new HttpClient(handler);
             var result = await new GupshupWhatsAppService(client, Options.Create(o))
                 .SendInvoiceAsync("+96550000000", "ORDER-1", "https://api.example.test/invoice?token=test", Ct);
-            Assert.Equal(WhatsAppSendOutcome.Accepted, result.Outcome);
-            Assert.Equal("GS-123", result.MessageId);
-            Assert.Contains(production ? "/template/msg" : "/v1/msg", handler.Url);
-            var values = handler.Body!.Split('&').Select(s => s.Split('=', 2))
-                .ToDictionary(p => WebUtility.UrlDecode(p[0]), p => WebUtility.UrlDecode(p[1]));
-            Assert.Equal("96550000000", values["destination"]);
-            using var json = JsonDocument.Parse(values["message"]);
-            Assert.Equal(production ? "document" : "file", json.RootElement.GetProperty("type").GetString());
-            var file = production ? json.RootElement.GetProperty("document") : json.RootElement;
-            Assert.EndsWith(".pdf", file.GetProperty("filename").GetString());
-            Assert.Equal("https://api.example.test/invoice?token=test", file.GetProperty(production ? "link" : "url").GetString());
-            Assert.Equal(production, values.ContainsKey("template"));
+            Assert.Equal(WhatsAppSendOutcome.Rejected, result.Outcome);
+            Assert.Equal("INVOICE_DELIVERY_DISABLED", result.ErrorCode);
+            Assert.Null(handler.Body);
         }
     }
 
@@ -98,9 +89,9 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
         using var client = new HttpClient(handler);
         var sender = new GupshupWhatsAppService(client, Options.Create(o));
         var invoice = await sender.SendInvoiceAsync("+4915112345678", "DE-ORDER", "https://api.example.test/file", Ct);
-        Assert.Equal(allowed ? WhatsAppSendOutcome.Accepted : WhatsAppSendOutcome.Rejected, invoice.Outcome);
-        if (allowed) Assert.Contains("destination=4915112345678", handler.Body);
-        else { Assert.Null(handler.Body); Assert.Equal("SANDBOX_DESTINATION_NOT_ALLOWED", invoice.ErrorCode); }
+        Assert.Equal(WhatsAppSendOutcome.Rejected, invoice.Outcome);
+        Assert.Equal("INVOICE_DELIVERY_DISABLED", invoice.ErrorCode);
+        Assert.Null(handler.Body);
         var verification = await sender.SendPhoneVerificationCodeAsync("+4915112345678", "123456", Ct);
         Assert.Equal(allowed ? WhatsAppSendOutcome.Accepted : WhatsAppSendOutcome.Rejected, verification.Outcome);
         if (allowed) Assert.Contains("destination=4915112345678", handler.Body);
@@ -108,15 +99,19 @@ public sealed class WhatsAppInvoiceTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(429, WhatsAppSendOutcome.RetryableRejection)]
-    [InlineData(503, WhatsAppSendOutcome.Unknown)]
-    [InlineData(401, WhatsAppSendOutcome.Rejected)]
-    [InlineData(200, WhatsAppSendOutcome.Unknown)]
-    public async Task Provider_errors_are_classified_without_unsafe_retries(int status, WhatsAppSendOutcome expected)
+    [InlineData(429)]
+    [InlineData(503)]
+    [InlineData(401)]
+    [InlineData(200)]
+    public async Task Disabled_invoice_delivery_never_reaches_provider(int status)
     {
-        using var client = new HttpClient(new RecordingHandler((HttpStatusCode)status, "{}"));
-        Assert.Equal(expected, (await new GupshupWhatsAppService(client, Options.Create(Config()))
-            .SendInvoiceAsync("+96550000000", "ORDER-1", "https://api.example.test/file", Ct)).Outcome);
+        var handler = new RecordingHandler((HttpStatusCode)status, "{}");
+        using var client = new HttpClient(handler);
+        var result = await new GupshupWhatsAppService(client, Options.Create(Config()))
+            .SendInvoiceAsync("+96550000000", "ORDER-1", "https://api.example.test/file", Ct);
+        Assert.Equal(WhatsAppSendOutcome.Rejected, result.Outcome);
+        Assert.Equal("INVOICE_DELIVERY_DISABLED", result.ErrorCode);
+        Assert.Null(handler.Body);
     }
 
     [Fact]

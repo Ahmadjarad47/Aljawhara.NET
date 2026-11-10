@@ -226,7 +226,6 @@ if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHostedService<SadadPaymentStatusCheckerService>();
     builder.Services.AddHostedService<PaymentOrchestrationWorker>();
-    builder.Services.AddHostedService<WhatsAppInvoiceWorker>();
 }
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();

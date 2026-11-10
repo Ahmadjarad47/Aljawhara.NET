@@ -122,9 +122,7 @@ public sealed class Phase2OrchestrationTests : IAsyncLifetime
         Assert.Equal(OrderStatus.Processing, await verification.Orders.Select(o => o.Status).SingleAsync(TestContext.Current.CancellationToken));
         Assert.Equal(ReservationStatus.Confirmed, await verification.InventoryReservations.Select(r => r.Status).SingleAsync(TestContext.Current.CancellationToken));
         Assert.Single(await verification.PaymentTransitionAudits.ToListAsync(TestContext.Current.CancellationToken));
-        var invoice = Assert.Single(await verification.WhatsAppInvoices.ToListAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(seeded.AttemptId, invoice.PaymentAttemptId);
-        Assert.Equal(WhatsAppInvoiceStatus.Pending, invoice.Status);
+        Assert.Empty(await verification.WhatsAppInvoices.ToListAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]

@@ -7,31 +7,9 @@ namespace Ecom.Infrastructure.WhatsApp;
 
 public sealed class GupshupWhatsAppService(HttpClient client, IOptions<GupshupOptions> options) : IGupshupWhatsAppService
 {
-    public async Task<WhatsAppSendResult> SendInvoiceAsync(string destination, string orderNumber, string mediaUrl,
-        CancellationToken cancellationToken)
-    {
-        var o = options.Value;
-        if (!o.Enabled || !o.IsValid() || WhatsAppPhone.Normalize(destination, o) != destination)
-            return new(WhatsAppSendOutcome.Rejected, ErrorCode: "INVALID_CONFIGURATION_OR_PHONE");
-        if (o.Environment == "Sandbox" && !WhatsAppPhone.IsSandboxAllowed(destination, o))
-            return new(WhatsAppSendOutcome.Rejected, ErrorCode: "SANDBOX_DESTINATION_NOT_ALLOWED");
-        var session = o.Environment == "Sandbox" && o.SandboxSessionMessages;
-        var caption = $"مرحباً، تم استلام دفعتك بنجاح للطلب رقم {orderNumber} من الجوهرة بلس. مرفق فاتورتك بصيغة PDF. شكراً لتسوقك معنا.";
-        var filename = "invoice-" + new string(orderNumber.Where(c => char.IsAsciiLetterOrDigit(c) || c == '-').Take(60).ToArray()) + ".pdf";
-        var form = new Dictionary<string, string>
-        {
-            ["channel"] = "whatsapp", ["source"] = o.Source, ["destination"] = WhatsAppPhone.ToProvider(destination, o)!, ["src.name"] = o.AppName,
-            ["message"] = session
-                ? JsonSerializer.Serialize(new { type = "file", caption, url = mediaUrl, filename })
-                : JsonSerializer.Serialize(new { type = "document", document = new { link = mediaUrl, filename } })
-        };
-        if (!session) form["template"] = JsonSerializer.Serialize(new { id = o.TemplateId, @params = new[] { orderNumber } });
-        using var request = new HttpRequestMessage(HttpMethod.Post,
-            session ? "https://api.gupshup.io/wa/api/v1/msg" : "https://api.gupshup.io/wa/api/v1/template/msg");
-        request.Headers.Add("apikey", o.ApiKey);
-        request.Content = new FormUrlEncodedContent(form);
-        return await SendAsync(request, cancellationToken);
-    }
+    public Task<WhatsAppSendResult> SendInvoiceAsync(string destination, string orderNumber, string mediaUrl,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new WhatsAppSendResult(WhatsAppSendOutcome.Rejected, ErrorCode: "INVOICE_DELIVERY_DISABLED"));
 
     public async Task<WhatsAppSendResult> SendPhoneVerificationCodeAsync(string destination, string code,
         CancellationToken cancellationToken)

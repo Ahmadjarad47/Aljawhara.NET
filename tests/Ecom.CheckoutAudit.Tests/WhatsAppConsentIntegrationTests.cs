@@ -55,7 +55,7 @@ public sealed class WhatsAppConsentIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Checkout_persists_normalized_explicit_consent_and_unchecked_checkout_still_succeeds()
+    public async Task Checkout_ignores_legacy_whatsapp_invoice_opt_in_and_still_succeeds()
     {
         var optedIn = await CheckoutAsync("consent-opt-in", true, "+965 5000-0000", "00965 5000 0000");
         var optedOut = await CheckoutAsync("consent-opt-out", false, null, "50000000");
@@ -64,14 +64,14 @@ public sealed class WhatsAppConsentIntegrationTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, optedOut.StatusCode);
         await using var db = Db();
         var orders = await db.Orders.AsNoTracking().OrderBy(o => o.Id).ToListAsync(Ct);
-        var consentOrder = orders.Single(o => o.WhatsAppConsentAtUtc != null);
-        var noConsentOrder = orders.Single(o => o.WhatsAppConsentAtUtc == null);
-        Assert.Equal("+96550000000", consentOrder.WhatsAppConsentPhone);
-        Assert.Equal("Checkout", consentOrder.WhatsAppConsentSource);
-        Assert.Null(noConsentOrder.WhatsAppConsentPhone);
-        var audit = await db.WhatsAppConsentAudits.SingleAsync(a => a.OrderId == consentOrder.Id, Ct);
-        Assert.Equal(WhatsAppConsentAction.Granted, audit.Action);
-        Assert.Equal("+96550000000", audit.Phone);
+        Assert.Equal(2, orders.Count);
+        Assert.All(orders, order =>
+        {
+            Assert.Null(order.WhatsAppConsentAtUtc);
+            Assert.Null(order.WhatsAppConsentPhone);
+            Assert.Null(order.WhatsAppConsentSource);
+        });
+        Assert.Empty(await db.WhatsAppConsentAudits.Where(a => a.OrderId != null).ToListAsync(Ct));
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public sealed class WhatsAppConsentIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Previously_skipped_invoice_requires_owner_consent_and_cannot_be_queued_twice()
+    public async Task Previously_skipped_invoice_cannot_be_requeued()
     {
         int orderId;
         await using (var db = Db())
@@ -143,33 +143,37 @@ public sealed class WhatsAppConsentIntegrationTests : IAsyncLifetime
         }
         using (var request = Auth(HttpMethod.Post, $"/api/orders/{orderId}/whatsapp-invoice/retry",
                    new { consent = true, whatsAppPhone = "00965 5000 0000" }))
-            Assert.Equal(HttpStatusCode.Accepted, (await _client.SendAsync(request, Ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await _client.SendAsync(request, Ct)).StatusCode);
         using (var request = Auth(HttpMethod.Post, $"/api/orders/{orderId}/whatsapp-invoice/retry",
                    new { consent = true, whatsAppPhone = "50000000" }))
-            Assert.Equal(HttpStatusCode.Conflict, (await _client.SendAsync(request, Ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await _client.SendAsync(request, Ct)).StatusCode);
 
         await using var check = Db();
         var invoice = await check.WhatsAppInvoices.SingleAsync(i => i.PaymentAttempt.OrderId == orderId, Ct);
-        Assert.Equal(WhatsAppInvoiceStatus.Pending, invoice.Status);
+        Assert.Equal(WhatsAppInvoiceStatus.Skipped, invoice.Status);
         Assert.Null(invoice.ProviderMessageId);
-        Assert.Equal(1, await check.WhatsAppConsentAudits.CountAsync(a => a.OrderId == orderId, Ct));
+        Assert.Equal(0, await check.WhatsAppConsentAudits.CountAsync(a => a.OrderId == orderId, Ct));
     }
 
     [Theory]
     [InlineData("+4915112345678", "004915112345678")]
     [InlineData("004915112345678", "+4915112345678")]
-    public async Task German_checkout_persists_E164_and_rejects_mismatched_consent(string shipping, string consent)
+    public async Task German_checkout_normalizes_shipping_and_ignores_legacy_consent(string shipping, string consent)
     {
         using var accepted = await CheckoutAsync("german-consent", true, consent, shipping);
         Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
         using var rejected = await CheckoutAsync("wrong-recipient", true, "+96550000000", shipping);
-        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, rejected.StatusCode);
         await using var db = Db();
-        var order = await db.Orders.AsNoTracking().Include(o => o.ShippingAddress).SingleAsync(Ct);
-        Assert.Equal("+4915112345678", order.WhatsAppConsentPhone);
-        Assert.Equal("+4915112345678", order.ShippingAddress.Phone);
-        Assert.Equal("Checkout", order.WhatsAppConsentSource);
-        Assert.NotNull(order.WhatsAppConsentAtUtc);
+        var orders = await db.Orders.AsNoTracking().Include(o => o.ShippingAddress).ToListAsync(Ct);
+        Assert.Equal(2, orders.Count);
+        Assert.All(orders, order =>
+        {
+            Assert.Null(order.WhatsAppConsentPhone);
+            Assert.Equal("+4915112345678", order.ShippingAddress.Phone);
+            Assert.Null(order.WhatsAppConsentSource);
+            Assert.Null(order.WhatsAppConsentAtUtc);
+        });
     }
 
     [Fact]
