@@ -7,11 +7,12 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
     {
         Task<Coupon?> GetByCodeAsync(string code);
         Task<IEnumerable<Coupon>> GetActiveCouponsAsync();
+        Task<List<Coupon>> GetPublicCouponsAsync();
         Task<IEnumerable<Coupon>> GetCouponsByUserAsync(string userId);
         Task<IEnumerable<Coupon>> GetExpiredCouponsAsync();
         Task<bool> IsCodeUniqueAsync(string code, int? excludeId = null);
         Task IncrementUsageCountAsync(int couponId);
-        Task<bool> TryReserveUsageAsync(int couponId, DateTime utcNow);
+        Task<bool> TryReserveUsageAsync(int couponId, DateTime utcNow, string? userId = null);
         Task<bool> ReleaseReservedUsageAsync(int couponId);
         Task<Coupon?> GetCouponWithDetailsAsync(int id);
     }

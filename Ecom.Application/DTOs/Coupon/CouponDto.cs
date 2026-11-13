@@ -17,6 +17,7 @@ namespace Ecom.Application.DTOs.Coupon
         public int? UsageLimit { get; set; }
         public int UsedCount { get; set; }
         public new bool IsActive { get; set; }
+        public bool IsPublic { get; set; }
         public bool IsSingleUse { get; set; }
         public string? AppUserId { get; set; }
         public string? UserName { get; set; }
@@ -58,6 +59,7 @@ namespace Ecom.Application.DTOs.Coupon
         public int? UsageLimit { get; set; }
 
         public bool IsActive { get; set; } = true;
+        public bool IsPublic { get; set; }
         public bool IsSingleUse { get; set; } = false;
         public string? AppUserId { get; set; }
     }
@@ -98,6 +100,7 @@ namespace Ecom.Application.DTOs.Coupon
         public int? UsageLimit { get; set; }
 
         public bool IsActive { get; set; }
+        public bool? IsPublic { get; set; }
         public bool IsSingleUse { get; set; }
         public string? AppUserId { get; set; }
     }
@@ -111,8 +114,19 @@ namespace Ecom.Application.DTOs.Coupon
         [Range(0.01, double.MaxValue, ErrorMessage = "Order amount must be greater than 0")]
         public decimal OrderAmount { get; set; }
 
+    }
+
+    // Only the Admin preview may deliberately test another user's eligibility.
+    public sealed class AdminCouponValidationDto : CouponValidationDto
+    {
         public string? UserId { get; set; }
     }
+
+    public sealed record StorefrontCouponDto(int Id, string Code, string Description, CouponType Type, decimal Value,
+        decimal? MinimumOrderAmount, decimal? MaximumDiscountAmount, DateTime StartDate, DateTime EndDate);
+
+    public sealed record StorefrontCouponValidationDto(bool IsValid, string Message, StorefrontCouponDto? Coupon,
+        decimal DiscountAmount, decimal FinalAmount);
 
     public class CouponValidationResultDto
     {

@@ -38,15 +38,15 @@ POST /api/auth/register
   "username": "john_doe",
   "email": "john@example.com",
   "phoneNumber": "+1234567890",
-  "password": "SecurePass123",
-  "confirmPassword": "SecurePass123"
+  "password": "Example!Pass123",
+  "confirmPassword": "Example!Pass123"
 }
 ```
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Registration successful. Please check your email for verification code."
+  "message": "If registration is available, check your email for a verification code."
 }
 ```
 
@@ -58,7 +58,7 @@ POST /api/auth/login
 ```json
 {
   "email": "john@example.com",
-  "password": "SecurePass123",
+  "password": "Example!Pass123",
   "rememberMe": false
 }
 ```
@@ -116,7 +116,7 @@ POST /api/auth/resend-verification
 ```json
 {
   "success": true,
-  "message": "Verification code has been resent to your email"
+  "message": "If the account needs verification, a code has been sent."
 }
 ```
 
@@ -128,9 +128,9 @@ Authorization: Bearer {token}
 **Request Body:**
 ```json
 {
-  "currentPassword": "OldPassword123",
-  "newPassword": "NewPassword123",
-  "confirmNewPassword": "NewPassword123"
+  "currentPassword": "Example!Old123",
+  "newPassword": "Example!New123",
+  "confirmNewPassword": "Example!New123"
 }
 ```
 **Response:**
@@ -155,7 +155,7 @@ POST /api/auth/forgot-password
 ```json
 {
   "success": true,
-  "message": "If the email exists, a password reset code has been sent"
+  "message": "If the account is eligible, a password reset code has been sent."
 }
 ```
 
@@ -168,8 +168,8 @@ POST /api/auth/reset-password
 {
   "email": "john@example.com",
   "otp": "123456",
-  "newPassword": "NewPassword123",
-  "confirmNewPassword": "NewPassword123"
+  "newPassword": "Example!New123",
+  "confirmNewPassword": "Example!New123"
 }
 ```
 **Response:**
@@ -292,16 +292,14 @@ Authorization: Bearer {token}
 ## Security Features
 
 ### OTP System
-- **6-digit OTP codes** generated using cryptographically secure random number generator
-- **1-hour expiration** time for all OTPs
-- **Memory cache storage** for OTP management
-- **Automatic cleanup** after successful verification
-- **Rate limiting** through sliding expiration (15 minutes)
+- Six-digit codes expire after 10 minutes and are stored as keyed hashes in PostgreSQL.
+- Each code is bound to the account and purpose. Verification and password reset codes are not interchangeable.
+- Each code has five attempts. Per account and purpose, one code can be issued per minute, up to three per one-hour window.
+- Successful proof is single use. If the reset rejects a replacement password, the old password remains usable and a new code is required.
+- Issuance and verification endpoints apply client-IP rate limits and can return HTTP 429.
 
 ### Password Security
-- **Minimum 6 characters** required
-- **Must contain** uppercase, lowercase, and digit
-- **Non-alphanumeric characters** optional
+- Identity requires at least eight characters, including uppercase, lowercase, a digit, and a non-alphanumeric character.
 - **Unique email** requirement
 - **Access failed tracking** with automatic lockout
 
@@ -310,7 +308,9 @@ Authorization: Bearer {token}
 - **Configurable expiration** (default 60 minutes)
 - **Role-based claims** included
 - **User identification** via NameIdentifier claim
-- **Token validation** with proper issuer/audience checks
+- The server checks session and account state on every bearer authentication and checks current Admin membership before honoring an Admin claim.
+- Use `POST /api/auth/refresh-token` with `{ "refreshToken": "…" }`. Replace the previous refresh token with the returned one after success. Only one concurrent redemption can succeed; clients should serialize refreshes. An invalid, expired or reused token returns HTTP 401.
+- `expiresAt` is the access token's exact UTC expiration. Each sign-in creates a session with a fixed lifetime (seven days by default). Logout revokes the current session; password changes, successful resets and administrative blocks revoke all affected sessions.
 
 ## Error Handling
 
@@ -330,6 +330,7 @@ All endpoints return consistent error responses:
 - **401 Unauthorized**: Authentication required or invalid credentials
 - **403 Forbidden**: Insufficient permissions
 - **404 Not Found**: Resource not found
+- **429 Too Many Requests**: Authentication or API rate limit reached
 - **500 Internal Server Error**: Server-side error
 
 ## Database Changes
@@ -356,10 +357,9 @@ All endpoints return consistent error responses:
 }
 ```
 
-### OTP Settings
-- **Expiration**: 60 minutes (configurable in OtpService)
-- **Sliding Expiration**: 15 minutes
-- **Cache Key Prefix**: "otp_"
+The signing key must come from external configuration and match across API replicas. Set `JwtSettings:RefreshTokenDays` to choose the fixed session lifetime (1–90 days); access JWTs are capped at 120 minutes and cannot outlive the session.
+
+P1 requires the PostgreSQL migration `20261112093003_P1AccountAndPaymentSecurity`. Pre-P1 bearer tokens and outstanding OTPs do not carry over. After cutover, sign in again or request a new code.
 
 ## Usage Examples
 
@@ -382,7 +382,7 @@ All endpoints return consistent error responses:
 
 ## Notes
 
-- All OTP operations use **email-based verification only** (no tokens)
+- The client submits the emailed code. Identity password reset tokens are issued and consumed internally.
 - **Email confirmation is required** before login
 - **Addresses are user-scoped** - users can only access their own addresses
 - **Soft delete** is used for addresses that are referenced in orders

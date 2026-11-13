@@ -115,6 +115,17 @@ public sealed class InvoicePdfRenderer(IOptions<GupshupOptions> options) : IInvo
         var rows = new StringBuilder();
         foreach (var line in i.Lines)
             rows.Append($"<tr><td>{H(line.Name)}</td><td class='number'>{line.Quantity}</td><td class='number'>{M(line.Price)}</td><td class='number'>{M(line.Price * line.Quantity)}</td></tr>");
+        var extraMeta = new StringBuilder();
+        static void AddMeta(StringBuilder target, string label, string? value, bool wide = false, bool latin = false)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            target.Append($"<div{(wide ? " class='wide'" : string.Empty)}><div class='label'>{H(label)}</div><div class='value{(latin ? " latin" : string.Empty)}'>{H(value)}</div></div>");
+        }
+        AddMeta(extraMeta, "رقم الهاتف", i.CustomerPhone, latin: true);
+        AddMeta(extraMeta, "طريقة الدفع", i.PaymentMethod);
+        AddMeta(extraMeta, "العنوان", i.ShippingAddress, wide: true);
+        AddMeta(extraMeta, "مرجع العملية", i.TransactionReference, latin: true);
+        AddMeta(extraMeta, "رمز الخصم", i.CouponCode, latin: true);
         var paidAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(i.PaidAtUtc, DateTimeKind.Utc), TimeZoneInfo.FindSystemTimeZoneById("Asia/Kuwait"));
         return $$"""
             <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><style>
@@ -124,7 +135,7 @@ public sealed class InvoicePdfRenderer(IOptions<GupshupOptions> options) : IInvo
             .brand{display:flex;align-items:center;gap:16px;border-bottom:3px solid #ba954b;padding-bottom:18px;margin-bottom:24px}
             .brand h1{margin:0;font-size:27px;color:#143a39}.en{font-family:Arial,sans-serif;letter-spacing:2px;font-size:10px;color:#92713c}
             h2{font-size:22px;margin:10px 0}.paid{color:#16734d;background:#e8f5ec;padding:6px 16px;border-radius:6px;display:inline-block;font-size:13px}
-            .meta{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;background:#f5f7f7;border-radius:8px;padding:18px;margin:24px 0}
+            .meta{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;background:#f5f7f7;border-radius:8px;padding:18px;margin:24px 0}.wide{grid-column:1/-1}
             .label{font-size:10px;color:#61737b}.value{font-size:13px;overflow-wrap:anywhere}.latin{direction:ltr;unicode-bidi:isolate;display:inline-block;font-family:Arial,sans-serif}
             table{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;margin:20px 0}thead{display:table-row-group;break-inside:avoid;break-after:avoid}th{background:#173f3e;color:white;font-weight:600}
             th,td{padding:12px 10px;text-align:right;border-bottom:1px solid #e4e9e9;overflow-wrap:anywhere}th:first-child{width:48%}tr{break-inside:avoid}tbody tr:nth-child(even){background:#f8faf9}
@@ -134,7 +145,7 @@ public sealed class InvoicePdfRenderer(IOptions<GupshupOptions> options) : IInvo
             </style></head><body>
             <section id="invoice-intro"><header class="brand"><img src="data:image/png;base64,{{logoData}}" width="100" height="65" style="object-fit:contain" alt="شعار الجوهرة"><div><h1>الجوهرة بلس</h1><div class="en">ALJAWHARA PLUS</div></div></header>
             <h2>فاتورة الطلب</h2><span class="paid">مدفوع بنجاح</span>
-            <section class="meta"><div><div class="label">رقم الفاتورة</div><div class="value latin">{{H(i.InvoiceNumber)}}</div></div><div><div class="label">رقم الطلب</div><div class="value latin">{{H(i.OrderNumber)}}</div></div><div><div class="label">اسم الزبون</div><div class="value">{{H(i.CustomerName)}}</div></div><div><div class="label">تاريخ تأكيد الدفع - توقيت الكويت</div><div class="value latin">{{paidAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}}</div></div></section></section>
+            <section class="meta"><div><div class="label">رقم الفاتورة</div><div class="value latin">{{H(i.InvoiceNumber)}}</div></div><div><div class="label">رقم الطلب</div><div class="value latin">{{H(i.OrderNumber)}}</div></div><div><div class="label">اسم الزبون</div><div class="value">{{H(i.CustomerName)}}</div></div><div><div class="label">تاريخ تأكيد الدفع - توقيت الكويت</div><div class="value latin">{{paidAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}}</div></div>{{extraMeta}}</section></section>
             <table><thead><tr><th>المنتج</th><th class="number">الكمية</th><th class="number">سعر الوحدة<br>KWD</th><th class="number">الإجمالي<br>KWD</th></tr></thead><tbody>{{rows}}</tbody></table>
             <section id="invoice-ending"><section class="summary"><div class="sumrow"><span>المجموع الفرعي</span><span class="latin">{{M(i.Subtotal)}}</span></div><div class="sumrow"><span>الخصم</span><span class="latin">{{M(i.Discount)}}</span></div><div class="sumrow"><span>رسوم التوصيل</span><span class="latin">{{M(i.Shipping)}}</span></div><div class="sumrow"><span>الضريبة</span><span class="latin">{{M(i.Tax)}}</span></div><div class="sumrow total"><span>المبلغ النهائي</span><span class="latin">{{M(i.Total)}} KWD</span></div></section>
             <footer class="thanks">شكراً لتسوقك من الجوهرة بلس<br>تم إنشاء هذه الفاتورة بعد تأكيد الدفع من سجلات الطلب.</footer></section>

@@ -218,7 +218,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPost("validate")]
-        public async Task<ActionResult<CouponValidationResultDto>> ValidateCoupon([FromBody] CouponValidationDto validationDto)
+        public async Task<ActionResult<CouponValidationResultDto>> ValidateCoupon([FromBody] AdminCouponValidationDto validationDto)
         {
             if (!ModelState.IsValid)
             {
@@ -227,7 +227,7 @@ namespace Ecom.API.Controllers
 
             try
             {
-                var result = await _couponService.ValidateCouponAsync(validationDto);
+                var result = await _couponService.ValidateCouponAsync(validationDto, validationDto.UserId);
                 return Ok(result);
             }
             catch (Exception ex)

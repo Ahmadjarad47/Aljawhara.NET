@@ -18,6 +18,44 @@ namespace Ecom.Application.Services
             _mapper = mapper;
         }
 
+        public async Task<IReadOnlyList<StorefrontCouponDto>> GetPublicCouponsAsync() =>
+            (await _unitOfWork.Coupons.GetPublicCouponsAsync()).Select(ToStorefront).ToList();
+
+        public async Task<StorefrontCouponDto?> GetVisibleCouponAsync(int? id, string? code, string? userId)
+        {
+            var coupon = id.HasValue
+                ? await _unitOfWork.Coupons.GetCouponWithDetailsAsync(id.Value)
+                : await _unitOfWork.Coupons.GetByCodeAsync(code!);
+            return coupon != null && (IsPublicPromotion(coupon, DateTime.UtcNow) ||
+                (coupon.AppUserId != null && coupon.AppUserId == userId)) ? ToStorefront(coupon) : null;
+        }
+
+        public async Task<IReadOnlyList<StorefrontCouponDto>> GetOwnedCouponsAsync(string userId) =>
+            (await _unitOfWork.Coupons.GetCouponsByUserAsync(userId)).Select(ToStorefront).ToList();
+
+        public async Task<StorefrontCouponValidationDto> PreviewCouponAsync(CouponValidationDto validation, string? userId)
+        {
+            var coupon = await _unitOfWork.Coupons.GetByCodeAsync(validation.Code);
+            var now = DateTime.UtcNow;
+            if (coupon == null || EligibilityError(coupon, validation.OrderAmount, userId, now) != null)
+                return new(false, "Coupon is invalid or unavailable.", null, 0m, 0m);
+
+            var discount = CalculateDiscountAmount(coupon, validation.OrderAmount);
+            var visible = IsPublicPromotion(coupon, now) || (coupon.AppUserId != null && coupon.AppUserId == userId);
+            return new(true, "Coupon is valid.", visible ? ToStorefront(coupon) : null,
+                discount, validation.OrderAmount - discount);
+        }
+
+        private static StorefrontCouponDto ToStorefront(Coupon coupon) => new(coupon.Id, coupon.Code,
+            coupon.Description, coupon.Type, coupon.Value, coupon.MinimumOrderAmount, coupon.MaximumDiscountAmount,
+            coupon.StartDate, coupon.EndDate);
+
+        private static bool IsPublicPromotion(Coupon coupon, DateTime now) =>
+            coupon.IsPublic && coupon.AppUserId == null && !coupon.IsDeleted && coupon.IsActive &&
+            coupon.StartDate <= now && coupon.EndDate >= now &&
+            (!coupon.UsageLimit.HasValue || coupon.UsedCount < coupon.UsageLimit.Value) &&
+            (!coupon.IsSingleUse || coupon.UsedCount == 0);
+
         public async Task<CouponDto?> GetCouponByIdAsync(int id)
         {
             var coupon = await _unitOfWork.Coupons.GetCouponWithDetailsAsync(id);
@@ -74,6 +112,9 @@ namespace Ecom.Application.Services
                 throw new ArgumentException("Percentage value cannot exceed 100.");
             }
 
+            if (couponDto.IsPublic && couponDto.AppUserId != null)
+                throw new ArgumentException("Assigned coupons cannot be public.");
+
             var coupon = _mapper.Map<Coupon>(couponDto);
             await _unitOfWork.Coupons.AddAsync(coupon);
             await _unitOfWork.SaveChangesAsync();
@@ -106,7 +147,12 @@ namespace Ecom.Application.Services
                 throw new ArgumentException("Percentage value cannot exceed 100.");
             }
 
+            if (couponDto.IsPublic == true && couponDto.AppUserId != null)
+                throw new ArgumentException("Assigned coupons cannot be public.");
+
+            var isPublic = couponDto.AppUserId == null && (couponDto.IsPublic ?? existingCoupon.IsPublic);
             _mapper.Map(couponDto, existingCoupon);
+            existingCoupon.IsPublic = isPublic;
             _unitOfWork.Coupons.Update(existingCoupon);
             await _unitOfWork.SaveChangesAsync();
 
@@ -149,101 +195,41 @@ namespace Ecom.Application.Services
             return true;
         }
 
-        public async Task<CouponValidationResultDto> ValidateCouponAsync(CouponValidationDto validationDto)
+        public async Task<CouponValidationResultDto> ValidateCouponAsync(CouponValidationDto dto, string? userId)
         {
-            var coupon = await _unitOfWork.Coupons.GetByCodeAsync(validationDto.Code);
-            
-            if (coupon == null)
-            {
-                return new CouponValidationResultDto
-                {
-                    IsValid = false,
-                    Message = "Invalid coupon code."
-                };
-            }
+            var coupon = await _unitOfWork.Coupons.GetByCodeAsync(dto.Code);
+            var error = coupon == null ? "Invalid coupon code." : EligibilityError(coupon, dto.OrderAmount, userId, DateTime.UtcNow);
+            if (error != null)
+                return new CouponValidationResultDto { IsValid = false, Message = error };
 
-            var now = DateTime.UtcNow;
-
-            // Check if coupon is active
-            if (!coupon.IsActive)
-            {
-                return new CouponValidationResultDto
-                {
-                    IsValid = false,
-                    Message = "Coupon is not active."
-                };
-            }
-
-            // Check if coupon is expired
-            if (now < coupon.StartDate || now > coupon.EndDate)
-            {
-                return new CouponValidationResultDto
-                {
-                    IsValid = false,
-                    Message = "Coupon has expired or is not yet active."
-                };
-            }
-
-            // Check usage limit
-            if (coupon.UsageLimit.HasValue && coupon.UsedCount >= coupon.UsageLimit.Value)
-            {
-                return new CouponValidationResultDto
-                {
-                    IsValid = false,
-                    Message = "Coupon usage limit has been reached."
-                };
-            }
-
-            // Check minimum order amount
-            if (coupon.MinimumOrderAmount.HasValue && validationDto.OrderAmount < coupon.MinimumOrderAmount.Value)
-            {
-                return new CouponValidationResultDto
-                {
-                    IsValid = false,
-                    Message = $"Minimum order amount of ${coupon.MinimumOrderAmount.Value:F2} required."
-                };
-            }
-
-            // Check if coupon is user-specific
-            if (!string.IsNullOrEmpty(coupon.AppUserId) && validationDto.UserId != coupon.AppUserId)
-            {
-                return new CouponValidationResultDto
-                {
-                    IsValid = false,
-                    Message = "This coupon is not valid for your account."
-                };
-            }
-
-            // Calculate discount amount
-            var discountAmount = CalculateDiscountAmount(coupon, validationDto.OrderAmount);
-
+            var discount = CalculateDiscountAmount(coupon!, dto.OrderAmount);
             return new CouponValidationResultDto
             {
-                IsValid = true,
-                Message = "Coupon is valid.",
-                Coupon = _mapper.Map<CouponDto>(coupon),
-                DiscountAmount = discountAmount,
-                FinalAmount = validationDto.OrderAmount - discountAmount
+                IsValid = true, Message = "Coupon is valid.", Coupon = _mapper.Map<CouponDto>(coupon),
+                DiscountAmount = discount, FinalAmount = dto.OrderAmount - discount
             };
+        }
+
+        private static string? EligibilityError(Coupon coupon, decimal amount, string? userId, DateTime now)
+        {
+            if (coupon.IsDeleted || (coupon.AppUserId != null && coupon.AppUserId != userId))
+                return "Invalid coupon code.";
+            if (!coupon.IsActive || now < coupon.StartDate || now > coupon.EndDate)
+                return "Coupon is not active.";
+            if ((coupon.UsageLimit.HasValue && coupon.UsedCount >= coupon.UsageLimit.Value) ||
+                (coupon.IsSingleUse && coupon.UsedCount > 0))
+                return "Coupon usage limit has been reached.";
+            if (coupon.MinimumOrderAmount.HasValue && amount < coupon.MinimumOrderAmount.Value)
+                return "Order amount is below the coupon minimum.";
+            return null;
         }
 
         public async Task<CouponDto> ApplyCouponToOrderAsync(string couponCode, decimal orderAmount, string? userId = null)
         {
-            var validationDto = new CouponValidationDto
-            {
-                Code = couponCode,
-                OrderAmount = orderAmount,
-                UserId = userId
-            };
-
-            var validationResult = await ValidateCouponAsync(validationDto);
-            
-            if (!validationResult.IsValid)
-            {
-                throw new ArgumentException(validationResult.Message);
-            }
-
-            return validationResult.Coupon!;
+            var result = await ValidateCouponAsync(new CouponValidationDto { Code = couponCode, OrderAmount = orderAmount }, userId);
+            if (!result.IsValid)
+                throw new ArgumentException(result.Message);
+            return result.Coupon!;
         }
 
         public async Task<bool> IncrementCouponUsageAsync(int couponId)

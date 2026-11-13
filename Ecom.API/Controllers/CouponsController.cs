@@ -2,6 +2,7 @@ using Ecom.Application.DTOs.Coupon;
 using Ecom.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Ecom.API.Controllers
 {
@@ -17,72 +18,34 @@ namespace Ecom.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CouponSummaryDto>>> GetCoupons()
-        {
-            var coupons = await _couponService.GetCouponSummariesAsync();
-            return Ok(coupons);
-        }
-
         [HttpGet("active")]
-        public async Task<ActionResult<IEnumerable<CouponDto>>> GetActiveCoupons()
-        {
-            var coupons = await _couponService.GetActiveCouponsAsync();
-            return Ok(coupons);
-        }
+        public async Task<ActionResult<IReadOnlyList<StorefrontCouponDto>>> GetCoupons() =>
+            Ok(await _couponService.GetPublicCouponsAsync());
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<CouponDto>> GetCoupon(int id)
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<StorefrontCouponDto>> GetCoupon(int id)
         {
-            var coupon = await _couponService.GetCouponByIdAsync(id);
-            if (coupon == null)
-            {
-                return NotFound($"Coupon with ID {id} not found.");
-            }
-            return Ok(coupon);
+            var coupon = await _couponService.GetVisibleCouponAsync(id, null, User.FindFirstValue(ClaimTypes.NameIdentifier));
+            return coupon == null ? NotFound() : Ok(coupon);
         }
 
         [HttpGet("code/{code}")]
-        public async Task<ActionResult<CouponDto>> GetCouponByCode(string code)
+        public async Task<ActionResult<StorefrontCouponDto>> GetCouponByCode(string code)
         {
-            var coupon = await _couponService.GetCouponByCodeAsync(code);
-            if (coupon == null)
-            {
-                return NotFound($"Coupon with code '{code}' not found.");
-            }
-            return Ok(coupon);
+            var coupon = await _couponService.GetVisibleCouponAsync(null, code, User.FindFirstValue(ClaimTypes.NameIdentifier));
+            return coupon == null ? NotFound() : Ok(coupon);
         }
 
         [HttpPost("validate")]
-        public async Task<ActionResult<CouponValidationResultDto>> ValidateCoupon([FromBody] CouponValidationDto validationDto)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                var result = await _couponService.ValidateCouponAsync(validationDto);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
+        public async Task<ActionResult<StorefrontCouponValidationDto>> ValidateCoupon([FromBody] CouponValidationDto dto) =>
+            Ok(await _couponService.PreviewCouponAsync(dto, User.FindFirstValue(ClaimTypes.NameIdentifier)));
 
         [HttpGet("my-coupons")]
         [Authorize]
-        public async Task<ActionResult<IEnumerable<CouponDto>>> GetMyCoupons()
+        public async Task<ActionResult<IReadOnlyList<StorefrontCouponDto>>> GetMyCoupons()
         {
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
-
-            var coupons = await _couponService.GetCouponsByUserAsync(userId);
-            return Ok(coupons);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return string.IsNullOrEmpty(userId) ? Unauthorized() : Ok(await _couponService.GetOwnedCouponsAsync(userId));
         }
 
         [HttpPost]
@@ -97,7 +60,7 @@ namespace Ecom.API.Controllers
             try
             {
                 var coupon = await _couponService.CreateCouponAsync(couponDto);
-                return CreatedAtAction(nameof(GetCoupon), new { id = coupon.Id }, coupon);
+                return CreatedAtAction(nameof(AdminCouponsController.GetCoupon), "AdminCoupons", new { id = coupon.Id }, coupon);
             }
             catch (ArgumentException ex)
             {

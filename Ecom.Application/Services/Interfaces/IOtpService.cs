@@ -1,10 +1,9 @@
-namespace Ecom.Application.Services.Interfaces
+using Ecom.Domain.Entity;
+
+namespace Ecom.Application.Services.Interfaces;
+
+public interface IOtpService
 {
-    public interface IOtpService
-    {
-        Task<string> GenerateOtpAsync(string email);
-        Task<bool> VerifyOtpAsync(string email, string otp);
-        Task<bool> IsOtpValidAsync(string email);
-        Task<bool> InvalidateOtpAsync(string email);
-    }
+    Task<string?> IssueAsync(AppUsers user, AccountChallengePurpose purpose);
+    Task<bool> ConsumeAsync(AppUsers user, AccountChallengePurpose purpose, string code);
 }

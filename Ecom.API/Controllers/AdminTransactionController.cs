@@ -237,33 +237,17 @@ namespace Ecom.API.Controllers
         }
 
         /// <summary>
-        /// Process refund for a transaction
+        /// Refunds are disabled until a verified refund workflow is available.
         /// </summary>
         [HttpPost("refund")]
-        public async Task<ActionResult<TransactionAdvancedDto>> ProcessRefund([FromBody] TransactionRefundDto refundDto)
+        public ActionResult<TransactionAdvancedDto> ProcessRefund([FromBody] TransactionRefundDto refundDto)
         {
-            try
+            return StatusCode(StatusCodes.Status410Gone, new ProblemDetails
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                var transaction = await _transactionService.ProcessRefundAsync(refundDto);
-                return Ok(transaction);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Error processing refund: {ex.Message}");
-            }
+                Status = StatusCodes.Status410Gone,
+                Title = "Refund processing is disabled.",
+                Detail = "Refunds require a verified refund workflow."
+            });
         }
 
         /// <summary>

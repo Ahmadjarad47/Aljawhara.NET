@@ -986,7 +986,7 @@ namespace Ecom.Infrastructure.Data
                 if (couponDiscount > coupon?.MaximumDiscountAmount) couponDiscount = coupon.MaximumDiscountAmount ?? couponDiscount;
                 var total = subtotal + shipping + tax - couponDiscount;
 
-                var statuses = Enum.GetValues(typeof(OrderStatus)).Cast<OrderStatus>().ToArray();
+                var statuses = Enum.GetValues<OrderStatus>().Where(status => status != OrderStatus.Refunded).ToArray();
                 var status = statuses[_random.Next(statuses.Length)];
 
                 orders.Add(new Order
@@ -1026,7 +1026,7 @@ namespace Ecom.Infrastructure.Data
                     if (couponDiscount > coupon?.MaximumDiscountAmount) couponDiscount = coupon.MaximumDiscountAmount ?? couponDiscount;
                     var total = subtotal + shipping + tax - couponDiscount;
 
-                    var statuses = Enum.GetValues(typeof(OrderStatus)).Cast<OrderStatus>().ToArray();
+                    var statuses = Enum.GetValues<OrderStatus>().Where(status => status != OrderStatus.Refunded).ToArray();
                     var status = statuses[_random.Next(statuses.Length)];
 
                     orders.Add(new Order
@@ -1112,7 +1112,7 @@ namespace Ecom.Infrastructure.Data
 
             var transactions = new List<Transaction>();
             var paymentMethods = Enum.GetValues(typeof(PaymentMethod)).Cast<PaymentMethod>().ToArray();
-            var statuses = new[] { TransactionStatus.Paid, TransactionStatus.Pending, TransactionStatus.Failed, TransactionStatus.Refunded };
+            var statuses = new[] { TransactionStatus.Paid, TransactionStatus.Pending, TransactionStatus.Failed };
 
             // Generate varied transaction dates across different months and years
             var transactionDates = new List<DateTime>();
@@ -1193,11 +1193,7 @@ namespace Ecom.Infrastructure.Data
                         ProcessedDate = status == TransactionStatus.Paid ? transactionDate.AddMinutes(_random.Next(1, 60)) : null,
                         TransactionReference = $"TXN{_random.Next(100000, 999999)}",
                         PaymentGatewayResponse = status == TransactionStatus.Paid ? "Success" : status == TransactionStatus.Failed ? "Payment failed" : "Pending",
-                        Notes = status == TransactionStatus.Refunded ? "Customer requested refund" : (status == TransactionStatus.Failed && txnIdx == 0) ? "Initial payment attempt failed" : null,
-                        IsRefunded = status == TransactionStatus.Refunded,
-                        RefundAmount = status == TransactionStatus.Refunded ? order.Total : null,
-                        RefundDate = status == TransactionStatus.Refunded ? transactionDate.AddDays(_random.Next(1, 7)) : null,
-                        RefundReason = status == TransactionStatus.Refunded ? "Customer request" : null,
+                        Notes = status == TransactionStatus.Failed && txnIdx == 0 ? "Initial payment attempt failed" : null,
                         CreatedAt = transactionDate,
                         UpdatedAt = status != TransactionStatus.Pending ? transactionDate.AddMinutes(_random.Next(1, 30)) : null,
                         IsActive = true
@@ -1233,11 +1229,6 @@ namespace Ecom.Infrastructure.Data
                     ProcessedDate = status == TransactionStatus.Paid ? transactionDate.AddMinutes(_random.Next(1, 60)) : null,
                     TransactionReference = $"TXN{_random.Next(100000, 999999)}",
                     PaymentGatewayResponse = status == TransactionStatus.Paid ? "Success" : status == TransactionStatus.Failed ? "Payment failed" : "Pending",
-                    Notes = status == TransactionStatus.Refunded ? "Customer requested refund" : null,
-                    IsRefunded = status == TransactionStatus.Refunded,
-                    RefundAmount = status == TransactionStatus.Refunded ? order.Total : null,
-                    RefundDate = status == TransactionStatus.Refunded ? transactionDate.AddDays(_random.Next(1, 7)) : null,
-                    RefundReason = status == TransactionStatus.Refunded ? "Customer request" : null,
                     CreatedAt = transactionDate,
                     UpdatedAt = status != TransactionStatus.Pending ? transactionDate.AddMinutes(_random.Next(1, 30)) : null,
                     IsActive = true

@@ -28,6 +28,7 @@ using Ecom.AIShopping.Infrastructure.DependencyInjection;
 using Ecom.API.AIShopping;
 using Ecom.API.Hosting;
 using Microsoft.AspNetCore.Builder;
+using Ecom.Application.Telegram;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<ForwardedHeadersOptions>(TrustedReverseProxy.Configure);
@@ -189,6 +190,7 @@ builder.Services.AddSwaggerGen(c =>
 
 });
 // Add services
+
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
@@ -196,18 +198,37 @@ builder.Services.AddScoped<IShippingService, ShippingService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<AuthSessionService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IFileService, CloudflareR2Service>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserManagerService, UserManagerService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddOptions<TelegramOptions>()
+    .Configure(options =>
+    {
+        builder.Configuration.GetSection("Telegram").Bind(options);
+        if (builder.Environment.IsEnvironment("Testing")) options.Enabled = false;
+    })
+    .Validate(options => options.IsValid(), "Invalid Telegram settings. Configure BotToken and ChatId when Telegram notifications are enabled.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<TelegramOrderNotificationService>(client =>
+    {
+        client.BaseAddress = new Uri("https://api.telegram.org/");
+        client.Timeout = TimeSpan.FromSeconds(60);
+    })
+    .RemoveAllLoggers()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddScoped<TelegramOrderNotificationProcessor>();
 builder.Services.AddScoped<ISadadInvoiceGateway, SadadInvoiceGateway>();
 builder.Services.AddOptions<GupshupOptions>()
     .Configure(options =>
     {
         builder.Configuration.GetSection("Gupshup").Bind(options);
         if (options.Environment == "Sandbox") builder.Configuration.GetSection("Gupshup_sandbox").Bind(options);
-        // Automated tests must never contact WhatsApp or require local provider secrets.
-        if (builder.Environment.IsEnvironment("Testing")) options.Enabled = false;
+        // Gupshup is intentionally disabled for every environment. Telegram now
+        // handles paid-order notifications, and no WhatsApp provider calls may run.
+        options.Enabled = false;
     })
     .Validate(options => options.IsValid(), "Invalid Gupshup settings. Configure sender, country, webhook secret, public HTTPS URL and template/test allowlist before enabling.")
     .ValidateOnStart();
@@ -226,6 +247,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHostedService<SadadPaymentStatusCheckerService>();
     builder.Services.AddHostedService<PaymentOrchestrationWorker>();
+    builder.Services.AddHostedService<TelegramOrderNotificationWorker>();
 }
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
@@ -291,6 +313,7 @@ builder.Services.AddAuthentication(options =>
 
     options.TokenValidationParameters = new TokenValidationParameters
     {
+        ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!)),
         ValidateIssuer = true,
@@ -301,6 +324,19 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero,
         RoleClaimType = ClaimTypes.Role,
         NameClaimType = ClaimTypes.Name
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var principal = context.Principal!;
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId) ||
+                !Guid.TryParse(principal.FindFirstValue(JwtService.SessionClaim), out var sessionId) ||
+                !await context.HttpContext.RequestServices.GetRequiredService<AuthSessionService>().IsActiveAsync(
+                    userId, sessionId, principal.IsInRole("Admin"), context.HttpContext.RequestAborted))
+                context.Fail("Session is not active.");
+        }
     };
 });
 
@@ -313,7 +349,7 @@ builder.Services.AddAuthorization(options =>
 
 // Add CORS with security best practices
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() 
-    ?? new[] {  "https://aljawharaplus.com" };
+    ?? new[] {  "http://localhost:4200" };
 
 builder.Services.AddCors(options =>
 {
@@ -356,26 +392,14 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1) // Time window
             }));
 
-    // Specific endpoint rate limiters
-    options.AddPolicy("auth", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
-            factory: partition => new FixedWindowRateLimiterOptions
-            {
-                AutoReplenishment = true,
-                PermitLimit = 5, // 5 login attempts per window
-                Window = TimeSpan.FromMinutes(15)
-            }));
+    static RateLimitPartition<string> PerClient(HttpContext context, int permits, TimeSpan window) =>
+        RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = window, AutoReplenishment = true });
 
-    options.AddPolicy("api", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
-            factory: partition => new FixedWindowRateLimiterOptions
-            {
-                AutoReplenishment = true,
-                PermitLimit = 1000, // Higher limit for authenticated users
-                Window = TimeSpan.FromMinutes(1)
-            }));
+    options.AddPolicy("auth-login", context => PerClient(context, 20, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("auth-issue", context => PerClient(context, 10, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("auth-verify", context => PerClient(context, 20, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("auth-refresh", context => PerClient(context, 40, TimeSpan.FromMinutes(1)));
 
     // Rejection response
     options.OnRejected = async (context, token) =>
@@ -502,9 +526,8 @@ app.MapGet("/admin/monitoring", (HttpContext context) =>
 app.Lifetime.ApplicationStarted.Register(() => app.Logger.LogInformation("Application started"));
 app.Lifetime.ApplicationStopping.Register(() => app.Logger.LogInformation("Application stopping"));
 
-// Security: Apply rate limiting to controllers
-app.MapControllers()
-   .RequireRateLimiting("api");
+// Controllers use the global limit and can opt into a stricter endpoint policy.
+app.MapControllers();
 
 // Health checks endpoint
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions

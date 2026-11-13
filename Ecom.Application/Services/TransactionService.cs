@@ -5,6 +5,8 @@ using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.constant;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.UnitOfWork;
+using Ecom.Infrastructure.Data;
+using Ecom.Application.Telegram;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
@@ -453,6 +455,7 @@ namespace Ecom.Application.Services
 
             EnsureAdministrativeStatusTransitionAllowed(transaction, transactionDto.Status);
 
+            var previousStatus = transaction.Status;
             transaction.Status = transactionDto.Status;
             transaction.TransactionReference = transactionDto.TransactionReference ?? transaction.TransactionReference;
             transaction.PaymentGatewayResponse = transactionDto.PaymentGatewayResponse ?? transaction.PaymentGatewayResponse;
@@ -463,6 +466,7 @@ namespace Ecom.Application.Services
                 transaction.ProcessedDate = DateTime.UtcNow;
 
             _unitOfWork.Transactions.Update(transaction);
+            QueueTelegramForCollectedCashOrder(transaction, previousStatus);
             await _unitOfWork.SaveChangesAsync();
 
             var updatedTransaction = await _unitOfWork.Transactions.GetTransactionWithDetailsAsync(transaction.Id);
@@ -542,39 +546,9 @@ namespace Ecom.Application.Services
             });
         }
 
-        public async Task<TransactionAdvancedDto> ProcessRefundAsync(TransactionRefundDto refundDto)
-        {
-            var transaction = await _unitOfWork.Transactions.GetByIdAsync(refundDto.TransactionId);
-            if (transaction == null)
-                throw new ArgumentException($"Transaction with ID {refundDto.TransactionId} not found.");
-
-            if (transaction.Status != TransactionStatus.Paid)
-                throw new InvalidOperationException("Only paid transactions can be refunded.");
-
-            if (transaction.IsRefunded)
-                throw new InvalidOperationException("Transaction has already been refunded.");
-
-            if (refundDto.RefundAmount > transaction.Amount)
-                throw new ArgumentException("Refund amount cannot exceed transaction amount.");
-
-            // Simulate refund processing
-            var isRefundSuccessful = await ProcessRefundWithGateway(transaction, refundDto.RefundAmount);
-
-            if (isRefundSuccessful)
-            {
-                transaction.IsRefunded = true;
-                transaction.RefundAmount = refundDto.RefundAmount;
-                transaction.RefundDate = DateTime.UtcNow;
-                transaction.RefundReason = refundDto.RefundReason;
-                transaction.Notes = $"{transaction.Notes}\nRefund: {refundDto.Notes}".Trim();
-
-                _unitOfWork.Transactions.Update(transaction);
-                await _unitOfWork.SaveChangesAsync();
-            }
-
-            var updatedTransaction = await _unitOfWork.Transactions.GetTransactionWithDetailsAsync(transaction.Id);
-            return _mapper.Map<TransactionAdvancedDto>(updatedTransaction);
-        }
+        public Task<TransactionAdvancedDto> ProcessRefundAsync(TransactionRefundDto refundDto) =>
+            Task.FromException<TransactionAdvancedDto>(
+                new NotSupportedException("Refund processing requires a verified refund workflow."));
 
         public async Task<bool> UpdateTransactionStatusAsync(int transactionId, TransactionStatus status, string? gatewayResponse = null)
         {
@@ -584,6 +558,7 @@ namespace Ecom.Application.Services
 
             EnsureAdministrativeStatusTransitionAllowed(transaction, status);
 
+            var previousStatus = transaction.Status;
             transaction.Status = status;
             if (!string.IsNullOrEmpty(gatewayResponse))
                 transaction.PaymentGatewayResponse = gatewayResponse;
@@ -592,6 +567,7 @@ namespace Ecom.Application.Services
                 transaction.ProcessedDate = DateTime.UtcNow;
 
             _unitOfWork.Transactions.Update(transaction);
+            QueueTelegramForCollectedCashOrder(transaction, previousStatus);
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
@@ -773,13 +749,7 @@ namespace Ecom.Application.Services
             return await query.SumAsync(t => t.RefundAmount ?? 0);
         }
 
-        public async Task<bool> CanRefundTransactionAsync(int transactionId)
-        {
-            var transaction = await _unitOfWork.Transactions.GetByIdAsync(transactionId);
-            return transaction != null && 
-                   transaction.Status == TransactionStatus.Paid && 
-                   !transaction.IsRefunded;
-        }
+        public Task<bool> CanRefundTransactionAsync(int transactionId) => Task.FromResult(false);
 
         public async Task<List<TransactionSummaryDto>> SearchTransactionsAsync(string searchTerm, int limit = 50)
         {
@@ -856,8 +826,28 @@ namespace Ecom.Application.Services
         {
             if (status == TransactionStatus.Paid)
                 throw new InvalidOperationException("Paid status requires verified gateway confirmation.");
+            if (status == TransactionStatus.Refunded)
+                throw new InvalidOperationException("Refunded status requires verified refund confirmation.");
             if (status == TransactionStatus.Collected && transaction.PaymentMethod != PaymentMethod.Cod)
                 throw new InvalidOperationException("Collected status is only valid for cash-on-delivery transactions.");
+        }
+
+        private void QueueTelegramForCollectedCashOrder(Transaction transaction, TransactionStatus previousStatus)
+        {
+            if (previousStatus == TransactionStatus.Collected ||
+                transaction.Status != TransactionStatus.Collected ||
+                transaction.PaymentMethod != PaymentMethod.Cod ||
+                _configuration?.GetValue<bool>("Telegram:Enabled") != true)
+                return;
+
+            var db = (EcomDbContext)_unitOfWork.Context;
+            db.OutboxMessages.Add(new OutboxMessage
+            {
+                Type = TelegramOrderNotificationProcessor.OutboxType,
+                DeduplicationKey = $"telegram:order:{transaction.OrderId}:payment-success",
+                Payload = transaction.OrderId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                NextAttemptAtUtc = DateTime.UtcNow
+            });
         }
 
         private async Task<bool> ProcessPaymentWithGateway(PaymentProcessingDto paymentDto)
@@ -870,13 +860,5 @@ namespace Ecom.Application.Services
             return paymentDto.PaymentMethod != PaymentMethod.Card || new Random().Next(1, 10) > 2;
         }
 
-        private async Task<bool> ProcessRefundWithGateway(Transaction transaction, decimal refundAmount)
-        {
-            // Simulate refund processing
-            await Task.Delay(500); // Simulate API call delay
-            
-            // In real implementation, integrate with actual payment gateway
-            return true; // For demo purposes, always succeed
-        }
     }
 }

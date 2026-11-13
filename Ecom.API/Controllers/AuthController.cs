@@ -1,6 +1,7 @@
-﻿using Ecom.Application.DTOs.Auth;
+using Ecom.Application.DTOs.Auth;
 using Ecom.Application.Services;
 using Ecom.Application.Services.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 using Ecom.Domain.Entity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,26 +44,20 @@ public class SadadRefreshData
 public class AuthController : ControllerBase
 {
     private readonly IUserManagerService _userManagerService;
-    private readonly IJwtService _jwtService;
+    private readonly AuthSessionService _sessions;
     private readonly IAddressService _addressService;
-    private readonly IConfiguration _configuration;
     private readonly IEmailService _emailService;
-    private readonly HttpClient _httpClient;
 
     public AuthController(
         IUserManagerService userManagerService,
-        IJwtService jwtService,
+        AuthSessionService sessions,
         IAddressService addressService,
-        IConfiguration configuration,
-        IEmailService emailService,
-        HttpClient httpClient)
+        IEmailService emailService)
     {
         _userManagerService = userManagerService;
-        _jwtService = jwtService;
+        _sessions = sessions;
         _addressService = addressService;
-        _configuration = configuration;
         _emailService = emailService;
-        _httpClient = httpClient;
     }
   
 
@@ -77,6 +72,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("auth-issue")]
     public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
     {
         if (!ModelState.IsValid)
@@ -108,6 +104,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("auth-login")]
     public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
     {
         if (!ModelState.IsValid)
@@ -131,35 +128,9 @@ public class AuthController : ControllerBase
             });
         }
 
-        // Generate JWT token
-        var token = await _jwtService.GenerateTokenAsync(result.User);
-        var refreshToken = _jwtService.GenerateRefreshToken();
-        var expiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60"));
-        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenDays"] ?? "7"));
-
-        // Persist refresh token to user
-        await _userManagerService.SetRefreshTokenAsync(result.User.Id, refreshToken, refreshTokenExpiresAt);
-
-        var userResponse = new UserResponseDto
-        {
-            Id = result.User.Id,
-            Username = result.User.UserName ?? string.Empty,
-            Email = result.User.Email ?? string.Empty,
-            PhoneNumber = result.User.PhoneNumber ?? string.Empty,
-            EmailConfirmed = result.User.EmailConfirmed,
-            PhoneNumberConfirmed = result.User.PhoneNumberConfirmed,
-            WhatsAppNotificationsEnabled = result.User.WhatsAppNotificationsEnabled,
-            WhatsAppConsentPhone = result.User.WhatsAppConsentPhone,
-            CreatedAt = result.User.CreatedAt
-        };
-
-        var loginResponse = new LoginResponseDto
-        {
-            Token = token,
-            RefreshToken = refreshToken,
-            ExpiresAt = expiresAt,
-            User = userResponse
-        };
+        var loginResponse = await _sessions.StartAsync(result.User, HttpContext.RequestAborted);
+        if (loginResponse == null)
+            return Unauthorized(new ApiResponseDto { Success = false, Message = "Invalid email or password" });
 
         return Ok(new ApiResponseDto<LoginResponseDto>
         {
@@ -170,6 +141,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("verify")]
+    [EnableRateLimiting("auth-verify")]
     public async Task<IActionResult> VerifyAccount([FromBody] VerifyAccountDto verifyDto)
     {
         if (!ModelState.IsValid)
@@ -201,6 +173,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("resend-verification")]
+    [EnableRateLimiting("auth-issue")]
     public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationDto resendDto)
     {
         if (!ModelState.IsValid)
@@ -232,6 +205,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("change-password")]
+    [EnableRateLimiting("auth-verify")]
     [Authorize]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto changePasswordDto)
     {
@@ -274,6 +248,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth-issue")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
     {
         if (!ModelState.IsValid)
@@ -296,6 +271,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting("auth-verify")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
     {
         if (!ModelState.IsValid)
@@ -340,13 +316,11 @@ public class AuthController : ControllerBase
             });
         }
 
-        var result = await _userManagerService.LogoutAsync(userId);
-        
-        return Ok(new ApiResponseDto
-        {
-            Success = result.Success,
-            Message = result.Message
-        });
+        if (!Guid.TryParse(User.FindFirstValue(JwtService.SessionClaim), out var sessionId))
+            return Unauthorized();
+
+        await _userManagerService.LogoutAsync(userId, sessionId, HttpContext.RequestAborted);
+        return Ok(new ApiResponseDto { Success = true, Message = "Logged out successfully" });
     }
 
     [HttpGet("me")]
@@ -463,84 +437,12 @@ public class AuthController : ControllerBase
         });
     }
     [HttpPost("refresh-token")]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+    [EnableRateLimiting("auth-refresh")]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto dto)
     {
-       
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(new ApiResponseDto
-            {
-                Success = false,
-                Message = "Invalid input data",
-                Errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
-            });
-        }
-
-        // Validate refresh token format early
-        if (!_jwtService.ValidateRefreshTokenFormat(refreshTokenDto.RefreshToken))
-        {
-            return BadRequest(new ApiResponseDto
-            {
-                Success = false,
-                Message = "Invalid refresh token format"
-            });
-        }
-
-        // Lookup user by valid refresh token
-        var userId = await _userManagerService.GetUserByRefreshTokenAsync(refreshTokenDto.RefreshToken);
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            return Unauthorized(new ApiResponseDto
-            {
-                Success = false,
-                Message = "User not authenticated"
-            });
-        }
-
-        // Optionally validate format of refresh token (basic sanity check)
-        if (string.IsNullOrWhiteSpace(refreshTokenDto.RefreshToken))
-        {
-            return BadRequest(new ApiResponseDto
-            {
-                Success = false,
-                Message = "Refresh token is required"
-            });
-        }
-
-        var newAccessToken = await _jwtService.GenerateTokenForUserIdAsync(userId);
-        if (string.IsNullOrEmpty(newAccessToken))
-        {
-            return Unauthorized(new ApiResponseDto
-            {
-                Success = false,
-                Message = "User not found"
-            });
-        }
-
-        var newRefreshToken = _jwtService.GenerateRefreshToken();
-        var expiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpiryMinutes"] ?? "60"));
-        var newRefreshTokenExpiresAt = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenDays"] ?? "7"));
-
-        // Rotate and persist new refresh token
-        await _userManagerService.SetRefreshTokenAsync(userId, newRefreshToken, newRefreshTokenExpiresAt);
-
-        var user = await _userManagerService.GetUserDetailsAsync(userId);
-        if (user == null)
-        {
-            return Unauthorized(new ApiResponseDto
-            {
-                Success = false,
-                Message = "User not found"
-            });
-        }
-
-        var response = new LoginResponseDto
-        {
-            Token = newAccessToken,
-            RefreshToken = newRefreshToken,
-            ExpiresAt = expiresAt,
-            User = user
-        };
+        var response = await _sessions.RotateAsync(dto.RefreshToken, HttpContext.RequestAborted);
+        if (response == null)
+            return Unauthorized(new ApiResponseDto { Success = false, Message = "Invalid or expired refresh token" });
 
         return Ok(new ApiResponseDto<LoginResponseDto>
         {

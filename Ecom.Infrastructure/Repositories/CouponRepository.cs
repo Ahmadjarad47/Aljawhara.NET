@@ -19,6 +19,16 @@ namespace Ecom.Infrastructure.Repositories
                 .FirstOrDefaultAsync(c => c.Code == code && !c.IsDeleted);
         }
 
+        public Task<List<Coupon>> GetPublicCouponsAsync()
+        {
+            var now = DateTime.UtcNow;
+            return _context.Coupons.AsNoTracking()
+                .Where(c => c.IsPublic && c.AppUserId == null && !c.IsDeleted && c.IsActive &&
+                    c.StartDate <= now && c.EndDate >= now &&
+                    (!c.UsageLimit.HasValue || c.UsedCount < c.UsageLimit.Value) && (!c.IsSingleUse || c.UsedCount == 0))
+                .OrderBy(c => c.StartDate).ThenBy(c => c.Id).ToListAsync();
+        }
+
         public async Task<IEnumerable<Coupon>> GetActiveCouponsAsync()
         {
             var now = DateTime.UtcNow;
@@ -73,12 +83,13 @@ namespace Ecom.Infrastructure.Repositories
             }
         }
 
-        public async Task<bool> TryReserveUsageAsync(int couponId, DateTime utcNow)
+        public async Task<bool> TryReserveUsageAsync(int couponId, DateTime utcNow, string? userId = null)
         {
             var affected = await _context.Coupons
                 .Where(c => c.Id == couponId && !c.IsDeleted && c.IsActive &&
+                            (c.AppUserId == null || c.AppUserId == userId) &&
                             c.StartDate <= utcNow && c.EndDate >= utcNow &&
-                            (!c.UsageLimit.HasValue || c.UsedCount < c.UsageLimit.Value))
+                            (!c.UsageLimit.HasValue || c.UsedCount < c.UsageLimit.Value) && (!c.IsSingleUse || c.UsedCount == 0))
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(c => c.UsedCount, c => c.UsedCount + 1)
                     .SetProperty(c => c.UpdatedAt, utcNow));

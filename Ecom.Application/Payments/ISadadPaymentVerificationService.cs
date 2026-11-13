@@ -20,6 +20,10 @@ public sealed record PaymentVerificationResult(PaymentVerificationOutcome Outcom
 
 public interface ISadadPaymentVerificationService
 {
+    Task RequestPublicVerificationAsync(string gatewayInvoiceId, CancellationToken cancellationToken = default);
+
+    Task<int> VerifyPublicRequestsAsync(int batchSize, CancellationToken cancellationToken = default);
+
     Task<PaymentVerificationResult> VerifyByOrderIdAsync(
         int orderId,
         CancellationToken cancellationToken = default);

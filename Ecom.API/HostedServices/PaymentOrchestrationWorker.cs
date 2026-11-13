@@ -18,6 +18,8 @@ public sealed class PaymentOrchestrationWorker(IServiceScopeFactory scopes, ILog
                 using var scope = scopes.CreateScope();
                 var processor = scope.ServiceProvider.GetRequiredService<IPaymentOrchestrationService>();
                 var count = await processor.ProcessOutboxBatchAsync(_workerId, 20, stoppingToken);
+                var verification = scope.ServiceProvider.GetRequiredService<ISadadPaymentVerificationService>();
+                count += await verification.VerifyPublicRequestsAsync(20, stoppingToken);
                 await processor.ExpireReservationsAsync(stoppingToken);
                 monitoring.JobCompleted("Payment orchestration", true);
                 if (count > 0) logger.LogInformation("Payment orchestration processed {Count} messages", count);

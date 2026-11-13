@@ -337,7 +337,8 @@ public sealed class HttpSecurityTests : IAsyncLifetime
             "/api/orders/payment-callback?invoice_id=7001&payment=success",
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.Equal(0, _factory.SadadHandler.Calls);
 
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -346,6 +347,45 @@ public sealed class HttpSecurityTests : IAsyncLifetime
         var order = await context.Orders.SingleAsync(item => item.Id == transaction.OrderId, TestContext.Current.CancellationToken);
         Assert.Equal(TransactionStatus.Pending, transaction.Status);
         Assert.Equal(OrderStatus.Pending, order.Status);
+    }
+
+    [Fact]
+    public async Task Public_payment_responses_are_identical_for_known_unknown_and_terminal_invoices()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var transaction = await db.Transactions.SingleAsync(t => t.GatewayInvoiceId == "7001", ct);
+        var attempt = new PaymentAttempt
+        {
+            OrderId = transaction.OrderId, TransactionId = transaction.Id, Amount = transaction.Amount,
+            MerchantReference = "HTTP-SADAD-PUBLIC", GatewayInvoiceId = "7001",
+            Status = PaymentAttemptStatus.AwaitingPayment, IdempotencyKeyHash = "HTTP-SADAD-IDEMPOTENCY", RequestHash = "HTTP-SADAD-REQUEST"
+        };
+        db.PaymentAttempts.Add(attempt);
+        await db.SaveChangesAsync(ct);
+        foreach (var status in new[] { PaymentAttemptStatus.AwaitingPayment, PaymentAttemptStatus.RequiresReconciliation,
+            PaymentAttemptStatus.Paid, PaymentAttemptStatus.Cancelled })
+        {
+            await db.PaymentAttempts.Where(a => a.Id == attempt.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.Status, status)
+                .SetProperty(a => a.PublicVerificationRequestedAtUtc, (DateTime?)null), ct);
+            foreach (var invoice in new long[] { 7001, 9999 })
+            {
+                using var callback = await _client.GetAsync($"/api/orders/payment-callback?invoice_id={invoice}&payment=success", ct);
+                using var webhook = await _client.PostAsJsonAsync("/api/orders/webhook/sadad-paid",
+                    new { invoiceId = invoice.ToString(), status = "Paid", transactionStatus = "Success" }, ct);
+                Assert.Equal(HttpStatusCode.OK, callback.StatusCode);
+                Assert.Equal(callback.StatusCode, webhook.StatusCode);
+                Assert.Equal("no-store", callback.Headers.CacheControl?.ToString());
+                Assert.Empty(await callback.Content.ReadAsStringAsync(ct));
+                Assert.Empty(await webhook.Content.ReadAsStringAsync(ct));
+            }
+            var queued = await db.PaymentAttempts.Where(a => a.Id == attempt.Id).Select(a => a.PublicVerificationRequestedAtUtc).SingleAsync(ct);
+            Assert.Equal(status is PaymentAttemptStatus.AwaitingPayment or PaymentAttemptStatus.RequiresReconciliation, queued.HasValue);
+        }
+        Assert.Equal(0, _factory.SadadHandler.Calls);
+        Assert.Equal(TransactionStatus.Pending, await db.Transactions.Where(t => t.Id == transaction.Id).Select(t => t.Status).SingleAsync(ct));
     }
 
     [Fact]

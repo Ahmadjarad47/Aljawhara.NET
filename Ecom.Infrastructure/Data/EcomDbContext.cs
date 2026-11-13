@@ -40,6 +40,8 @@ namespace Ecom.Infrastructure.Data
         public DbSet<HealthPing> HealthPings { get; set; }
         public DbSet<Carousel> Carousels { get; set; }
         public DbSet<PaymentAttempt> PaymentAttempts { get; set; }
+        public DbSet<AuthSession> AuthSessions { get; set; }
+        public DbSet<AccountChallenge> AccountChallenges { get; set; }
         public DbSet<InventoryReservation> InventoryReservations { get; set; }
         public DbSet<CouponReservation> CouponReservations { get; set; }
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
@@ -60,6 +62,27 @@ namespace Ecom.Infrastructure.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<AuthSession>(entity =>
+            {
+                entity.Property(x => x.RefreshTokenHash).HasMaxLength(64).IsFixedLength();
+                entity.HasIndex(x => x.RefreshTokenHash).IsUnique();
+                entity.HasIndex(x => x.ExpiresAtUtc);
+                entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<AccountChallenge>(entity =>
+            {
+                entity.HasKey(x => new { x.UserId, x.Purpose });
+                entity.Property(x => x.CodeHash).HasMaxLength(64).IsFixedLength();
+                entity.HasOne<AppUsers>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+                entity.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_AccountChallenges_Purpose", "\"Purpose\" IN (1, 2)");
+                    t.HasCheckConstraint("CK_AccountChallenges_Attempts", "\"Attempts\" BETWEEN 0 AND 5");
+                    t.HasCheckConstraint("CK_AccountChallenges_IssuedCount", "\"IssuedCount\" BETWEEN 1 AND 3");
+                });
+            });
 
             modelBuilder.Entity<ShippingSettings>(entity =>
             {
@@ -438,8 +461,12 @@ namespace Ecom.Infrastructure.Data
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
+            modelBuilder.Entity<Coupon>().ToTable(t =>
+                t.HasCheckConstraint("CK_Coupons_PublicUnassigned", "NOT \"IsPublic\" OR \"AppUserId\" IS NULL"));
+
             modelBuilder.Entity<PaymentAttempt>(entity =>
             {
+                entity.HasIndex(x => x.PublicVerificationRequestedAtUtc).HasFilter("\"PublicVerificationRequestedAtUtc\" IS NOT NULL");
                 entity.Property(e => e.Amount).HasColumnType("decimal(18,3)");
                 entity.Property(e => e.Currency).HasMaxLength(3);
                 entity.Property(e => e.IdempotencyKeyHash).HasMaxLength(64);

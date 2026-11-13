@@ -22,6 +22,7 @@ public class PaymentAttempt : BaseEntity
     public DateTime? NextActionAtUtc { get; set; }
     public DateTime? GatewayVerifiedAtUtc { get; set; }
     public DateTime? LastVerificationAtUtc { get; set; }
+    public DateTime? PublicVerificationRequestedAtUtc { get; set; }
     public string? VerificationEvidenceId { get; set; }
     public string? GatewayTransactionId { get; set; }
     public decimal? VerifiedAmount { get; set; }

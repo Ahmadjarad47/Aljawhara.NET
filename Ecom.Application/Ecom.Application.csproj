@@ -21,4 +21,8 @@
     <ProjectReference Include="..\Ecom.Infrastructure\Ecom.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ecom.CheckoutAudit.Tests" />
+  </ItemGroup>
+
 </Project>

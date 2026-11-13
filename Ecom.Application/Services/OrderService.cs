@@ -225,8 +225,8 @@ namespace Ecom.Application.Services
 
                         if (order.CouponId.HasValue)
                         {
-                            if (!await _unitOfWork.Coupons.TryReserveUsageAsync(order.CouponId.Value, DateTime.UtcNow))
-                                throw new InvalidOperationException("Coupon usage limit has been reached.");
+                            if (!await _unitOfWork.Coupons.TryReserveUsageAsync(order.CouponId.Value, DateTime.UtcNow, userId))
+                                throw new InvalidOperationException("Coupon is no longer eligible for this order.");
                             ecomDb.CouponReservations.Add(new CouponReservation
                             {
                                 OrderId = order.Id, CouponId = order.CouponId.Value,
@@ -365,6 +365,8 @@ namespace Ecom.Application.Services
 
         public async Task<OrderDto> UpdateOrderStatusAsync(OrderUpdateStatusDto orderUpdateDto)
         {
+            if (orderUpdateDto.Status == OrderStatus.Refunded)
+                throw new InvalidOperationException("Refunded status requires verified refund confirmation.");
             if (orderUpdateDto.Status is OrderStatus.Cancelled or OrderStatus.Expired or OrderStatus.RequiresReconciliation)
                 throw new InvalidOperationException("Use the centralized cancellation, expiry, or reconciliation workflow for this transition.");
             var order = await _unitOfWork.Orders.GetByIdAsync(orderUpdateDto.Id);

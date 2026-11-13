@@ -263,118 +263,57 @@ namespace Ecom.API.Controllers
 
         [HttpPost("webhook/sadad-paid")]
         [AllowAnonymous]
+        [RequestSizeLimit(16 * 1024)]
         public async Task<IActionResult> SadadPaidWebhook()
         {
-            _logger.LogInformation("[Sadad Webhook] Step 1: Received webhook request.");
-
-            string rawJson;
-            using (var reader = new StreamReader(Request.Body))
-            {
-                rawJson = await reader.ReadToEndAsync();
-            }
-
-            if (string.IsNullOrWhiteSpace(rawJson))
-            {
-                _logger.LogWarning("[Sadad Webhook] Step 1 failed: Empty body.");
-                return BadRequest("Invalid webhook: empty body.");
-            }
-            _logger.LogDebug("[Sadad Webhook] Step 1 OK: Raw body length {Length} chars.", rawJson.Length);
-
+            // The reviewed Sadad contract does not specify a webhook signature. The payload is a hint only.
             SadadWebhookDto? payload;
             try
             {
-                payload = System.Text.Json.JsonSerializer.Deserialize<SadadWebhookDto>(rawJson, new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    AllowTrailingCommas = true,
-                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
-                });
+                payload = await System.Text.Json.JsonSerializer.DeserializeAsync<SadadWebhookDto>(Request.Body,
+                    WebhookJsonOptions, HttpContext.RequestAborted);
             }
-            catch (System.Text.Json.JsonException ex)
+            catch (System.Text.Json.JsonException)
             {
-                _logger.LogWarning(ex, "[Sadad Webhook] Step 2 failed: Malformed JSON.");
-                return BadRequest("Invalid webhook: malformed JSON.");
+                return BadRequest();
             }
+            if (payload == null || payload.InvoiceId <= 0)
+                return BadRequest();
 
-            if (payload == null || payload.InvoiceId <= 0
-)
-            {
-                _logger.LogWarning("[Sadad Webhook] Step 2 failed: Missing invoiceId. Payload: {Payload}", payload == null ? "null" : "empty invoiceId");
-                return BadRequest("Invalid webhook payload: missing invoiceId.");
-            }
-            _logger.LogInformation("Sadad webhook payload parsed.");
-
-            _logger.LogInformation("Using Sadad webhook only as a trigger for authenticated GetById verification.");
-            var result = await _paymentVerification.VerifyByInvoiceIdAsync(
-                payload.InvoiceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                $"webhook:{HttpContext.TraceIdentifier}",
-                HttpContext.RequestAborted);
-
-            return result.Outcome switch
-            {
-                PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid or PaymentVerificationOutcome.NotPaid => Ok(),
-                PaymentVerificationOutcome.Busy => StatusCode(StatusCodes.Status409Conflict),
-                PaymentVerificationOutcome.RequiresReconciliation => StatusCode(StatusCodes.Status202Accepted),
-                PaymentVerificationOutcome.NotFound => NotFound(),
-                _ => BadRequest("Webhook trigger rejected by server-to-server verification.")
-            };
+            return await AcknowledgePaymentTriggerAsync(payload.InvoiceId);
         }
+
+        private static readonly System.Text.Json.JsonSerializerOptions WebhookJsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            AllowTrailingCommas = true
+        };
 
         [HttpGet("payment-callback")]
-        //[Authorize]
-        public async Task<IActionResult> PaymentCallback(
-            [FromQuery(Name = "invoice_id")] long invoiceId,
-            [FromQuery(Name = "payment")] string? payment)
+        [AllowAnonymous]
+        public Task<IActionResult> PaymentCallback([FromQuery(Name = "invoice_id")] long invoiceId) =>
+            invoiceId <= 0 ? Task.FromResult<IActionResult>(BadRequest()) : AcknowledgePaymentTriggerAsync(invoiceId);
+
+        private async Task<IActionResult> AcknowledgePaymentTriggerAsync(long invoiceId)
         {
             Response.Headers.CacheControl = "no-store";
-            if (invoiceId <= 0)
+            try
             {
-                return BadRequest(new
-                {
-                    InvoiceId = invoiceId,
-                    Payment = payment,
-                    Updated = false,
-                    Message = "Invalid invoice_id."
-                });
+                await _paymentVerification.RequestPublicVerificationAsync(
+                    invoiceId.ToString(System.Globalization.CultureInfo.InvariantCulture), HttpContext.RequestAborted);
+                // Sadad requires HTTP 200 for delivery acknowledgment. The storefront must
+                // query the existing owner/guest-authorized order status for actual results.
+                return Ok();
             }
-
-            // The browser-provided payment value is informational only. It never
-            // authorizes a Paid transition; GetById is always called server-to-server.
-            var result = await _paymentVerification.VerifyByInvoiceIdAsync(
-                invoiceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                $"callback:{HttpContext.TraceIdentifier}",
-                HttpContext.RequestAborted);
-
-            var response = new
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
             {
-                InvoiceId = invoiceId,
-                Payment = payment,
-                Updated = result.Outcome is PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid,
-                VerificationStatus = result.Outcome.ToString(),
-                ReasonCode = result.ReasonCode,
-                Message = PaymentVerificationMessage(result.Outcome)
-            };
-            return result.Outcome switch
+                throw;
+            }
+            catch (Exception ex)
             {
-                PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid => Ok(response),
-                PaymentVerificationOutcome.NotFound => NotFound(response),
-                PaymentVerificationOutcome.Rejected => BadRequest(response),
-                _ => Accepted(response)
-            };
+                _logger.LogWarning(ex, "Could not queue a Sadad verification trigger.");
+                return StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
         }
-
-        private static string PaymentVerificationMessage(PaymentVerificationOutcome outcome) => outcome switch
-        {
-            PaymentVerificationOutcome.Paid or PaymentVerificationOutcome.AlreadyPaid =>
-                "تم توثيق الدفع واكتمال معالجة الطلب.",
-            PaymentVerificationOutcome.NotPaid =>
-                "لم تؤكد Sadad اكتمال الدفع بعد.",
-            PaymentVerificationOutcome.Busy or PaymentVerificationOutcome.RequiresReconciliation =>
-                "الدفع قيد التحقق والمطابقة الداخلية. لا تُعد محاولة الدفع.",
-            PaymentVerificationOutcome.NotFound =>
-                "تعذر العثور على محاولة الدفع المرتبطة بهذه الفاتورة.",
-            _ => "تعذر توثيق الدفع من Sadad، لذلك لم يتم اعتماد الطلب."
-        };
 
         private Task<bool> HasOrderAccessAsync(int orderId)
         {

@@ -19,6 +19,7 @@ namespace Ecom.Application.Services
         private readonly IOtpService _otpService;
         private readonly ILogger<UserManagerService> _logger;
         private readonly EcomDbContext _db;
+        private readonly AuthSessionService _sessions;
         private readonly GupshupOptions _whatsAppOptions;
 
         public UserManagerService(
@@ -27,6 +28,7 @@ namespace Ecom.Application.Services
             IOtpService otpService,
             ILogger<UserManagerService> logger,
             EcomDbContext db,
+            AuthSessionService sessions,
             IOptions<GupshupOptions> whatsAppOptions)
         {
             _userManager = userManager;
@@ -34,6 +36,7 @@ namespace Ecom.Application.Services
             _otpService = otpService;
             _logger = logger;
             _db = db;
+            _sessions = sessions;
             _whatsAppOptions = whatsAppOptions.Value;
         }
 
@@ -140,31 +143,38 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<bool> BlockUserAsync(BlockUserDto blockUserDto)
+        public async Task<bool> BlockUserAsync(BlockUserDto dto)
         {
             try
             {
-                var user = await _userManager.FindByIdAsync(blockUserDto.UserId);
-                if (user == null)
+                var end = dto.BlockUntil.HasValue
+                    ? new DateTimeOffset(dto.BlockUntil.Value).ToUniversalTime()
+                    : DateTimeOffset.MaxValue;
+                if (end <= DateTimeOffset.UtcNow)
                     return false;
 
-                var lockoutEnd = blockUserDto.BlockUntil.HasValue 
-                    ? DateTimeOffset.FromUnixTimeSeconds(((DateTimeOffset)blockUserDto.BlockUntil).ToUnixTimeSeconds())
-                    : DateTimeOffset.MaxValue;
-
-                var result = await _userManager.SetLockoutEndDateAsync(user, lockoutEnd);
-                
-                if (result.Succeeded)
+                var blocked = await AccountTransactionAsync(async () =>
                 {
-                    await _emailService.SendUserBlockedNotificationAsync(user, blockUserDto.Reason, blockUserDto.BlockUntil);
-                    _logger.LogInformation("User {UserId} blocked successfully", blockUserDto.UserId);
-                }
-
-                return result.Succeeded;
+                    var user = await _userManager.FindByIdAsync(dto.UserId);
+                    if (user == null)
+                        return null;
+                    user.LockoutEnabled = true;
+                    user.LockoutEnd = end;
+                    // Persist the lock and a new stamp in the same Identity update.
+                    if (!(await _userManager.UpdateSecurityStampAsync(user)).Succeeded)
+                        return null;
+                    await _sessions.RevokeAsync(user.Id);
+                    return user;
+                });
+                if (blocked == null)
+                    return false;
+                try { await _emailService.SendUserBlockedNotificationAsync(blocked, dto.Reason, dto.BlockUntil); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not send account block notification"); }
+                return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error blocking user: {UserId}", blockUserDto.UserId);
+                _logger.LogError(ex, "Error blocking user: {UserId}", dto.UserId);
                 return false;
             }
         }
@@ -196,35 +206,8 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<bool> ChangeUserPasswordAsync(ChangeUserPasswordDto changePasswordDto)
-        {
-            try
-            {
-                var user = await _userManager.FindByIdAsync(changePasswordDto.UserId);
-                if (user == null)
-                    return false;
-
-                // Remove current password
-                var removePasswordResult = await _userManager.RemovePasswordAsync(user);
-                if (!removePasswordResult.Succeeded)
-                    return false;
-
-                // Add new password
-                var addPasswordResult = await _userManager.AddPasswordAsync(user, changePasswordDto.NewPassword);
-                
-                if (addPasswordResult.Succeeded)
-                {
-                    _logger.LogInformation("Password changed successfully for user: {UserId}", changePasswordDto.UserId);
-                }
-
-                return addPasswordResult.Succeeded;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error changing password for user: {UserId}", changePasswordDto.UserId);
-                return false;
-            }
-        }
+        public Task<bool> ChangeUserPasswordAsync(ChangeUserPasswordDto dto) =>
+            ResetUserPasswordAsync(dto.UserId, dto.NewPassword);
 
         public async Task<bool> ChangeUserEmailAsync(ChangeUserEmailDto changeEmailDto)
         {
@@ -263,7 +246,7 @@ namespace Ecom.Application.Services
                 var existingUser = await _userManager.FindByEmailAsync(registerDto.Email);
                 if (existingUser != null)
                 {
-                    return (false, string.Empty, "User with this email already exists");
+                    return (true, string.Empty, "If registration is available, check your email for a verification code.");
                 }
 
                 // Check if username already exists
@@ -287,16 +270,17 @@ namespace Ecom.Application.Services
                 
                 if (!result.Succeeded)
                 {
+                    if (result.Errors.Any(e => e.Code == nameof(IdentityErrorDescriber.DuplicateEmail)))
+                        return (true, string.Empty, "If registration is available, check your email for a verification code.");
                     var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                     return (false, string.Empty, $"Registration failed: {errors}");
                 }
 
-                // Generate and send OTP for email verification
-                var otp = await _otpService.GenerateOtpAsync(registerDto.Email);
-                await _emailService.SendOtpEmailAsync(user, otp);
+                try { await IssueChallengeAsync(user, AccountChallengePurpose.EmailVerification); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not issue registration challenge"); }
 
                 _logger.LogInformation("User registered successfully: {UserId}", user.Id);
-                return (true, user.Id, "Registration successful. Please check your email for verification code.");
+                return (true, user.Id, "If registration is available, check your email for a verification code.");
             }
             catch (Exception ex)
             {
@@ -307,142 +291,77 @@ namespace Ecom.Application.Services
 
         public async Task<(bool Success, AppUsers? User, string Message)> LoginAsync(LoginDto loginDto)
         {
+            const string invalid = "Invalid email or password";
             try
             {
                 var user = await _userManager.FindByEmailAsync(loginDto.Email);
-                if (user == null)
-                {
-                    return (false, null, "Invalid email or password");
-                }
+                if (user == null || !user.IsActive || user.LockoutEnd > DateTimeOffset.UtcNow)
+                    return (false, null, invalid);
 
-                // Check if user is blocked
-                if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
+                if (!await _userManager.CheckPasswordAsync(user, loginDto.Password))
                 {
-                    return (false, null, "Account is blocked. Please contact support.");
-                }
-
-                // Check if email is confirmed
-                if (!user.EmailConfirmed)
-                {
-                    var newResendVerificationDto = new ResendVerificationDto
-                    {
-                        Email = loginDto.Email,
-                    };
-                    await ResendVerificationAsync(newResendVerificationDto);
-                    return (false, null, "Please verify your email before logging in");
-                }
-
-                var isValidPassword = await _userManager.CheckPasswordAsync(user, loginDto.Password);
-                if (!isValidPassword)
-                {
-                    // Increment access failed count
                     await _userManager.AccessFailedAsync(user);
-                    return (false, null, "Invalid email or password");
+                    return (false, null, invalid);
                 }
 
-                // Reset access failed count on successful login
-                await _userManager.ResetAccessFailedCountAsync(user);
+                if (!(await _userManager.ResetAccessFailedCountAsync(user)).Succeeded)
+                    return (false, null, invalid);
+                if (!user.EmailConfirmed)
+                    return (false, null, "Please verify your email before logging in");
 
-                _logger.LogInformation("User logged in successfully: {UserId}", user.Id);
                 return (true, user, "Login successful");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during user login");
-                return (false, null, "An error occurred during login");
+                return (false, null, invalid);
             }
         }
 
-        public async Task<(bool Success, string Message)> VerifyAccountAsync(VerifyAccountDto verifyDto)
+        public async Task<(bool Success, string Message)> VerifyAccountAsync(VerifyAccountDto dto)
         {
+            const string invalid = "Invalid or expired verification code";
             try
             {
-                var user = await _userManager.FindByEmailAsync(verifyDto.Email);
-                if (user == null)
+                return await AccountTransactionAsync(async () =>
                 {
-                    return (false, "User not found");
-                }
-
-                if (user.EmailConfirmed)
-                {
-                    return (false, "Account is already verified");
-                }
-
-                var isOtpValid = await _otpService.VerifyOtpAsync(verifyDto.Email, verifyDto.Otp);
-                if (!isOtpValid)
-                {
-                    return (false, "Invalid or expired verification code");
-                }
-
-                // Confirm email
-                var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                var result = await _userManager.ConfirmEmailAsync(user, token);
-
-                if (!result.Succeeded)
-                {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    return (false, $"Email confirmation failed: {errors}");
-                }
-
-                _logger.LogInformation("Account verified successfully: {UserId}", user.Id);
-                return (true, "Account verified successfully");
+                    var user = await _userManager.FindByEmailAsync(dto.Email);
+                    if (user == null || !user.IsActive || user.EmailConfirmed || user.LockoutEnd > DateTimeOffset.UtcNow ||
+                        !await _otpService.ConsumeAsync(user, AccountChallengePurpose.EmailVerification, dto.Otp))
+                        return (false, invalid);
+                    var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                    var result = await _userManager.ConfirmEmailAsync(user, token);
+                    return result.Succeeded ? (true, "Account verified successfully") : (false, invalid);
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during account verification");
-                return (false, "An error occurred during verification");
+                return (false, invalid);
             }
         }
 
-        public async Task<(bool Success, string Message)> ResendVerificationAsync(ResendVerificationDto resendDto)
+        public Task<(bool Success, string Message)> ResendVerificationAsync(ResendVerificationDto dto) =>
+            IssuePublicChallengeAsync(dto.Email, AccountChallengePurpose.EmailVerification,
+                "If the account needs verification, a code has been sent.");
+
+        public async Task<(bool Success, string Message)> ChangePasswordAsync(string userId, ChangePasswordDto dto)
         {
             try
             {
-                var user = await _userManager.FindByEmailAsync(resendDto.Email);
-                if (user == null)
+                return await AccountTransactionAsync(async () =>
                 {
-                    return (false, "User not found");
-                }
+                    var user = await _userManager.FindByIdAsync(userId);
+                    if (user == null || !user.IsActive || user.LockoutEnd > DateTimeOffset.UtcNow)
+                        return (false, "Password change failed");
 
-                if (user.EmailConfirmed)
-                {
-                    return (false, "Account is already verified");
-                }
+                    var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
+                    if (!result.Succeeded)
+                        return (false, $"Password change failed: {string.Join(", ", result.Errors.Select(e => e.Description))}");
 
-                // Generate and send new OTP
-                var otp = await _otpService.GenerateOtpAsync(resendDto.Email);
-                await _emailService.SendOtpEmailAsync(user, otp);
-
-                _logger.LogInformation("Verification code resent to: {Email}", resendDto.Email);
-                return (true, "Verification code has been resent to your email");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error resending verification code");
-                return (false, "An error occurred while resending verification code");
-            }
-        }
-
-        public async Task<(bool Success, string Message)> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto)
-        {
-            try
-            {
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null)
-                {
-                    return (false, "User not found");
-                }
-
-                var result = await _userManager.ChangePasswordAsync(user, changePasswordDto.CurrentPassword, changePasswordDto.NewPassword);
-                
-                if (!result.Succeeded)
-                {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    return (false, $"Password change failed: {errors}");
-                }
-
-                _logger.LogInformation("Password changed successfully for user: {UserId}", userId);
-                return (true, "Password changed successfully");
+                    await _sessions.RevokeAsync(user.Id);
+                    return (true, "Password changed successfully");
+                });
             }
             catch (Exception ex)
             {
@@ -451,63 +370,31 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<(bool Success, string Message)> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+        public Task<(bool Success, string Message)> ForgotPasswordAsync(ForgotPasswordDto dto) =>
+            IssuePublicChallengeAsync(dto.Email, AccountChallengePurpose.PasswordRecovery,
+                "If the account is eligible, a password reset code has been sent.");
+
+        public async Task<(bool Success, string Message)> ResetPasswordAsync(ResetPasswordDto dto)
         {
+            const string invalid = "Invalid or expired reset code";
             try
             {
-                var user = await _userManager.FindByEmailAsync(forgotPasswordDto.Email);
-                if (user == null)
+                return await AccountTransactionAsync(async () =>
                 {
-                    // Don't reveal if user exists or not for security
-                    return (true, "If the email exists, a password reset code has been sent");
-                }
+                    var user = await _userManager.FindByEmailAsync(dto.Email);
+                    if (user == null || !user.IsActive || !user.EmailConfirmed || user.LockoutEnd > DateTimeOffset.UtcNow ||
+                        !await _otpService.ConsumeAsync(user, AccountChallengePurpose.PasswordRecovery, dto.Otp))
+                        return (false, invalid);
 
-                // Generate and send OTP for password reset
-                var otp = await _otpService.GenerateOtpAsync(forgotPasswordDto.Email);
-                await _emailService.SendPasswordResetEmailAsync(user, otp);
+                    // Identity validates the replacement before updating the existing password hash.
+                    var result = await ResetAndRevokeAsync(user, dto.NewPassword);
+                    if (result.Succeeded)
+                        return (true, "Password reset successfully");
 
-                _logger.LogInformation("Password reset code sent to: {Email}", forgotPasswordDto.Email);
-                return (true, "If the email exists, a password reset code has been sent");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending password reset code");
-                return (false, "An error occurred while sending password reset code");
-            }
-        }
-
-        public async Task<(bool Success, string Message)> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
-        {
-            try
-            {
-                var user = await _userManager.FindByEmailAsync(resetPasswordDto.Email);
-                if (user == null)
-                {
-                    return (false, "User not found");
-                }
-
-                var isOtpValid = await _otpService.VerifyOtpAsync(resetPasswordDto.Email, resetPasswordDto.Otp);
-                if (!isOtpValid)
-                {
-                    return (false, "Invalid or expired reset code");
-                }
-
-                // Remove current password and set new one
-                var removePasswordResult = await _userManager.RemovePasswordAsync(user);
-                if (!removePasswordResult.Succeeded)
-                {
-                    return (false, "Failed to reset password");
-                }
-
-                var addPasswordResult = await _userManager.AddPasswordAsync(user, resetPasswordDto.NewPassword);
-                if (!addPasswordResult.Succeeded)
-                {
-                    var errors = string.Join(", ", addPasswordResult.Errors.Select(e => e.Description));
-                    return (false, $"Password reset failed: {errors}");
-                }
-
-                _logger.LogInformation("Password reset successfully for user: {UserId}", user.Id);
-                return (true, "Password reset successfully");
+                    // The proof was used even if the replacement did not meet password policy.
+                    // A database exception rolls back the proof, password and revocations together.
+                    return (false, "Password reset failed. Request a new code and use a password that meets the password requirements.");
+                });
             }
             catch (Exception ex)
             {
@@ -516,23 +403,9 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<(bool Success, string Message)> LogoutAsync(string userId)
+        public async Task LogoutAsync(string userId, Guid sessionId, CancellationToken ct)
         {
-            try
-            {
-                // In a real application, you might want to:
-                // 1. Invalidate refresh tokens
-                // 2. Log the logout event
-                // 3. Clear any cached user data
-                
-                _logger.LogInformation("User logged out: {UserId}", userId);
-                return (true, "Logged out successfully");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during logout for user: {UserId}", userId);
-                return (false, "An error occurred during logout");
-            }
+            await _sessions.RevokeAsync(userId, sessionId, ct);
         }
 
         public async Task<UserResponseDto?> GetUserDetailsAsync(string userId)
@@ -660,25 +533,10 @@ namespace Ecom.Application.Services
         }
 
         // Missing interface implementations
-        public async Task<bool> SendEmailConfirmationAsync(SendEmailConfirmationDto sendEmailDto)
+        public async Task<bool> SendEmailConfirmationAsync(SendEmailConfirmationDto dto)
         {
-            try
-            {
-                var user = await _userManager.FindByIdAsync(sendEmailDto.UserId);
-                if (user == null)
-                    return false;
-
-                var otp = await _otpService.GenerateOtpAsync(user.Email!);
-                await _emailService.SendOtpEmailAsync(user, otp);
-                
-                _logger.LogInformation("Email confirmation sent to user: {UserId}", sendEmailDto.UserId);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending email confirmation for user: {UserId}", sendEmailDto.UserId);
-                return false;
-            }
+            var user = await _userManager.FindByIdAsync(dto.UserId);
+            return user != null && await IssueChallengeAsync(user, AccountChallengePurpose.EmailVerification);
         }
 
         public async Task<bool> ConfirmUserEmailAsync(string userId, string token)
@@ -709,24 +567,11 @@ namespace Ecom.Application.Services
         {
             try
             {
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null)
-                    return false;
-
-                // Remove current password
-                var removePasswordResult = await _userManager.RemovePasswordAsync(user);
-                if (!removePasswordResult.Succeeded)
-                    return false;
-
-                // Add new password
-                var addPasswordResult = await _userManager.AddPasswordAsync(user, newPassword);
-                
-                if (addPasswordResult.Succeeded)
+                return await AccountTransactionAsync(async () =>
                 {
-                    _logger.LogInformation("Password reset successfully for user: {UserId}", userId);
-                }
-
-                return addPasswordResult.Succeeded;
+                    var user = await _userManager.FindByIdAsync(userId);
+                    return user != null && (await ResetAndRevokeAsync(user, newPassword)).Succeeded;
+                });
             }
             catch (Exception ex)
             {
@@ -735,78 +580,62 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<bool> SendOtpAsync(SendOtpDto sendOtpDto)
+        private async Task<IdentityResult> ResetAndRevokeAsync(AppUsers user, string newPassword)
         {
-            try
-            {
-                var user = await _userManager.FindByEmailAsync(sendOtpDto.Email);
-                if (user == null)
-                    return false;
-
-                var otp = await _otpService.GenerateOtpAsync(sendOtpDto.Email);
-                await _emailService.SendOtpEmailAsync(user, otp);
-                
-                _logger.LogInformation("OTP sent to: {Email}", sendOtpDto.Email);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending OTP to: {Email}", sendOtpDto.Email);
-                return false;
-            }
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
+            if (result.Succeeded)
+                await _sessions.RevokeAsync(user.Id);
+            return result;
         }
 
-        public async Task<bool> VerifyOtpAsync(VerifyOtpDto verifyOtpDto)
+        private Task<T> AccountTransactionAsync<T>(Func<Task<T>> operation) =>
+            _db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                // A retry must reload the Identity row and its concurrency stamp.
+                _db.ChangeTracker.Clear();
+                await using var transaction = await _db.Database.BeginTransactionAsync();
+                try
+                {
+                    var result = await operation();
+                    await transaction.CommitAsync();
+                    return result;
+                }
+                finally
+                {
+                    _db.ChangeTracker.Clear();
+                }
+            });
+
+        private async Task<(bool Success, string Message)> IssuePublicChallengeAsync(
+            string email, AccountChallengePurpose purpose, string message)
         {
             try
             {
-                var isValid = await _otpService.VerifyOtpAsync(verifyOtpDto.Email, verifyOtpDto.Otp);
-                
-                if (isValid)
-                {
-                    _logger.LogInformation("OTP verified successfully for: {Email}", verifyOtpDto.Email);
-                }
-
-                return isValid;
+                var user = await _userManager.FindByEmailAsync(email);
+                if (user != null)
+                    await IssueChallengeAsync(user, purpose);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error verifying OTP for: {Email}", verifyOtpDto.Email);
-                return false;
+                _logger.LogError(ex, "Error issuing account challenge");
             }
+            return (true, message);
         }
 
-        public async Task<bool> ChangePasswordWithOtpAsync(ChangePasswordWithOtpDto changePasswordDto)
+        private async Task<bool> IssueChallengeAsync(AppUsers user, AccountChallengePurpose purpose)
         {
-            try
-            {
-                var user = await _userManager.FindByEmailAsync(changePasswordDto.Email);
-                if (user == null)
-                    return false;
-
-                var isOtpValid = await _otpService.VerifyOtpAsync(changePasswordDto.Email, changePasswordDto.Otp);
-                if (!isOtpValid)
-                    return false;
-
-                // Remove current password and set new one
-                var removePasswordResult = await _userManager.RemovePasswordAsync(user);
-                if (!removePasswordResult.Succeeded)
-                    return false;
-
-                var addPasswordResult = await _userManager.AddPasswordAsync(user, changePasswordDto.NewPassword);
-                
-                if (addPasswordResult.Succeeded)
-                {
-                    _logger.LogInformation("Password changed with OTP successfully for user: {UserId}", user.Id);
-                }
-
-                return addPasswordResult.Succeeded;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error changing password with OTP for: {Email}", changePasswordDto.Email);
+            if (!user.IsActive || user.LockoutEnd > DateTimeOffset.UtcNow ||
+                user.EmailConfirmed != (purpose == AccountChallengePurpose.PasswordRecovery))
                 return false;
-            }
+
+            var code = await _otpService.IssueAsync(user, purpose);
+            if (code == null)
+                return false;
+
+            return purpose == AccountChallengePurpose.PasswordRecovery
+                ? await _emailService.SendPasswordResetEmailAsync(user, code)
+                : await _emailService.SendOtpEmailAsync(user, code);
         }
 
         // Legacy methods for backward compatibility
@@ -820,49 +649,6 @@ namespace Ecom.Application.Services
             return await LoginAsync(loginDto);
         }
 
-        public async Task<string?> GetUserByRefreshTokenAsync(string refreshToken)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(refreshToken))
-                {
-                    return null;
-                }
 
-                var now = DateTime.UtcNow;
-                var user = await _userManager.Users
-                    .Where(u => u.RefreshToken == refreshToken && u.RefreshTokenExpiresAtUtc.HasValue && u.RefreshTokenExpiresAtUtc > now)
-                    .FirstOrDefaultAsync();
-
-                return user?.Id;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting user by refresh token");
-                return null;
-            }
-        }
-
-        public async Task<bool> SetRefreshTokenAsync(string userId, string refreshToken, DateTime expiresAtUtc)
-        {
-            try
-            {
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null)
-                {
-                    return false;
-                }
-
-                user.RefreshToken = refreshToken;
-                user.RefreshTokenExpiresAtUtc = expiresAtUtc;
-                var result = await _userManager.UpdateAsync(user);
-                return result.Succeeded;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error setting refresh token for user: {UserId}", userId);
-                return false;
-            }
-        }
     }
 }

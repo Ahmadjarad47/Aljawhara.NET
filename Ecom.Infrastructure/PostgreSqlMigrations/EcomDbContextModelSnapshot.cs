@@ -22,6 +22,50 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Ecom.Domain.Entity.AccountChallenge", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime?>("ConsumedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("IssuedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("LastIssuedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("WindowStartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "Purpose");
+
+                    b.ToTable("AccountChallenges", t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountChallenges_Attempts", "\"Attempts\" BETWEEN 0 AND 5");
+
+                            t.HasCheckConstraint("CK_AccountChallenges_IssuedCount", "\"IssuedCount\" BETWEEN 1 AND 3");
+
+                            t.HasCheckConstraint("CK_AccountChallenges_Purpose", "\"Purpose\" IN (1, 2)");
+                        });
+                });
+
             modelBuilder.Entity("Ecom.Domain.Entity.AppUsers", b =>
                 {
                     b.Property<string>("Id")
@@ -70,12 +114,6 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("RefreshToken")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("RefreshTokenExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 
@@ -114,6 +152,44 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.HasIndex("ShippingAddressesId");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.AuthSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RefreshTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("RefreshTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AuthSessions");
                 });
 
             modelBuilder.Entity("Ecom.Domain.Entity.Carousel", b =>
@@ -268,6 +344,9 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsSingleUse")
                         .HasColumnType("boolean");
 
@@ -311,6 +390,8 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
 
                     b.ToTable("Coupons", t =>
                         {
+                            t.HasCheckConstraint("CK_Coupons_PublicUnassigned", "NOT \"IsPublic\" OR \"AppUserId\" IS NULL");
+
                             t.HasCheckConstraint("CK_Coupons_UsageLimit", "\"UsageLimit\" IS NULL OR (\"UsageLimit\" >= 0 AND \"UsedCount\" <= \"UsageLimit\")");
 
                             t.HasCheckConstraint("CK_Coupons_UsedCount_NonNegative", "\"UsedCount\" >= 0");
@@ -844,6 +925,9 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
+                    b.Property<DateTime?>("PublicVerificationRequestedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("RequestHash")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -898,6 +982,9 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.HasIndex("OrderId")
                         .IsUnique()
                         .HasFilter("\"Status\" IN (0, 1, 2, 3)");
+
+                    b.HasIndex("PublicVerificationRequestedAtUtc")
+                        .HasFilter("\"PublicVerificationRequestedAtUtc\" IS NOT NULL");
 
                     b.HasIndex("TransactionId")
                         .IsUnique();
@@ -2224,6 +2311,15 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Ecom.Domain.Entity.AccountChallenge", b =>
+                {
+                    b.HasOne("Ecom.Domain.Entity.AppUsers", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Ecom.Domain.Entity.AppUsers", b =>
                 {
                     b.HasOne("Ecom.Domain.Entity.ShippingAddress", "ShippingAddresses")
@@ -2231,6 +2327,17 @@ namespace Ecom.Infrastructure.PostgreSqlMigrations
                         .HasForeignKey("ShippingAddressesId");
 
                     b.Navigation("ShippingAddresses");
+                });
+
+            modelBuilder.Entity("Ecom.Domain.Entity.AuthSession", b =>
+                {
+                    b.HasOne("Ecom.Domain.Entity.AppUsers", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Ecom.Domain.Entity.Coupon", b =>

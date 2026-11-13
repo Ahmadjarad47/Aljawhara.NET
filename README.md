@@ -65,6 +65,14 @@ daily production backups and restore instructions, follow
 
 ### 3. Local development secrets
 
+To use launch profiles, copy
+[launchSettings.example.json](Ecom.API/Properties/launchSettings.example.json)
+to `Ecom.API/Properties/launchSettings.json`. Git ignores the local file. Add
+service settings to the profile's `environmentVariables` object using the names
+in [the environment example](deploy/ubuntu/aljawhara.env.example). For example,
+use `SmtpSettings__Password` and `Telegram__BotToken` for the corresponding
+configuration keys. Start a named profile with `dotnet run --launch-profile https`.
+
 The API loads .NET User Secrets in Development. Before the first run, generate
 two independent random keys and store them outside the repository (PowerShell):
 

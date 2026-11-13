@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
+using Ecom.Application.Telegram;
 
 namespace Ecom.Application.Payments;
 
@@ -23,6 +24,8 @@ public sealed class PaymentOrchestrationService(
 {
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan StatusVerificationInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan PublicVerificationInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan VerificationTimeout = TimeSpan.FromSeconds(45);
     private sealed record PaymentPayload(int PaymentAttemptId);
     private sealed record OrderPayload(int OrderId);
 
@@ -30,7 +33,8 @@ public sealed class PaymentOrchestrationService(
     {
         var now = DateTime.UtcNow;
         var ids = await db.OutboxMessages.AsNoTracking()
-            .Where(m => (m.Status == OutboxStatus.Pending || (m.Status == OutboxStatus.Processing && m.LeaseUntilUtc < now)) && m.NextAttemptAtUtc <= now)
+            .Where(m => m.Type != TelegramOrderNotificationProcessor.OutboxType &&
+                (m.Status == OutboxStatus.Pending || (m.Status == OutboxStatus.Processing && m.LeaseUntilUtc < now)) && m.NextAttemptAtUtc <= now)
             .OrderBy(m => m.Id).Select(m => m.Id).Take(Math.Clamp(batchSize, 1, 100)).ToListAsync(cancellationToken);
         var processed = 0;
         foreach (var id in ids)
@@ -245,7 +249,8 @@ public sealed class PaymentOrchestrationService(
         int paymentAttemptId,
         SadadVerifiedPayment payment,
         string merchantIdentity,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? expectedLeaseOwner = null)
     {
         if (string.IsNullOrWhiteSpace(payment.EvidenceId)) throw new ArgumentException("Trusted evidence id is required.");
         db.ChangeTracker.Clear();
@@ -272,11 +277,16 @@ public sealed class PaymentOrchestrationService(
             var verifiedRefundedAmount = KwdMoney.Round(payment.RefundedAmount);
             if (attempt.Status == PaymentAttemptStatus.Paid) { await tx.CommitAsync(cancellationToken); return true; }
             var now = DateTime.UtcNow;
+            var payable = db.PaymentAttempts.Where(a => a.Id == attempt.Id &&
+                (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation) &&
+                (expectedLeaseOwner == null || (a.LeaseOwner == expectedLeaseOwner && a.LeaseUntilUtc > now)));
+            if (!await payable.AnyAsync(cancellationToken))
+                return false;
             var activeCount = await db.InventoryReservations.CountAsync(r => r.OrderId == attempt.OrderId && r.Status == ReservationStatus.Active && r.ExpiresAtUtc > now, cancellationToken);
             var totalCount = await db.InventoryReservations.CountAsync(r => r.OrderId == attempt.OrderId, cancellationToken);
             if (attempt.Order.Status != OrderStatus.Pending || activeCount == 0 || activeCount != totalCount)
             {
-                await db.PaymentAttempts.Where(a => a.Id == attempt.Id && a.Status != PaymentAttemptStatus.Paid).ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
+                var changed = await payable.ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
                     .SetProperty(a => a.LastErrorCode, "VERIFIED_AFTER_RESERVATION_RELEASE")
                     .SetProperty(a => a.GatewayVerifiedAtUtc, now)
                     .SetProperty(a => a.LastVerificationAtUtc, now)
@@ -287,6 +297,8 @@ public sealed class PaymentOrchestrationService(
                     .SetProperty(a => a.VerifiedSubtotal, verifiedSubtotal)
                     .SetProperty(a => a.VerifiedRefundedAmount, verifiedRefundedAmount)
                     .SetProperty(a => a.LeaseOwner, (string?)null).SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
+                if (changed != 1)
+                    return await db.PaymentAttempts.AnyAsync(a => a.Id == attempt.Id && a.Status == PaymentAttemptStatus.Paid, cancellationToken);
                 await db.Orders.Where(o => o.Id == attempt.OrderId).ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, OrderStatus.RequiresReconciliation), cancellationToken);
                 var reconciliationEventKey = $"verified:{payment.EvidenceId}:reconciliation";
                 if (!await db.PaymentTransitionAudits.AnyAsync(a => a.EventKey == reconciliationEventKey, cancellationToken))
@@ -306,9 +318,7 @@ public sealed class PaymentOrchestrationService(
                 .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, OrderStatus.Processing), cancellationToken);
             if (orderClaimed != 1)
             {
-                await db.PaymentAttempts.Where(a => a.Id == attempt.Id &&
-                        (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation))
-                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
+                var changed = await payable.ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
                         .SetProperty(a => a.LastErrorCode, "VERIFIED_DURING_CONCURRENT_ORDER_TRANSITION")
                         .SetProperty(a => a.GatewayVerifiedAtUtc, now)
                         .SetProperty(a => a.LastVerificationAtUtc, now)
@@ -319,6 +329,8 @@ public sealed class PaymentOrchestrationService(
                         .SetProperty(a => a.VerifiedSubtotal, verifiedSubtotal)
                         .SetProperty(a => a.VerifiedRefundedAmount, verifiedRefundedAmount)
                         .SetProperty(a => a.LeaseOwner, (string?)null).SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
+                if (changed != 1)
+                    return await db.PaymentAttempts.AnyAsync(a => a.Id == attempt.Id && a.Status == PaymentAttemptStatus.Paid, cancellationToken);
                 await db.Orders.Where(o => o.Id == attempt.OrderId && o.Status != OrderStatus.RequiresReconciliation)
                     .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, OrderStatus.RequiresReconciliation), cancellationToken);
                 var reconciliationEventKey = $"verified:{payment.EvidenceId}:order-conflict";
@@ -335,9 +347,7 @@ public sealed class PaymentOrchestrationService(
                 await tx.CommitAsync(cancellationToken);
                 return false;
             }
-            var paymentClaimed = await db.PaymentAttempts.Where(a => a.Id == attempt.Id &&
-                    (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation))
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.Paid)
+            var paymentClaimed = await payable.ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.Paid)
                     .SetProperty(a => a.GatewayVerifiedAtUtc, now)
                     .SetProperty(a => a.LastVerificationAtUtc, now)
                     .SetProperty(a => a.VerificationEvidenceId, payment.EvidenceId)
@@ -347,6 +357,7 @@ public sealed class PaymentOrchestrationService(
                     .SetProperty(a => a.VerifiedSubtotal, verifiedSubtotal)
                     .SetProperty(a => a.VerifiedRefundedAmount, verifiedRefundedAmount)
                     .SetProperty(a => a.LastErrorCode, (string?)null)
+                    .SetProperty(a => a.PublicVerificationRequestedAtUtc, (DateTime?)null)
                     .SetProperty(a => a.LeaseOwner, (string?)null)
                     .SetProperty(a => a.LeaseUntilUtc, (DateTime?)null), cancellationToken);
             if (paymentClaimed != 1)
@@ -364,6 +375,16 @@ public sealed class PaymentOrchestrationService(
                     .SetProperty(t => t.GatewayVerifiedAtUtc, now)
                     .SetProperty(t => t.ProcessedDate, now)
                     .SetProperty(t => t.PaymentGatewayResponse, "Verified by Sadad GetById"), cancellationToken);
+            if (configuration.GetValue<bool>("Telegram:Enabled"))
+            {
+                db.OutboxMessages.Add(new OutboxMessage
+                {
+                    Type = TelegramOrderNotificationProcessor.OutboxType,
+                    DeduplicationKey = $"telegram:order:{attempt.OrderId}:payment-success",
+                    Payload = attempt.OrderId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    NextAttemptAtUtc = now
+                });
+            }
             db.PaymentTransitionAudits.Add(new PaymentTransitionAudit { PaymentAttemptId = attempt.Id, FromStatus = attempt.Status, ToStatus = PaymentAttemptStatus.Paid, EventKey = $"verified:{payment.EvidenceId}", ReasonCode = "STRICT_SADAD_GETBYID_VERIFICATION" });
             await db.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
@@ -379,19 +400,47 @@ public sealed class PaymentOrchestrationService(
         if (attempt == null || string.IsNullOrWhiteSpace(attempt.GatewayInvoiceId))
             return new(PaymentVerificationOutcome.NotFound, "INVOICE_NOT_READY");
 
-        return await VerifyByInvoiceIdCoreAsync(attempt.GatewayInvoiceId, true, cancellationToken);
+        return await VerifyByInvoiceIdCoreAsync(attempt.GatewayInvoiceId, StatusVerificationInterval, cancellationToken);
     }
 
     public Task<PaymentVerificationResult> VerifyByInvoiceIdAsync(
         string gatewayInvoiceId,
         string triggerId,
         CancellationToken cancellationToken = default) =>
-        VerifyByInvoiceIdCoreAsync(gatewayInvoiceId, false, cancellationToken);
+        VerifyByInvoiceIdCoreAsync(gatewayInvoiceId, TimeSpan.Zero, cancellationToken);
+
+    public async Task RequestPublicVerificationAsync(string gatewayInvoiceId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        // Unknown, terminal and already queued invoices allocate no records. Callback
+        // traffic never invokes the provider directly or resets this single queue slot.
+        await db.PaymentAttempts.Where(a => a.GatewayInvoiceId == gatewayInvoiceId &&
+                (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation) &&
+                a.PublicVerificationRequestedAtUtc == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.PublicVerificationRequestedAtUtc, now), cancellationToken);
+    }
+
+    public async Task<int> VerifyPublicRequestsAsync(int batchSize, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var cutoff = now.Subtract(PublicVerificationInterval);
+        var invoices = await db.PaymentAttempts.AsNoTracking().Where(a => a.PublicVerificationRequestedAtUtc != null &&
+                a.GatewayInvoiceId != null &&
+                (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation) &&
+                (a.LeaseUntilUtc == null || a.LeaseUntilUtc <= now) &&
+                (a.LastVerificationAtUtc == null || a.LastVerificationAtUtc <= cutoff))
+            .OrderBy(a => a.PublicVerificationRequestedAtUtc).ThenBy(a => a.Id)
+            .Take(Math.Clamp(batchSize, 1, 100)).Select(a => a.GatewayInvoiceId!).ToListAsync(cancellationToken);
+        foreach (var invoice in invoices)
+            await VerifyByInvoiceIdCoreAsync(invoice, PublicVerificationInterval, cancellationToken, requirePublicRequest: true);
+        return invoices.Count;
+    }
 
     private async Task<PaymentVerificationResult> VerifyByInvoiceIdCoreAsync(
         string gatewayInvoiceId,
-        bool throttle,
-        CancellationToken cancellationToken)
+        TimeSpan interval,
+        CancellationToken cancellationToken,
+        bool requirePublicRequest = false)
     {
         if (string.IsNullOrWhiteSpace(gatewayInvoiceId))
             return new(PaymentVerificationOutcome.Rejected, "INVALID_INVOICE_ID");
@@ -407,13 +456,16 @@ public sealed class PaymentOrchestrationService(
 
         var worker = $"verify-{Guid.NewGuid():N}";
         var now = DateTime.UtcNow;
-        var checkedBefore = now.Subtract(StatusVerificationInterval);
+        var checkedBefore = now.Subtract(interval);
         var claimed = await db.PaymentAttempts.Where(a => a.Id == attempt.Id &&
                 (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation) &&
-                (a.LeaseUntilUtc == null || a.LeaseUntilUtc < now) &&
-                (!throttle || a.LastVerificationAtUtc == null || a.LastVerificationAtUtc <= checkedBefore))
+                (a.LeaseUntilUtc == null || a.LeaseUntilUtc <= now) &&
+                (!requirePublicRequest || a.PublicVerificationRequestedAtUtc != null) &&
+                (interval == TimeSpan.Zero || a.LastVerificationAtUtc == null || a.LastVerificationAtUtc <= checkedBefore))
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.LeaseOwner, worker)
-                .SetProperty(a => a.LeaseUntilUtc, now.Add(LeaseDuration)), cancellationToken);
+                .SetProperty(a => a.LeaseUntilUtc, now.Add(LeaseDuration))
+                .SetProperty(a => a.LastVerificationAtUtc, now)
+                .SetProperty(a => a.PublicVerificationRequestedAtUtc, (DateTime?)null), cancellationToken);
         if (claimed == 0)
             return new(PaymentVerificationOutcome.Busy, "VERIFICATION_ALREADY_IN_PROGRESS");
 
@@ -421,14 +473,26 @@ public sealed class PaymentOrchestrationService(
         {
             db.ChangeTracker.Clear();
             attempt = await db.PaymentAttempts.AsNoTracking().SingleAsync(a => a.Id == attempt.Id, cancellationToken);
-            var result = await gateway.VerifyInvoiceAsync(attempt, cancellationToken);
+            using var verificationDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            verificationDeadline.CancelAfter(VerificationTimeout);
+            SadadInvoiceVerificationResult result;
+            try
+            {
+                result = await gateway.VerifyInvoiceAsync(attempt, verificationDeadline.Token);
+            }
+            catch (OperationCanceledException) when (verificationDeadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                result = new(SadadInvoiceVerificationOutcome.RequiresReconciliation, "GETBYID_TIMEOUT");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
             var checkedAt = DateTime.UtcNow;
             logger.LogInformation("Sadad invoice verification completed for PaymentAttemptId={PaymentAttemptId}. Status={Status}, ReasonCode={ReasonCode}",
                 attempt.Id, result.Outcome.ToString(), result.ReasonCode);
 
             if (result.Outcome == SadadInvoiceVerificationOutcome.NotPaid)
             {
-                await db.PaymentAttempts.Where(a => a.Id == attempt.Id && a.LeaseOwner == worker)
+                await db.PaymentAttempts.Where(a => a.Id == attempt.Id && a.LeaseOwner == worker &&
+                        (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation))
                     .ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.AwaitingPayment)
                         .SetProperty(a => a.LastVerificationAtUtc, checkedAt)
                         .SetProperty(a => a.LastErrorCode, (string?)null)
@@ -466,7 +530,7 @@ public sealed class PaymentOrchestrationService(
                     attempt.Id,
                     result.Payment,
                     result.Payment.VendorId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    cancellationToken);
+                    cancellationToken, worker);
                 if (!finalized)
                 {
                     db.ChangeTracker.Clear();
@@ -582,7 +646,8 @@ public sealed class PaymentOrchestrationService(
         string reasonCode,
         DateTime checkedAt,
         CancellationToken cancellationToken) =>
-        db.PaymentAttempts.Where(a => a.Id == attemptId && a.LeaseOwner == leaseOwner && a.Status != PaymentAttemptStatus.Paid)
+        db.PaymentAttempts.Where(a => a.Id == attemptId && a.LeaseOwner == leaseOwner &&
+            (a.Status == PaymentAttemptStatus.AwaitingPayment || a.Status == PaymentAttemptStatus.RequiresReconciliation))
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, PaymentAttemptStatus.RequiresReconciliation)
                 .SetProperty(a => a.LastVerificationAtUtc, checkedAt)
                 .SetProperty(a => a.LastErrorCode, reasonCode.Length <= 100 ? reasonCode : reasonCode[..100])

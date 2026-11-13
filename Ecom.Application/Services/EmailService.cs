@@ -79,11 +79,11 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<bool> SendPasswordResetEmailAsync(AppUsers user, string resetToken)
+        public async Task<bool> SendPasswordResetEmailAsync(AppUsers user, string code)
         {
             try
             {
-                var resetLink = $"{_configuration["AppSettings:BaseUrl"]}/auth/reset-password?userId={user.Id}&token={resetToken}";
+                var lifetime = OtpService.ExpirationMinutes;
                 
                 var subject = "إعادة تعيين كلمة المرور - المتجر الجوهرة";
                 var body = $@"
@@ -106,13 +106,9 @@ namespace Ecom.Application.Services
                                         <tr>
                                             <td style='padding: 40px 30px;'>
                                                 <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
-                                                <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 30px 0;'>لقد طلبت إعادة تعيين كلمة المرور الخاصة بحسابك. يرجى النقر على الزر أدناه لإعادة تعيين كلمة المرور:</p>
-                                                <div style='text-align: center; margin: 30px 0;'>
-                                                    <a href='{resetLink}' style='display: inline-block; background-color: #054239d9; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(5,66,57,0.3); transition: all 0.3s;'>إعادة تعيين كلمة المرور</a>
-                                                </div>
-                                                <p style='color: #777777; font-size: 14px; line-height: 1.6; margin: 30px 0 20px 0;'>إذا لم يعمل الزر، يرجى نسخ الرابط التالي ولصقه في المتصفح:</p>
-                                                <p style='color: #054239d9; font-size: 13px; word-break: break-all; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-right: 4px solid #054239d9; margin: 0;'>{resetLink}</p>
-                                                <p style='color: #dc3545; font-size: 14px; margin: 25px 0 0 0;'><strong>ملاحظة:</strong> هذا الرابط صالح لمدة ساعة واحدة فقط.</p>
+                                                <p>أدخل الرمز التالي في صفحة إعادة تعيين كلمة المرور:</p>
+                                                <p><strong dir='ltr'>{code}</strong></p>
+                                                <p>الرمز صالح لمدة {lifetime} دقائق.</p>
                                                 <div style='background-color: #fff3cd; border-right: 4px solid #ffc107; padding: 15px; border-radius: 5px; margin-top: 25px;'>
                                                     <p style='color: #856404; font-size: 14px; margin: 0;'><strong>تنبيه:</strong> إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذه الرسالة.</p>
                                                 </div>
@@ -337,7 +333,7 @@ namespace Ecom.Application.Services
                         <title>رمز التحقق - المتجر الجوهرة</title>
                     </head>
                     <body dir="rtl" style="margin:0; padding:0; width:100%; background-color:#f3f5f3; font-family:Tahoma, Arial, sans-serif; -webkit-text-size-adjust:100%;">
-                        <div aria-hidden="true" style="display:none; font-size:1px; line-height:1px; color:#f3f5f3; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all;">استخدم رمز التحقق لإكمال طلبك. الرمز صالح لمدة ساعة واحدة.</div>
+                        <div aria-hidden="true" style="display:none; font-size:1px; line-height:1px; color:#f3f5f3; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all;">استخدم رمز التحقق لإكمال طلبك. الرمز صالح لمدة {{OtpService.ExpirationMinutes}} دقائق.</div>
                         <table role="presentation" dir="rtl" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f5f3" style="width:100%; background-color:#f3f5f3;">
                             <tr>
                                 <td align="center" style="padding:24px 12px;">
@@ -370,7 +366,7 @@ namespace Ecom.Application.Services
                                                         </td>
                                                     </tr>
                                                 </table>
-                                                <p style="margin:14px 0 24px; color:#59675f; font-size:13px; line-height:24px; text-align:center;">صالح لمدة <strong style="color:#173c32;">ساعة واحدة</strong> من وقت الطلب.</p>
+                                                <p style="margin:14px 0 24px; color:#59675f; font-size:13px; line-height:24px; text-align:center;">صالح لمدة <strong style="color:#173c32;">{{OtpService.ExpirationMinutes}} دقائق</strong> من وقت الطلب.</p>
                                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-top:1px solid #e6ebe7;">
                                                     <tr>
                                                         <td dir="rtl" align="right" style="padding-top:18px; text-align:right; font-family:Tahoma, Arial, sans-serif;">
@@ -395,7 +391,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>
                     """;
-                var textBody = $"مرحباً {displayName}،\n\nرمز التحقق الخاص بك: {otp}\n\nالرمز صالح لمدة ساعة واحدة من وقت الطلب.\nلا تشارك هذا الرمز مع أي شخص.\nإذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة.\n\nفريق المتجر الجوهرة";
+                var textBody = $"مرحباً {displayName}،\n\nرمز التحقق الخاص بك: {otp}\n\nالرمز صالح لمدة {OtpService.ExpirationMinutes} دقائق من وقت الطلب.\nلا تشارك هذا الرمز مع أي شخص.\nإذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة.\n\nفريق المتجر الجوهرة";
 
                 return await SendEmailAsync(user.Email!, subject, body, textBody);
             }
@@ -713,11 +709,18 @@ namespace Ecom.Application.Services
             {
                 var smtpSettings = _configuration.GetSection("SmtpSettings");
                 var smtpHost = smtpSettings["Host"];
-                var smtpPort = int.Parse(smtpSettings["Port"] ?? "587");
                 var smtpUsername = smtpSettings["Username"];
                 var smtpPassword = smtpSettings["Password"];
                 var fromEmail = smtpSettings["FromEmail"];
                 var fromName = smtpSettings["FromName"] ?? "المتجر الجوهرة";
+
+                if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUsername) ||
+                    string.IsNullOrWhiteSpace(smtpPassword) || string.IsNullOrWhiteSpace(fromEmail) ||
+                    !int.TryParse(smtpSettings["Port"] ?? "587", out var smtpPort) || smtpPort is < 1 or > 65535)
+                {
+                    _logger.LogWarning("SMTP delivery skipped because its configuration is missing or invalid.");
+                    return false;
+                }
 
                 var message = new MimeMessage();
                 message.From.Add(new MailboxAddress(fromName, fromEmail));
@@ -741,7 +744,7 @@ namespace Ecom.Application.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending email to {Email}", toEmail);
+                _logger.LogError("SMTP delivery failed. FailureType={FailureType}", ex.GetType().Name);
                 return false;
             }
         }

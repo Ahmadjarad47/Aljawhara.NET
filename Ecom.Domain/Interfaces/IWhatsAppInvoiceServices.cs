@@ -3,7 +3,9 @@ namespace Ecom.Domain.Interfaces;
 public sealed record InvoiceLine(string Name, int Quantity, decimal Price);
 public sealed record InvoiceData(string InvoiceNumber, string OrderNumber, string CustomerName,
     DateTime PaidAtUtc, IReadOnlyList<InvoiceLine> Lines, decimal Subtotal, decimal Discount,
-    decimal Shipping, decimal Tax, decimal Total);
+    decimal Shipping, decimal Tax, decimal Total, string? CustomerPhone = null,
+    string? ShippingAddress = null, string? PaymentMethod = null,
+    string? TransactionReference = null, string? CouponCode = null);
 
 public interface IInvoicePdfRenderer
 {
