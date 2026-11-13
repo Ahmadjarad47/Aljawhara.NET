@@ -208,7 +208,7 @@ builder.Services.AddOptions<TelegramOptions>()
     .Configure(options =>
     {
         builder.Configuration.GetSection("Telegram").Bind(options);
-        if (builder.Environment.IsEnvironment("Testing")) options.Enabled = false;
+        if (builder.Environment.IsEnvironment("Testing")) options.Enabled = true;
     })
     .Validate(options => options.IsValid(), "Invalid Telegram settings. Configure BotToken and ChatId when Telegram notifications are enabled.")
     .ValidateOnStart();
@@ -349,7 +349,7 @@ builder.Services.AddAuthorization(options =>
 
 // Add CORS with security best practices
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() 
-    ?? new[] { "https://aljawharaplus.com" };
+    ?? new[] { "https://aljawharaplus.com","http://localhost:4200" };
 
 builder.Services.AddCors(options =>
 {
