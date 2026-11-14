@@ -24,12 +24,11 @@ using Microsoft.OpenApi;
 using Ecom.API.Monitoring;
 using Ecom.Application.WhatsApp;
 using Ecom.Infrastructure.WhatsApp;
-using Ecom.AIShopping.Infrastructure.DependencyInjection;
-using Ecom.API.AIShopping;
 using Ecom.API.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Ecom.Application.Telegram;
 var builder = WebApplication.CreateBuilder(args);
+
 
 builder.Services.Configure<ForwardedHeadersOptions>(TrustedReverseProxy.Configure);
 //builder.Services.AddAIShopping(builder.Configuration);
