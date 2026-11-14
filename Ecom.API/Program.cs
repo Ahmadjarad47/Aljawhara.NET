@@ -32,11 +32,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.Configure<ForwardedHeadersOptions>(TrustedReverseProxy.Configure);
-//builder.Services.AddAIShopping(builder.Configuration);
 builder.Services.AddDataProtection();
-builder.Services.AddSingleton<ShoppingIdentity>();
-builder.Services.AddSingleton<ShoppingRequestGate>();
-builder.Services.AddScoped<ShoppingRequestFilter>();
 
 builder.Services.AddOptions<MonitoringOptions>()
     .Bind(builder.Configuration.GetSection("Monitoring"))
