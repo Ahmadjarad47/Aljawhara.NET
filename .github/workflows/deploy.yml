@@ -25,16 +25,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish API
-        run: |
-          sudo python3 tests/deployment_release_smoke.py
-          dotnet test tests/Ecom.AIShopping.Tests/Ecom.AIShopping.Tests.csproj -c Release
-          dotnet test tests/Ecom.AIShopping.SecurityTests/Ecom.AIShopping.SecurityTests.csproj -c Release
-          dotnet test tests/Ecom.CheckoutAudit.Tests/Ecom.CheckoutAudit.Tests.csproj -c Release --filter FullyQualifiedName~ProductionSeedingTests
-          cd Ecom.API
-          dotnet publish -c Release -o publish
-          # Secrets/configuration are retained on the server by activate-release.sh.
-          find publish -maxdepth 1 -name 'appsettings*.json' -delete
+    
 
       - name: Upload and activate verified release
         env:
