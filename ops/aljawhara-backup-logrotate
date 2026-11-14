@@ -1,0 +1,9 @@
+/var/log/aljawhara-backup/*.log /var/log/aljawhara-backup/*.manifest {
+    weekly
+    rotate 12
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0600 root root
+}

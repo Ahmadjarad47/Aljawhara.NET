@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh Aljawhara backup metrics
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=aljawhara-backup-metrics.service
+
+[Install]
+WantedBy=timers.target
+

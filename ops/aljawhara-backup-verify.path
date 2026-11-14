@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for completed Aljawhara backups
+
+[Path]
+PathChanged=/var/backups/aljawhara
+Unit=aljawhara-backup-verify.service
+
+[Install]
+WantedBy=multi-user.target
+

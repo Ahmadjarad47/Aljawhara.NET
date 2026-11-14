@@ -25,20 +25,20 @@ namespace Ecom.Infrastructure.Data
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUsers>>();
-
-            await SeedCategoriesAsync(context);
-            await SeedSubCategoriesAsync(context);
-            await SeedProductsAsync(context);
-            await SeedProductDetailsAsync(context);
-            var fixtureUsers = await SeedUsersAsync(userManager);
-            await SeedShippingAddressesAsync(context, fixtureUsers);
-            await SeedRatingsAsync(context);
-            await SeedCouponsAsync(context);
-            await SeedOrdersAsync(context, fixtureUsers);
-            await SeedOrderItemsAsync(context, fixtureUsers);
-            await SeedTransactionsAsync(context, fixtureUsers);
-            await SeedVisitorsAsync(context);
-            await SeedHealthPingsAsync(context);
+            await SeedAdminUserAsync(userManager);
+            //await SeedCategoriesAsync(context);
+            //await SeedSubCategoriesAsync(context);
+            //await SeedProductsAsync(context);
+            //await SeedProductDetailsAsync(context);
+            //var fixtureUsers = await SeedUsersAsync(userManager);
+            //await SeedShippingAddressesAsync(context, fixtureUsers);
+            //await SeedRatingsAsync(context);
+            //await SeedCouponsAsync(context);
+            //await SeedOrdersAsync(context, fixtureUsers);
+            //await SeedOrderItemsAsync(context, fixtureUsers);
+            //await SeedTransactionsAsync(context, fixtureUsers);
+            //await SeedVisitorsAsync(context);
+            //await SeedHealthPingsAsync(context);
         }
 
         public static async Task InitializeIdentityAsync(IServiceProvider services)

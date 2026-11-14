@@ -1,0 +1,20 @@
+[Unit]
+Description=Verify and retain Aljawhara PostgreSQL backups
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/aljawhara-backup-verify
+StateDirectory=aljawhara-backup
+StateDirectoryMode=0755
+LogsDirectory=aljawhara-backup
+LogsDirectoryMode=0700
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/backups/aljawhara /var/lib/postgresql /run/lock
+

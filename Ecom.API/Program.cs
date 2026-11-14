@@ -569,7 +569,7 @@ if (!app.Environment.IsEnvironment("Testing"))
     await context.Database.MigrateAsync();
 
     await DataSeeder.InitializeIdentityAsync(scope.ServiceProvider);
-    await DataSeeder.SeedAsync(scope.ServiceProvider);
+    //await DataSeeder.SeedAsync(scope.ServiceProvider);
 
   
 }

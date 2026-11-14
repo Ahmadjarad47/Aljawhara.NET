@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily safety verification for Aljawhara backups
+
+[Timer]
+OnCalendar=*-*-* *:05:00 UTC
+OnCalendar=*-*-* *:20:00 UTC
+OnCalendar=*-*-* *:35:00 UTC
+OnCalendar=*-*-* *:50:00 UTC
+Persistent=true
+RandomizedDelaySec=30
+Unit=aljawhara-backup-verify.service
+
+[Install]
+WantedBy=timers.target
+

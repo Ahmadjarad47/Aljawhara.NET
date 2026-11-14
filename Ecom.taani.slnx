@@ -1,7 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="Ecom.AIShopping.Infrastructure/Ecom.AIShopping.Infrastructure.csproj" />
-    <Project Path="Ecom.AIShopping/Ecom.AIShopping.csproj" />
     <Project Path="Ecom.API/Ecom.API.csproj" />
     <Project Path="Ecom.Application/Ecom.Application.csproj" />
     <Project Path="Ecom.Domain/Ecom.Domain.csproj" />

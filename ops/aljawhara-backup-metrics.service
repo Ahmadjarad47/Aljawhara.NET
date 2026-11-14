@@ -1,0 +1,13 @@
+[Unit]
+Description=Collect Aljawhara backup monitoring metrics
+After=aljawhara-backup-verify.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/aljawhara-backup-metrics
+StateDirectory=aljawhara-backup
+StateDirectoryMode=0755
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+

@@ -26,15 +26,12 @@
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Ecom.AIShopping.Infrastructure\Ecom.AIShopping.Infrastructure.csproj" />
     <ProjectReference Include="..\Ecom.Application\Ecom.Application.csproj" />
     <ProjectReference Include="..\Ecom.Infrastructure\Ecom.Infrastructure.csproj" />
     <ProjectReference Include="..\Ecom.Domain\Ecom.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="../deploy/ubuntu/install-invoice-browser.sh" Link="deploy/install-invoice-browser.sh"
-             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../deploy/ubuntu/activate-release.sh" Link="deploy/activate-release.sh"
-             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../deploy/ubuntu/install-invoice-browser.sh" Link="deploy/install-invoice-browser.sh" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../deploy/ubuntu/activate-release.sh" Link="deploy/activate-release.sh" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
