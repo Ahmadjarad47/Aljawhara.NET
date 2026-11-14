@@ -65,7 +65,7 @@ namespace Ecom.Infrastructure.Repositories
             return products;
         }
 
-        public async Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm)
+        public async Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm, bool includeDetails = true)
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
                 return Enumerable.Empty<Product>();
@@ -89,17 +89,17 @@ namespace Ecom.Infrastructure.Repositories
                     EF.Functions.Like(p.subCategory.Category.NameAr, $"%{t}%")
                 );
             }
-            var products = await query
+            query = query
                 .AsSplitQuery()
                 .Include(p => p.subCategory)
                     .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
-                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
-                .Include(p => p.Variants.Where(v => !v.IsDeleted))
-                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
-                .ToListAsync();
-
-            return products;
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted));
+            if (includeDetails)
+                query = query
+                    .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                    .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                        .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted));
+            return await query.ToListAsync();
         }
 
         // Helper: Normalize text
@@ -117,7 +117,8 @@ namespace Ecom.Infrastructure.Repositories
           bool? newArrival = null,
           bool? bestDiscount = null,
           int pageNumber = 1,
-          int pageSize = 20)
+          int pageSize = 20,
+          bool includeDetails = true)
         {
             // Base query - IsDeleted is already filtered by query filter, only check IsActive
             IQueryable<Product> query = _dbSet
@@ -190,16 +191,19 @@ namespace Ecom.Infrastructure.Repositories
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize);
 
-            // Load includes BEFORE executing query - use split query for better performance
-            var result = await query
+            // Both response types need the category and review aggregates.
+            query = query
                 .AsSplitQuery()
                 .Include(p => p.subCategory)
                     .ThenInclude(sc => sc.Category)
-                .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
-                .Include(p => p.Ratings.Where(r => !r.IsDeleted))
-                .Include(p => p.Variants.Where(v => !v.IsDeleted))
-                    .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted))
-                .ToListAsync();
+                .Include(p => p.Ratings.Where(r => !r.IsDeleted));
+            if (includeDetails)
+                query = query
+                    .Include(p => p.productDetails.Where(pd => !pd.IsDeleted))
+                    .Include(p => p.Variants.Where(v => !v.IsDeleted))
+                        .ThenInclude(v => v.Values.Where(vv => !vv.IsDeleted));
+
+            var result = await query.ToListAsync();
 
             var output = ((IReadOnlyList<Product>)result, totalCount);
             return output;

@@ -12,7 +12,6 @@ namespace Ecom.Application.Services.Interfaces
         Task<PagedResult<TransactionAdvancedDto>> GetTransactionsAsync(TransactionFilterDto filter);
         Task<TransactionAdvancedDto> CreateTransactionAsync(TransactionCreateAdvancedDto transactionDto);
         Task<TransactionAdvancedDto> UpdateTransactionAsync(TransactionUpdateDto transactionDto);
-        Task<bool> DeleteTransactionAsync(int id);
 
         // Order-related operations
         Task<PagedResult<TransactionAdvancedDto>> GetTransactionsByOrderAsync(int orderId, int pageNumber = 1, int pageSize = 20);

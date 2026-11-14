@@ -18,7 +18,7 @@ namespace Ecom.Application.Services.Interfaces
         Task<bool> ResetUserPasswordAsync(string userId, string newPassword);
         
         // Authentication methods
-        Task<(bool Success, string UserId, string Message)> RegisterAsync(RegisterDto registerDto);
+        Task<RegistrationResult> RegisterAsync(RegisterDto registerDto);
         Task<(bool Success, AppUsers? User, string Message)> LoginAsync(LoginDto loginDto);
         Task<(bool Success, string Message)> VerifyAccountAsync(VerifyAccountDto verifyDto);
         Task<(bool Success, string Message)> ResendVerificationAsync(ResendVerificationDto resendDto);
@@ -27,7 +27,7 @@ namespace Ecom.Application.Services.Interfaces
         Task<(bool Success, string Message)> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
         Task LogoutAsync(string userId, Guid sessionId, CancellationToken ct);
         Task<UserResponseDto?> GetUserDetailsAsync(string userId);
-        Task<(bool Success, string Message)> UpdateUsernameAsync(string userId, string newUsername);
+        Task<(bool Success, string Message, string? ErrorCode)> UpdateUsernameAsync(string userId, string newUsername);
         Task<(bool Success, string Message)> UpdatePhoneNumberAsync(string userId, string newPhoneNumber);
         
         // Legacy methods for backward compatibility

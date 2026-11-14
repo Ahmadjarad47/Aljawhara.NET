@@ -1,0 +1,50 @@
+[
+  {
+    "label": "all",
+    "route": "/api/Products",
+    "attempts": 12,
+    "status": {
+      "200": 12
+    },
+    "rows": 1001,
+    "bodyBytes": 294106,
+    "p50ms": 3.84,
+    "p95ms": 4.85
+  },
+  {
+    "label": "page",
+    "route": "/api/Products?sortBy=newest&pageNumber=1&pageSize=20",
+    "attempts": 12,
+    "status": {
+      "200": 12
+    },
+    "rows": 20,
+    "bodyBytes": 6265,
+    "p50ms": 6.16,
+    "p95ms": 14.59
+  },
+  {
+    "label": "detail",
+    "route": "/api/Products/1",
+    "attempts": 12,
+    "status": {
+      "200": 12
+    },
+    "rows": null,
+    "bodyBytes": 616,
+    "p50ms": 4.55,
+    "p95ms": 5.32
+  },
+  {
+    "label": "shipping",
+    "route": "/api/shipping",
+    "attempts": 12,
+    "status": {
+      "200": 12
+    },
+    "rows": null,
+    "bodyBytes": 696,
+    "p50ms": 2.58,
+    "p95ms": 3.16
+  }
+]

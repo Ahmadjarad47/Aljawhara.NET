@@ -145,7 +145,7 @@ public sealed class TelegramOrderNotificationService(
             .AppendLine("✅ عملية شراء ناجحة")
             .AppendLine($"رقم الطلب: {orderNumber}")
             .AppendLine($"المبلغ المدفوع: {total.ToString("0.000", CultureInfo.InvariantCulture)} د.ك")
-            .AppendLine($"طريقة الدفع: {PaymentMethodName(paymentMethod)}")
+            //.AppendLine($"طريقة الدفع: {PaymentMethodName(paymentMethod)}")
             .AppendLine($"العميل: {customerName}")
             .AppendLine($"الهاتف: {phone}")
             .AppendLine($"العنوان: {address}")

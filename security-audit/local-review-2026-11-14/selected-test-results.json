@@ -1,0 +1,903 @@
+[
+  {
+    "run": "integrity",
+    "description": "Initial offline audit build with generated alignment migration",
+    "total": 47,
+    "passed": 47,
+    "failed": 0,
+    "tests": [
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Concurrent_distinct_checkouts_receive_unique_order_numbers",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Fifty_concurrent_requests_with_same_idempotency_key_create_one_checkout",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P1AccountSecurityTests.Database_failure_after_identity_write_rolls_back_password_challenge_and_revocation",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Email_failure_is_persisted_and_a_later_worker_retry_completes_it",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Expired_dispatch_lease_after_crash_never_resends_unknown_invoice",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Remote_timeout_enters_reconciliation_and_is_not_blindly_retried",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Reservation_expiry_releases_stock_and_coupon_exactly_once_and_late_payment_reconciles",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Two_independent_workers_claim_one_invoice_dispatch",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Verified_payment_confirms_active_reservation_and_duplicate_evidence_is_idempotent",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Concurrent_status_polls_share_the_persistent_verification_lease",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Rejected_finalization_releases_the_lease_and_persists_the_failure",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Verification_precondition_failure_keeps_the_existing_invoice_awaiting_payment",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Existing_backup_keeps_three_newest_dates_and_ignores_unrelated_files",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Failed_backup_keeps_all_previous_archives_and_removes_partial_file",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 1, expectedCount: 1)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 2, expectedCount: 2)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 3, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 5, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Concurrent_coupon_claims_cannot_exceed_the_final_usage_limit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_constraints_reject_non_positive_quantity_and_negative_stock",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_transaction_rollback_removes_all_test_changes",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Kuwaiti_three_decimal_amount_is_stored_without_precision_loss",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Twenty_concurrent_stock_decrements_allow_only_one_buyer_for_the_final_unit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Backup_round_trip_preserves_data_and_failure_keeps_previous_archive",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Xmin_rejects_a_stale_payment_worker_update",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Checkout_prices_each_area_within_its_governorate_and_distinguishes_repeated_names",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank-governorate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate-governorate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"negative\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"precision\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"threshold\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Migration_preserves_existing_shipping_rules_and_only_admins_can_edit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Offer_can_be_changed_disabled_and_set_to_zero_without_affecting_free_shipping_coupons",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Saved_rates_apply_to_checkout_while_existing_orders_and_idempotent_retries_keep_their_price",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Stale_admin_save_returns_conflict_and_keeps_latest_rates",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Upgrade_groups_existing_rates_without_resetting_custom_prices_or_deleted_areas",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: null)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Preview\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Production\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Staging\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Testing\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Opted_in_development_uses_unique_credentials_and_preserves_existing_identity",
+        "result": "Passed"
+      }
+    ]
+  },
+  {
+    "run": "latest-integrity",
+    "description": "Later audit build without process-level guest key",
+    "total": 48,
+    "passed": 47,
+    "failed": 1,
+    "tests": [
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Concurrent_distinct_checkouts_receive_unique_order_numbers",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Fifty_concurrent_requests_with_same_idempotency_key_create_one_checkout",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P1AccountSecurityTests.Database_failure_after_identity_write_rolls_back_password_challenge_and_revocation",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Email_failure_is_persisted_and_a_later_worker_retry_completes_it",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Expired_dispatch_lease_after_crash_never_resends_unknown_invoice",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Remote_timeout_enters_reconciliation_and_is_not_blindly_retried",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Reservation_expiry_releases_stock_and_coupon_exactly_once_and_late_payment_reconciles",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Two_independent_workers_claim_one_invoice_dispatch",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Verified_payment_confirms_active_reservation_and_duplicate_evidence_is_idempotent",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Concurrent_status_polls_share_the_persistent_verification_lease",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Rejected_finalization_releases_the_lease_and_persists_the_failure",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Verification_precondition_failure_keeps_the_existing_invoice_awaiting_payment",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Existing_backup_keeps_three_newest_dates_and_ignores_unrelated_files",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Failed_backup_keeps_all_previous_archives_and_removes_partial_file",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 1, expectedCount: 1)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 2, expectedCount: 2)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 3, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 5, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Concurrent_coupon_claims_cannot_exceed_the_final_usage_limit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_constraints_reject_non_positive_quantity_and_negative_stock",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_transaction_rollback_removes_all_test_changes",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Kuwaiti_three_decimal_amount_is_stored_without_precision_loss",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Twenty_concurrent_stock_decrements_allow_only_one_buyer_for_the_final_unit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Backup_round_trip_preserves_data_and_failure_keeps_previous_archive",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Xmin_rejects_a_stale_payment_worker_update",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Checkout_prices_each_area_within_its_governorate_and_distinguishes_repeated_names",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank-governorate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate-governorate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"negative\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"precision\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"threshold\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Migration_preserves_existing_shipping_rules_and_only_admins_can_edit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Offer_can_be_changed_disabled_and_set_to_zero_without_affecting_free_shipping_coupons",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Saved_rates_apply_to_checkout_while_existing_orders_and_idempotent_retries_keep_their_price",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Stale_admin_save_returns_conflict_and_keeps_latest_rates",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Upgrade_groups_existing_rates_without_resetting_custom_prices_or_deleted_areas",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: null)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Preview\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Production\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Staging\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Testing\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Local_hosts_apply_the_fixture_gate_to_their_configured_startup_environment",
+        "result": "Failed"
+      },
+      {
+        "name": "ProductionSeedingTests.Opted_in_development_uses_unique_credentials_and_preserves_existing_identity",
+        "result": "Passed"
+      }
+    ]
+  },
+  {
+    "run": "exact-followup",
+    "description": "Workspace follow-up: fixture startup, raster and CSV/XLSX",
+    "total": 13,
+    "passed": 13,
+    "failed": 0,
+    "tests": [
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Empty_nonraster_truncated_and_oversized_inputs_are_rejected_before_storage",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Jpeg, type: \"image/jpeg\", extension: \".jpg\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Png, type: \"image/png\", extension: \".png\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Webp, type: \"image/webp\", extension: \".webp\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2OutputSecurityTests.Csv_and_excel_preserve_cells_and_numeric_totals_under_non_English_culture",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: null)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Preview\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Production\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Staging\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Testing\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Local_hosts_apply_the_fixture_gate_to_their_configured_startup_environment",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Opted_in_development_uses_unique_credentials_and_preserves_existing_identity",
+        "result": "Passed"
+      }
+    ]
+  },
+  {
+    "run": "final-selected",
+    "description": "Workspace combined run with invalid Testing Telegram override",
+    "total": 53,
+    "passed": 35,
+    "failed": 18,
+    "tests": [
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Concurrent_distinct_checkouts_receive_unique_order_numbers",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Fifty_concurrent_requests_with_same_idempotency_key_create_one_checkout",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P1AccountSecurityTests.Database_failure_after_identity_write_rolls_back_password_challenge_and_revocation",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Empty_nonraster_truncated_and_oversized_inputs_are_rejected_before_storage",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Jpeg, type: \"image/jpeg\", extension: \".jpg\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Png, type: \"image/png\", extension: \".png\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Webp, type: \"image/webp\", extension: \".webp\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2OutputSecurityTests.Csv_and_excel_preserve_cells_and_numeric_totals_under_non_English_culture",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Email_failure_is_persisted_and_a_later_worker_retry_completes_it",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Expired_dispatch_lease_after_crash_never_resends_unknown_invoice",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Remote_timeout_enters_reconciliation_and_is_not_blindly_retried",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Reservation_expiry_releases_stock_and_coupon_exactly_once_and_late_payment_reconciles",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Two_independent_workers_claim_one_invoice_dispatch",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Verified_payment_confirms_active_reservation_and_duplicate_evidence_is_idempotent",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Concurrent_status_polls_share_the_persistent_verification_lease",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Rejected_finalization_releases_the_lease_and_persists_the_failure",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Verification_precondition_failure_keeps_the_existing_invoice_awaiting_payment",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Existing_backup_keeps_three_newest_dates_and_ignores_unrelated_files",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Failed_backup_keeps_all_previous_archives_and_removes_partial_file",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 1, expectedCount: 1)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 2, expectedCount: 2)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 3, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 5, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Concurrent_coupon_claims_cannot_exceed_the_final_usage_limit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_constraints_reject_non_positive_quantity_and_negative_stock",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_transaction_rollback_removes_all_test_changes",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Kuwaiti_three_decimal_amount_is_stored_without_precision_loss",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Twenty_concurrent_stock_decrements_allow_only_one_buyer_for_the_final_unit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Backup_round_trip_preserves_data_and_failure_keeps_previous_archive",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Xmin_rejects_a_stale_payment_worker_update",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: False)",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: True)",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Checkout_prices_each_area_within_its_governorate_and_distinguishes_repeated_names",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank-governorate\")",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank\")",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate-governorate\")",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate\")",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"negative\")",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"precision\")",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"threshold\")",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Migration_preserves_existing_shipping_rules_and_only_admins_can_edit",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Offer_can_be_changed_disabled_and_set_to_zero_without_affecting_free_shipping_coupons",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Saved_rates_apply_to_checkout_while_existing_orders_and_idempotent_retries_keep_their_price",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Stale_admin_save_returns_conflict_and_keeps_latest_rates",
+        "result": "Failed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Upgrade_groups_existing_rates_without_resetting_custom_prices_or_deleted_areas",
+        "result": "Failed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: null)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Preview\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Production\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Staging\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Testing\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Local_hosts_apply_the_fixture_gate_to_their_configured_startup_environment",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Opted_in_development_uses_unique_credentials_and_preserves_existing_identity",
+        "result": "Passed"
+      }
+    ]
+  },
+  {
+    "run": "isolated-selected",
+    "description": "Later audit build with corrected local fixture configuration",
+    "total": 53,
+    "passed": 53,
+    "failed": 0,
+    "tests": [
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Concurrent_distinct_checkouts_receive_unique_order_numbers",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Fifty_concurrent_requests_with_same_idempotency_key_create_one_checkout",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P1AccountSecurityTests.Database_failure_after_identity_write_rolls_back_password_challenge_and_revocation",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Empty_nonraster_truncated_and_oversized_inputs_are_rejected_before_storage",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Jpeg, type: \"image/jpeg\", extension: \".jpg\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Png, type: \"image/png\", extension: \".png\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2CatalogImageTests.Storage_receives_normalized_raster_for_every_allowed_format(format: Webp, type: \"image/webp\", extension: \".webp\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.P2OutputSecurityTests.Csv_and_excel_preserve_cells_and_numeric_totals_under_non_English_culture",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Email_failure_is_persisted_and_a_later_worker_retry_completes_it",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Expired_dispatch_lease_after_crash_never_resends_unknown_invoice",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Remote_timeout_enters_reconciliation_and_is_not_blindly_retried",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Reservation_expiry_releases_stock_and_coupon_exactly_once_and_late_payment_reconciles",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Two_independent_workers_claim_one_invoice_dispatch",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase2OrchestrationTests.Verified_payment_confirms_active_reservation_and_duplicate_evidence_is_idempotent",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Concurrent_status_polls_share_the_persistent_verification_lease",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Rejected_finalization_releases_the_lease_and_persists_the_failure",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.Phase3SadadVerificationTests.Verification_precondition_failure_keeps_the_existing_invoice_awaiting_payment",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Existing_backup_keeps_three_newest_dates_and_ignores_unrelated_files",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Failed_backup_keeps_all_previous_archives_and_removes_partial_file",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 1, expectedCount: 1)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 2, expectedCount: 2)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 3, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresBackupRetentionTests.Retention_respects_count_and_keeps_available_backups(retentionCount: 5, expectedCount: 3)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Concurrent_coupon_claims_cannot_exceed_the_final_usage_limit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_constraints_reject_non_positive_quantity_and_negative_stock",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Database_transaction_rollback_removes_all_test_changes",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Kuwaiti_three_decimal_amount_is_stored_without_precision_loss",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresIntegrationTests.Twenty_concurrent_stock_decrements_allow_only_one_buyer_for_the_final_unit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Backup_round_trip_preserves_data_and_failure_keeps_previous_archive",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.PostgresProductionTests.Xmin_rejects_a_stale_payment_worker_update",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.RefundIntegrityTests.Disabled_refunds_and_admin_status_updates_preserve_financial_records(hasHistoricalRefund: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Checkout_prices_each_area_within_its_governorate_and_distinguishes_repeated_names",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank-governorate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"blank\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate-governorate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"duplicate\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"negative\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"precision\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Invalid_settings_are_rejected_without_partial_changes(kind: \"threshold\")",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Migration_preserves_existing_shipping_rules_and_only_admins_can_edit",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Offer_can_be_changed_disabled_and_set_to_zero_without_affecting_free_shipping_coupons",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Saved_rates_apply_to_checkout_while_existing_orders_and_idempotent_retries_keep_their_price",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Stale_admin_save_returns_conflict_and_keeps_latest_rates",
+        "result": "Passed"
+      },
+      {
+        "name": "Ecom.CheckoutAudit.Tests.ShippingTests.Upgrade_groups_existing_rates_without_resetting_custom_prices_or_deleted_areas",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: False)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Development\", enabled: null)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Preview\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Production\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Staging\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Disabled_startup_does_not_even_resolve_the_fixture_database(environment: \"Testing\", enabled: True)",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Local_hosts_apply_the_fixture_gate_to_their_configured_startup_environment",
+        "result": "Passed"
+      },
+      {
+        "name": "ProductionSeedingTests.Opted_in_development_uses_unique_credentials_and_preserves_existing_identity",
+        "result": "Passed"
+      }
+    ]
+  }
+]

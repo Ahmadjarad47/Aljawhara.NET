@@ -158,6 +158,8 @@ namespace Ecom.Infrastructure.Data
             modelBuilder.Entity<Product>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.Images).IsConcurrencyToken();
+                entity.HasIndex(e => e.ImageOwnerId).IsUnique();
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Description).HasMaxLength(2000);
                 entity.Property(e => e.oldPrice).HasColumnType("decimal(18,3)");
@@ -332,10 +334,11 @@ namespace Ecom.Infrastructure.Data
                 entity.Property(e => e.PostalCode).IsRequired(false).HasMaxLength(20);
                 entity.Property(e => e.Country).IsRequired(false).HasMaxLength(100);
                 entity.HasOne(e => e.AppUser)
-                      .WithOne()
-                      .HasForeignKey<ShippingAddress>(e => e.AppUserId)
+                      .WithMany()
+                      .HasForeignKey(e => e.AppUserId)
                       .OnDelete(DeleteBehavior.SetNull);
-                entity.HasQueryFilter(e => !e.IsDeleted);
+                // Keep archived recipients visible to required order and payment joins.
+                // Address-book queries exclude archived entries explicitly.
             });
 
             // Configure Transaction
@@ -361,6 +364,14 @@ namespace Ecom.Infrastructure.Data
             modelBuilder.Entity<Rating>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                // Legacy rows are excluded from the reviewer index and still need
+                // the full product index for rating lists, aggregates and cascades.
+                entity.HasIndex(e => e.ProductId);
+                entity.HasIndex(e => new { e.ProductId, e.ReviewerUserId })
+                      .IsUnique().HasFilter("\"ReviewerUserId\" IS NOT NULL")
+                      .HasDatabaseName("UX_Ratings_Product_Reviewer");
+                entity.HasOne<AppUsers>().WithMany().HasForeignKey(e => e.ReviewerUserId)
+                      .OnDelete(DeleteBehavior.Restrict);
                 entity.Property(e => e.Content).IsRequired().HasMaxLength(1000);
                 entity.Property(e => e.RatingNumber).HasColumnType("decimal(2,1)");
                 entity.HasOne(e => e.Product)

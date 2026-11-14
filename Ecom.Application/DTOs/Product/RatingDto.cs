@@ -26,6 +26,12 @@ namespace Ecom.Application.DTOs.Product
         public int ProductId { get; set; }
     }
 
+    public class CustomerRatingCreateDto : RatingCreateDto
+    {
+        [Range(1, int.MaxValue, ErrorMessage = "A valid order ID is required to rate a product.")]
+        public int OrderId { get; set; }
+    }
+
     public class RatingUpdateDto
     {
         public int Id { get; set; }

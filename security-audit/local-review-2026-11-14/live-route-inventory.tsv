@@ -1,0 +1,215 @@
+Method	Route	Observed HTTP evidence
+GET	/admin/monitoring	host 200
+POST	/api/account/whatsapp/phone-verification	untested
+POST	/api/account/whatsapp/phone-verification/confirm	untested
+GET	/api/account/whatsapp/preferences	contract 200; contract 401
+PUT	/api/account/whatsapp/preferences	untested
+GET	/api/admin/Auth/isAdmin	untested
+GET	/api/admin/Auth/user/{userId}	untested
+GET	/api/admin/Auth/user/{userId}/addresses	untested
+POST	/api/admin/Auth/user/{userId}/addresses	untested
+DELETE	/api/admin/Auth/user/{userId}/addresses/{addressId}	untested
+GET	/api/admin/Auth/user/{userId}/addresses/{addressId}	untested
+PUT	/api/admin/Auth/user/{userId}/addresses/{addressId}	untested
+POST	/api/admin/Auth/user/{userId}/addresses/{addressId}/set-default	untested
+GET	/api/admin/Auth/users	untested
+GET	/api/admin/carousels	untested
+POST	/api/admin/carousels	untested
+DELETE	/api/admin/carousels/{id}	untested
+GET	/api/admin/carousels/{id}	untested
+PUT	/api/admin/carousels/{id}	untested
+PUT	/api/admin/carousels/{id}/toggle-active	untested
+GET	/api/admin/categories	contract 200; contract 401; contract 403
+POST	/api/admin/categories	fixture 201
+DELETE	/api/admin/categories/{id}	contract 400
+GET	/api/admin/categories/{id}	untested
+PUT	/api/admin/categories/{id}	untested
+GET	/api/admin/categories/{id}/subcategories	untested
+PUT	/api/admin/categories/{id}/toggle-active	untested
+PUT	/api/admin/categories/{id}/with-image	untested
+GET	/api/admin/categories/all	browser 200
+DELETE	/api/admin/categories/bulk	untested
+GET	/api/admin/categories/subcategories	untested
+POST	/api/admin/categories/subcategories	fixture 201
+DELETE	/api/admin/categories/subcategories/{id}	untested
+GET	/api/admin/categories/subcategories/{id}	untested
+PUT	/api/admin/categories/subcategories/{id}	untested
+PUT	/api/admin/categories/subcategories/{id}/toggle-active	untested
+GET	/api/admin/categories/subcategories/all	browser 200
+POST	/api/admin/categories/with-image	untested
+GET	/api/admin/coupons	contract 200; contract 401; contract 403
+POST	/api/admin/coupons	fixture 201
+DELETE	/api/admin/coupons/{id}	untested
+GET	/api/admin/coupons/{id}	untested
+PUT	/api/admin/coupons/{id}	untested
+PUT	/api/admin/coupons/{id}/activate	untested
+PUT	/api/admin/coupons/{id}/deactivate	untested
+GET	/api/admin/coupons/active	untested
+POST	/api/admin/coupons/cleanup-expired	untested
+GET	/api/admin/coupons/code/{code}	untested
+GET	/api/admin/coupons/expired	untested
+POST	/api/admin/coupons/validate	untested
+GET	/api/admin/dashboard/last-orders	browser 200
+GET	/api/admin/dashboard/last-users	untested
+GET	/api/admin/dashboard/orders/chart	untested
+GET	/api/admin/dashboard/summary	browser 200; contract 200; contract 401; contract 403
+GET	/api/admin/dashboard/transactions/chart	untested
+GET	/api/admin/dashboard/users/chart	browser 200
+GET	/api/admin/dashboard/visitors/chart	untested
+GET	/api/admin/health/chart	untested
+GET	/api/admin/health/summary	untested
+GET	/api/admin/monitoring/logs	untested
+GET	/api/admin/monitoring/summary	contract 200; contract 401; contract 403
+GET	/api/admin/order	contract 200; contract 401; contract 403
+GET	/api/admin/order/{id}	untested
+PUT	/api/admin/order/{id}/cancel	untested
+POST	/api/admin/order/{id}/payment	untested
+PUT	/api/admin/order/{id}/status	order/delete 200
+GET	/api/admin/order/{id}/transactions	untested
+GET	/api/admin/order/number/{orderNumber}	untested
+GET	/api/admin/order/sales	untested
+GET	/api/admin/order/statistics	untested
+GET	/api/admin/order/user/{userId}	untested
+GET	/api/admin/products	browser 200; contract 200; contract 401; contract 403
+POST	/api/admin/products	fixture 201
+DELETE	/api/admin/products/{id}	order/delete 204
+GET	/api/admin/products/{id}	untested
+PUT	/api/admin/products/{id}	untested
+GET	/api/admin/products/{id}/ratings	untested
+POST	/api/admin/products/{id}/ratings	untested
+GET	/api/admin/products/{id}/related	untested
+PUT	/api/admin/products/{id}/stock	untested
+PUT	/api/admin/products/{id}/stock/increase	untested
+PUT	/api/admin/products/{id}/stock/reduce	untested
+PUT	/api/admin/products/{id}/stock/status	untested
+PUT	/api/admin/products/{id}/toggle-active	untested
+GET	/api/admin/products/category/{categoryId}	untested
+GET	/api/admin/products/featured	untested
+GET	/api/admin/products/in-stock	untested
+GET	/api/admin/products/low-stock	untested
+GET	/api/admin/products/out-of-stock	untested
+GET	/api/admin/products/subcategory/{subCategoryId}	untested
+GET	/api/admin/shipping	contract 200; contract 401; contract 403
+PUT	/api/admin/shipping	untested
+GET	/api/admin/transaction	contract 200; contract 401; contract 403
+POST	/api/admin/transaction	untested
+DELETE	/api/admin/transaction/{id}	untested
+GET	/api/admin/transaction/{id}	untested
+PUT	/api/admin/transaction/{id}	untested
+GET	/api/admin/transaction/{id}/can-refund	untested
+PUT	/api/admin/transaction/{id}/complete	untested
+PUT	/api/admin/transaction/{id}/fail	untested
+PUT	/api/admin/transaction/{id}/pending	untested
+PUT	/api/admin/transaction/{id}/status	untested
+GET	/api/admin/transaction/analytics	untested
+GET	/api/admin/transaction/analytics/order/{orderId}	untested
+GET	/api/admin/transaction/export/csv	untested
+GET	/api/admin/transaction/export/excel	untested
+GET	/api/admin/transaction/order/{orderId}	untested
+GET	/api/admin/transaction/order/{orderId}/latest	untested
+GET	/api/admin/transaction/payment-method/{paymentMethod}	untested
+POST	/api/admin/transaction/process-payment	untested
+GET	/api/admin/transaction/reference/{reference}	untested
+POST	/api/admin/transaction/refund	untested
+GET	/api/admin/transaction/refunded	untested
+GET	/api/admin/transaction/refunded/total	untested
+GET	/api/admin/transaction/revenue/payment-methods	untested
+POST	/api/admin/transaction/sadad/reconcile	untested
+GET	/api/admin/transaction/search	untested
+GET	/api/admin/transaction/status/{status}	untested
+GET	/api/admin/transaction/trends	untested
+GET	/api/admin/user-manager/addresses	untested
+GET	/api/admin/user-manager/users	contract 200; contract 401; contract 403
+GET	/api/admin/user-manager/users/{userId}	untested
+POST	/api/admin/user-manager/users/{userId}/confirm-email	untested
+POST	/api/admin/user-manager/users/{userId}/reset-password	untested
+POST	/api/admin/user-manager/users/block	untested
+POST	/api/admin/user-manager/users/change-email	untested
+POST	/api/admin/user-manager/users/change-password	untested
+POST	/api/admin/user-manager/users/send-email-confirmation	untested
+POST	/api/admin/user-manager/users/unblock	untested
+POST	/api/ai-shopping/chat	untested
+GET	/api/ai-shopping/conversations/{id}	untested
+POST	/api/ai-shopping/conversations/{id}/recalculate	untested
+POST	/api/ai-shopping/conversations/{id}/recommendations/{recommendationId}/confirm	untested
+POST	/api/ai-shopping/conversations/{id}/recommendations/{recommendationId}/prepare-cart	untested
+POST	/api/ai-shopping/index/batch	untested
+POST	/api/ai-shopping/sessions	untested
+GET	/api/Auth/addresses	browser 200; contract 200; contract 401
+POST	/api/Auth/addresses	browser 201
+PUT	/api/Auth/addresses	untested
+DELETE	/api/Auth/addresses/{addressId}	untested
+GET	/api/Auth/addresses/{addressId}	untested
+POST	/api/Auth/change-password	untested
+POST	/api/Auth/contact	untested
+POST	/api/Auth/forgot-password	browser 200
+GET	/api/Auth/isAdmin	browser 200; browser 403
+GET	/api/Auth/isAuth	untested
+POST	/api/Auth/login	browser 200; contract 200; contract 400; fixture 200; order/delete 200
+POST	/api/Auth/logout	contract 200
+GET	/api/Auth/me	contract 200; contract 401
+PUT	/api/Auth/me/phone	untested
+PUT	/api/Auth/me/username	untested
+POST	/api/Auth/refresh-token	untested
+POST	/api/Auth/register	browser 200; contract 400
+POST	/api/Auth/resend-verification	untested
+POST	/api/Auth/reset-password	browser 200
+POST	/api/Auth/verify	browser 200
+GET	/api/Carousels	untested
+GET	/api/Carousels/{id}	untested
+GET	/api/Carousels/categories-with-images	untested
+GET	/api/Carousels/customer-satisfaction	untested
+GET	/api/Carousels/latest-third-reviews	untested
+GET	/api/Categories	browser 200
+GET	/api/Categories/{id}	contract 200
+GET	/api/Categories/{id}/subcategories	untested
+GET	/api/Categories/subcategories	untested
+GET	/api/Categories/subcategories/{id}	untested
+GET	/api/Coupons	untested
+POST	/api/Coupons	untested
+DELETE	/api/Coupons/{id}	untested
+GET	/api/Coupons/{id}	untested
+PUT	/api/Coupons/{id}	untested
+PUT	/api/Coupons/{id}/activate	untested
+PUT	/api/Coupons/{id}/deactivate	untested
+GET	/api/Coupons/active	untested
+POST	/api/Coupons/cleanup-expired	untested
+GET	/api/Coupons/code/{code}	untested
+GET	/api/Coupons/expired	untested
+GET	/api/Coupons/my-coupons	untested
+POST	/api/Coupons/validate	browser 200
+POST	/api/Orders	browser 201
+GET	/api/Orders/{id}	order/delete 200
+PUT	/api/Orders/{id}/cancel	untested
+GET	/api/Orders/{id}/invoice-payment	untested
+POST	/api/Orders/{id}/payment	untested
+POST	/api/Orders/{id}/payment-attempts	untested
+POST	/api/Orders/{id}/payment-link	untested
+GET	/api/Orders/{id}/payment-status	untested
+GET	/api/Orders/{id}/transactions	order/delete 200
+GET	/api/Orders/my-orders	browser 200; contract 200; contract 401
+GET	/api/Orders/number/{orderNumber}	untested
+GET	/api/Orders/payment-callback	untested
+POST	/api/Orders/webhook/sadad-paid	untested
+GET	/api/Products	browser 200; performance 200
+GET	/api/Products/{id}	browser 200; contract 200; contract 400; order/delete 404; performance 200
+GET	/api/Products/{id}/ratings	order/delete 200
+POST	/api/Products/{id}/ratings	contract 401; order/delete 201
+GET	/api/Products/{id}/related	untested
+GET	/api/Products/{id}/stock	untested
+GET	/api/Products/category/{categoryId}	untested
+GET	/api/Products/featured	untested
+GET	/api/Products/if-rating-return-it	browser 404
+GET	/api/Products/in-stock	untested
+GET	/api/Products/low-stock	untested
+GET	/api/Products/out-of-stock	untested
+GET	/api/Products/subcategory/{subCategoryId}	untested
+GET	/api/Products/subcategory/{subCategoryId}/random	browser 200
+GET	/api/shipping	browser 200; performance 200
+GET	/api/Transactions/my	contract 200; contract 401
+POST	/api/visitors/track	untested
+GET	/api/whatsapp/admin/invoices	untested
+POST	/api/whatsapp/admin/invoices/{id}/reconcile	untested
+POST	/api/whatsapp/admin/invoices/{id}/retry-preparation	untested
+GET	/api/whatsapp/invoices/{id}/document	untested
+POST	/api/whatsapp/webhook	untested

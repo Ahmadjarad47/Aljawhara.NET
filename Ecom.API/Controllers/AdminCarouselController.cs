@@ -1,6 +1,7 @@
 using Ecom.Application.DTOs.Carousel;
 using Ecom.Application.DTOs.Common;
 using Ecom.Application.Services.Interfaces;
+using Ecom.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -55,6 +56,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPost]
+        [RequestSizeLimit(CatalogImageOptions.RequestBytes)]
         public async Task<ActionResult<CarouselDto>> CreateCarousel(
             [FromForm] CarouselCreateWithFileDto carouselDto)
         {
@@ -68,13 +70,14 @@ namespace Ecom.API.Controllers
                 var carousel = await _carouselService.CreateCarouselWithFileAsync(carouselDto);
                 return CreatedAtAction(nameof(GetCarousel), new { id = carousel.Id }, carousel);
             }
-            catch (Exception ex)
+            catch (CatalogImageException ex)
             {
                 return BadRequest(ex.Message);
             }
         }
 
         [HttpPut("{id}")]
+        [RequestSizeLimit(CatalogImageOptions.RequestBytes)]
         public async Task<ActionResult<CarouselDto>> UpdateCarousel(
             int id,
             [FromForm] CarouselUpdateWithFileDto carouselDto)
@@ -94,7 +97,7 @@ namespace Ecom.API.Controllers
             {
                 return NotFound(ex.Message);
             }
-            catch (Exception ex)
+            catch (CatalogImageException ex)
             {
                 return BadRequest(ex.Message);
             }

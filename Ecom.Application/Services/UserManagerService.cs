@@ -238,22 +238,26 @@ namespace Ecom.Application.Services
         }
 
         // Authentication Methods
-        public async Task<(bool Success, string UserId, string Message)> RegisterAsync(RegisterDto registerDto)
+        public async Task<RegistrationResult> RegisterAsync(RegisterDto registerDto)
         {
+            const string accepted = "If registration is available, check your email for a verification code.";
             try
             {
                 // Check if user already exists
                 var existingUser = await _userManager.FindByEmailAsync(registerDto.Email);
                 if (existingUser != null)
                 {
-                    return (true, string.Empty, "If registration is available, check your email for a verification code.");
+                    return new(true, string.Empty, accepted);
                 }
 
                 // Check if username already exists
                 var existingUsername = await _userManager.FindByNameAsync(registerDto.Username);
                 if (existingUsername != null)
                 {
-                    return (false, string.Empty, "Username is already taken");
+                    return new(false, string.Empty, "Username is already taken", new()
+                    {
+                        ["username"] = [nameof(IdentityErrorDescriber.DuplicateUserName)]
+                    });
                 }
 
                 // Create new user
@@ -271,23 +275,38 @@ namespace Ecom.Application.Services
                 if (!result.Succeeded)
                 {
                     if (result.Errors.Any(e => e.Code == nameof(IdentityErrorDescriber.DuplicateEmail)))
-                        return (true, string.Empty, "If registration is available, check your email for a verification code.");
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    return (false, string.Empty, $"Registration failed: {errors}");
+                        return new(true, string.Empty, accepted);
+
+                    var fieldErrors = result.Errors
+                        .Select(error => (Field: RegistrationErrorField(error.Code), error.Code))
+                        .Where(error => error.Field is not null)
+                        .GroupBy(error => error.Field!)
+                        .ToDictionary(group => group.Key, group => group.Select(error => error.Code).Distinct().ToArray());
+                    return new(false, string.Empty, "Registration failed", fieldErrors);
                 }
 
                 try { await IssueChallengeAsync(user, AccountChallengePurpose.EmailVerification); }
                 catch (Exception ex) { _logger.LogWarning(ex, "Could not issue registration challenge"); }
 
                 _logger.LogInformation("User registered successfully: {UserId}", user.Id);
-                return (true, user.Id, "If registration is available, check your email for a verification code.");
+                return new(true, user.Id, accepted);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during user registration");
-                return (false, string.Empty, "An error occurred during registration");
+                return new(false, string.Empty, "An error occurred during registration");
             }
         }
+
+        private static string? RegistrationErrorField(string code) => code switch
+        {
+            nameof(IdentityErrorDescriber.InvalidUserName) or nameof(IdentityErrorDescriber.DuplicateUserName) => "username",
+            nameof(IdentityErrorDescriber.InvalidEmail) => "email",
+            nameof(IdentityErrorDescriber.PasswordTooShort) or nameof(IdentityErrorDescriber.PasswordRequiresUniqueChars)
+                or nameof(IdentityErrorDescriber.PasswordRequiresDigit) or nameof(IdentityErrorDescriber.PasswordRequiresLower)
+                or nameof(IdentityErrorDescriber.PasswordRequiresUpper) or nameof(IdentityErrorDescriber.PasswordRequiresNonAlphanumeric) => "password",
+            _ => null
+        };
 
         public async Task<(bool Success, AppUsers? User, string Message)> LoginAsync(LoginDto loginDto)
         {
@@ -439,37 +458,37 @@ namespace Ecom.Application.Services
             }
         }
 
-        public async Task<(bool Success, string Message)> UpdateUsernameAsync(string userId, string newUsername)
+        public async Task<(bool Success, string Message, string? ErrorCode)> UpdateUsernameAsync(string userId, string newUsername)
         {
             try
             {
                 var user = await _userManager.FindByIdAsync(userId);
                 if (user == null)
                 {
-                    return (false, "User not found");
+                    return (false, "User not found", null);
                 }
 
                 var existing = await _userManager.FindByNameAsync(newUsername);
                 if (existing != null && existing.Id != userId)
                 {
-                    return (false, "Username is already taken");
+                    return (false, "Username is already taken", nameof(IdentityErrorDescriber.DuplicateUserName));
                 }
 
                 user.UserName = newUsername;
                 var result = await _userManager.UpdateAsync(user);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    return (false, $"Failed to update username: {errors}");
+                    var code = result.Errors.FirstOrDefault(error => RegistrationErrorField(error.Code) == "username")?.Code;
+                    return (false, "Failed to update username", code);
                 }
 
                 _logger.LogInformation("Username updated for user: {UserId}", userId);
-                return (true, "Username updated successfully");
+                return (true, "Username updated successfully", null);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating username for user: {UserId}", userId);
-                return (false, "An error occurred while updating username");
+                return (false, "An error occurred while updating username", null);
             }
         }
 
@@ -641,7 +660,8 @@ namespace Ecom.Application.Services
         // Legacy methods for backward compatibility
         public async Task<(bool Success, string UserId, string Message)> CreateUserAsync(RegisterDto registerDto)
         {
-            return await RegisterAsync(registerDto);
+            var result = await RegisterAsync(registerDto);
+            return (result.Success, result.UserId, result.Message);
         }
 
         public async Task<(bool Success, AppUsers? User, string Message)> ValidateLoginAsync(LoginDto loginDto)

@@ -4,6 +4,7 @@ using Ecom.Application.DTOs.Order;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Infrastructure.UnitOfWork;
 using Ecom.Infrastructure.WhatsApp;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace Ecom.Application.Services
@@ -101,8 +102,9 @@ namespace Ecom.Application.Services
             }
 
             // Check if address is being used in any orders
-            var ordersUsingAddress = await _unitOfWork.Orders.GetAllAsync();
-            if (ordersUsingAddress.Any(o => o.ShippingAddressId == addressId))
+            var hasOrderHistory = await _unitOfWork.Context.Set<Domain.Entity.Order>()
+                .IgnoreQueryFilters().AnyAsync(o => o.ShippingAddressId == addressId);
+            if (hasOrderHistory)
             {
                 // Soft delete if address is used in orders
                 address.IsDeleted = true;
@@ -157,7 +159,7 @@ namespace Ecom.Application.Services
         public async Task<IEnumerable<ShippingAddressDto>> GetUserAddressesLegacyAsync(string userId)
         {
             var addresses = await _unitOfWork.ShippingAddresses.GetAllAsync();
-            var userAddresses = addresses.Where(a => a.AppUserId == userId);
+            var userAddresses = addresses.Where(a => a.AppUserId == userId && !a.IsDeleted);
             return _mapper.Map<IEnumerable<ShippingAddressDto>>(userAddresses);
         }
 
@@ -165,7 +167,7 @@ namespace Ecom.Application.Services
         {
             var address = await _unitOfWork.ShippingAddresses.GetByIdAsync(addressId);
             
-            if (address == null || address.AppUserId != userId)
+            if (address == null || address.AppUserId != userId || address.IsDeleted)
             {
                 return null;
             }
@@ -196,7 +198,7 @@ namespace Ecom.Application.Services
 
             var existingAddress = await _unitOfWork.ShippingAddresses.GetByIdAsync(addressDto.Id);
             
-            if (existingAddress == null || existingAddress.AppUserId != userId)
+            if (existingAddress == null || existingAddress.AppUserId != userId || existingAddress.IsDeleted)
             {
                 throw new ArgumentException("Address not found or access denied");
             }

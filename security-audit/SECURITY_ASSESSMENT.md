@@ -5,21 +5,25 @@
 
 The review identified **13 source-confirmed findings**, including three High findings. Credential material is present in application configuration, refresh sessions survive account security events, and the admin refund action records a refund without provider confirmation. The assessment also ran 61 existing defensive tests, including in-process HTTP tests against an isolated ASP.NET Core TestServer. These tests exercised existing controls. Runtime behavior of the new findings and deployment impact remain unverified.
 
-See the [endpoint inventory](ENDPOINT_INVENTORY.md), [original test execution log](TEST_EXECUTION_LOG.md), and [remediation priorities](REMEDIATION_PRIORITY.md). The findings and source references below describe the original assessment; the current status is recorded separately here and in the [P1 remediation report](P1_REMEDIATION_REPORT.md).
+See the [endpoint inventory](ENDPOINT_INVENTORY.md), [original test execution log](TEST_EXECUTION_LOG.md), and [remediation priorities](REMEDIATION_PRIORITY.md). The findings and source references below describe the original assessment; the current status is recorded here and in the [P1](P1_REMEDIATION_REPORT.md) and [P2](P2_REMEDIATION_REPORT.md) reports.
 
-## Remediation status — 12 November 2026
+## Remediation status — 14 November 2026
 
 | Finding | Implemented | Verified locally | Still open |
 | --- | --- | --- | --- |
-| AS-01 | Shared credential defaults removed; runtime injection and disabled Telegram defaults. | Configuration and credential-handling regressions passed. | Production rotation, historical key retirement and operator review of logs and artifacts are unverified. |
+| AS-01 | Shared SMTP and Telegram defaults that reappeared after P1 were cleared; Telegram now honors its disabled default in all environments. | Configuration and credential-handling regressions verify safe defaults. | Revoke and rotate the re-exposed credentials; production rotation, historical key retirement and operator review of logs and artifacts are unverified. |
 | AS-05 | Refund action and unsafe refund status changes disabled. | Refund-route and service tests passed with no fake gateway call or accounting mutation. | Historical refunds still require finance reconciliation. |
 | AS-02 | Hashed per-session refresh tokens, atomic rotation, server-side bearer checks and revocation, exact access expiry. | PostgreSQL and real bearer tests cover concurrent refresh, replay, expiry, logout, password events, blocks and Admin role removal. | Coordinated migration and one-time reauthentication; no production verification. |
 | AS-03 | Purpose-specific OTPs, single-use consumption, issuance and attempt budgets, auth rate limits and uniform recovery responses. | PostgreSQL and fake-mail tests cover purpose and user binding, expiry, concurrent verification, budgets and rate limits. | Deployment proxy behavior, production mail delivery and timing exposure remain unverified. |
 | AS-04 | Explicit public visibility, restricted storefront responses, JWT-derived identity and ownership checks at checkout. | PostgreSQL tests cover anonymous, owner, other user, Admin and reservation ownership. | Operators must opt approved public promotions into storefront listing; storefront compatibility remains unverified. |
 | AS-09 | Opaque callback and webhook responses, queued verification with per-invoice budget and a lease, authenticated GetById evidence before Paid. | PostgreSQL and fake-provider tests cover public response uniformity, concurrency, unpaid evidence, replay and one paid transition. | No published webhook authentication scheme was found in the reviewed contract. Live merchant contract certification and activation remain unverified. |
 | AS-12 | Identity reset replaces the password in one transaction with proof consumption and session revocation. | Tests cover rejected passwords, code expiry, replay and rollback when revocation persistence fails. | No production verification. |
-
-P2 findings (AS-06, AS-07, AS-08, AS-10, AS-11 and AS-13) were not changed in P1.
+| AS-06 | Demo fixtures require Development and explicit opt-in. New demo credentials are random and undisclosed. | Local startup and isolated Identity tests cover the gate, credential generation and preservation of an existing account. | Inventory and retire previously seeded accounts after verifying provenance. |
+| AS-07 | Formula-neutralized CSV and typed XLSX retain the existing transaction query and columns. | Independent CSV and workbook parsers verify column and row boundaries, text types and amounts. | Verify the operator's chosen CSV import and re-save workflow. |
+| AS-08 | HTML encoding, plain text alternatives, safe link and header construction, and a contact IP budget. | Captured MIME tests cover literal fields, line breaks, fixed recipient and subject, and HTTP throttling. | Mail client rendering, live delivery, reverse proxy and cross-instance limits remain unverified. |
+| AS-10 | Authenticated authors, existing delivered-order eligibility and a database uniqueness constraint. | PostgreSQL tests cover ownership, authenticated Admin behavior, duplicates, concurrent submissions and retained legacy aggregates. | Apply the reviewed migration and verify storefront submission and rendering. |
+| AS-11 | Catalog uploads accept only bounded decoded raster images and publish newly encoded bytes with derived types. | Fake-storage tests exercise the product, category and carousel paths. | Confirm asset origin, response headers, legacy content and the published Ubuntu runtime. |
+| AS-13 | Product association, generated owner and bucket checks; cleanup after commit preserves referenced objects. | Fake-storage and PostgreSQL tests verify own, other, legacy and shared asset handling. | Confirm deployment bucket/token policy and plan reviewed cleanup for retained assets. |
 
 ## Architecture and threat model
 
@@ -136,7 +140,7 @@ The evidence in this section comes from the checked-out source or local Git obje
 
 ## 4. Tests not performed in the original assessment
 
-P1 subsequently ran disposable PostgreSQL, real JWT, and mocked provider tests as described in the [P1 report](P1_REMEDIATION_REPORT.md). The following limits refer to the original assessment.
+P1 and P2 subsequently ran disposable PostgreSQL, real JWT, and mocked provider tests as described in their [P1](P1_REMEDIATION_REPORT.md) and [P2](P2_REMEDIATION_REPORT.md) reports. The following limits refer to the original assessment.
 
 - Targeted vulnerability reproduction, bypass attempts, guessing, and active DAST scans were outside the execution scope of this review. The application was exercised through a mocked in-process HTTP fixture for monitoring and through focused defensive unit tests.
 - No stand-alone API, real checkout, database-backed authentication flow, full JWT validation matrix or payment-provider verification ran. A disposable commerce database and complete integration isolation were unverified. No production, staging or third-party service received audit requests.

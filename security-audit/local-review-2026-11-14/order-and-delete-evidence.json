@@ -1,0 +1,100 @@
+[
+  {
+    "method": "POST",
+    "route": "/api/Auth/login",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "POST",
+    "route": "/api/Auth/login",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "GET",
+    "route": "/api/Orders/4",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "GET",
+    "route": "/api/Orders/4/transactions",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "PUT",
+    "route": "/api/admin/order/4/status",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "PUT",
+    "route": "/api/admin/order/4/status",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "PUT",
+    "route": "/api/admin/order/4/status",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "GET",
+    "route": "/api/Products/1/ratings",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "POST",
+    "route": "/api/Products/1/ratings",
+    "expected": 201,
+    "actual": 201,
+    "passed": true
+  },
+  {
+    "method": "GET",
+    "route": "/api/Products/1/ratings",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "DELETE",
+    "route": "/api/admin/products/1",
+    "expected": 204,
+    "actual": 204,
+    "passed": true
+  },
+  {
+    "method": "GET",
+    "route": "/api/Products/1",
+    "expected": 404,
+    "actual": 404,
+    "passed": true
+  },
+  {
+    "method": "GET",
+    "route": "/api/Orders/4",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  },
+  {
+    "method": "GET",
+    "route": "/api/Orders/4/transactions",
+    "expected": 200,
+    "actual": 200,
+    "passed": true
+  }
+]

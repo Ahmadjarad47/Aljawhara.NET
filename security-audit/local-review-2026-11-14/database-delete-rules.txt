@@ -1,0 +1,26 @@
+"SubCategories"|"Categories"|RESTRICT
+"ProductDetails"|"Products"|CASCADE
+"ProductVariants"|"Products"|CASCADE
+"Ratings"|"Products"|CASCADE
+"InventoryReservations"|"Products"|RESTRICT
+"OrderItems"|"Products"|RESTRICT
+"Ratings"|"AspNetUsers"|RESTRICT
+"AspNetUserClaims"|"AspNetUsers"|CASCADE
+"AspNetUserLogins"|"AspNetUsers"|CASCADE
+"AspNetUserRoles"|"AspNetUsers"|CASCADE
+"AspNetUserTokens"|"AspNetUsers"|CASCADE
+"Coupons"|"AspNetUsers"|SET NULL
+"ShippingAddresses"|"AspNetUsers"|SET NULL
+"Orders"|"AspNetUsers"|SET NULL
+"Transactions"|"AspNetUsers"|SET NULL
+"WhatsAppConsentAudits"|"AspNetUsers"|SET NULL
+"WhatsAppPhoneVerifications"|"AspNetUsers"|CASCADE
+"AccountChallenges"|"AspNetUsers"|CASCADE
+"AuthSessions"|"AspNetUsers"|CASCADE
+"CouponReservations"|"Orders"|RESTRICT
+"InventoryReservations"|"Orders"|RESTRICT
+"OrderItems"|"Orders"|CASCADE
+"Transactions"|"Orders"|RESTRICT
+"PaymentAttempts"|"Orders"|RESTRICT
+"WhatsAppConsentAudits"|"Orders"|SET NULL
+"PaymentAttempts"|"Transactions"|RESTRICT

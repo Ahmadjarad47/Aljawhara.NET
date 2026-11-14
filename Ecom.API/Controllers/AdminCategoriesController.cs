@@ -2,6 +2,7 @@ using Ecom.Application.DTOs.Category;
 using Ecom.Application.DTOs.Common;
 using Ecom.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Ecom.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Ecom.API.Controllers
@@ -63,6 +64,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPost("with-image")]
+        [RequestSizeLimit(CatalogImageOptions.RequestBytes)]
         public async Task<ActionResult<CategoryDto>> CreateCategoryWithImage([FromForm] CategoryCreateWithFileDto categoryDto)
         {
             if (!ModelState.IsValid)
@@ -75,7 +77,7 @@ namespace Ecom.API.Controllers
                 var category = await _categoryService.CreateCategoryWithFileAsync(categoryDto);
                 return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, category);
             }
-            catch (Exception ex)
+            catch (CatalogImageException ex)
             {
                 return BadRequest(ex.Message);
             }
@@ -133,6 +135,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPut("{id}/with-image")]
+        [RequestSizeLimit(CatalogImageOptions.RequestBytes)]
         public async Task<ActionResult<CategoryDto>> UpdateCategoryWithImage(int id, [FromForm] CategoryUpdateWithFileDto categoryDto)
         {
             if (!ModelState.IsValid)
@@ -150,7 +153,7 @@ namespace Ecom.API.Controllers
             {
                 return NotFound(ex.Message);
             }
-            catch (Exception ex)
+            catch (CatalogImageException ex)
             {
                 return BadRequest(ex.Message);
             }

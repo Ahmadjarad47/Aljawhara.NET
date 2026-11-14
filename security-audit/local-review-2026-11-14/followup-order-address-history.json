@@ -1,0 +1,6 @@
+{
+  "before": 200,
+  "deleteAddress": 200,
+  "after": 404,
+  "addressSoftDeleted": true
+}

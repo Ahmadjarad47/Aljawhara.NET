@@ -1,0 +1,20 @@
+[
+  {
+    "variant": "baseline",
+    "status": 200,
+    "productCommands": 5,
+    "loadedProductDetails": true,
+    "loadedVariants": true,
+    "loadedVariantValues": false,
+    "loadedRatings": true
+  },
+  {
+    "variant": "optimized",
+    "status": 200,
+    "productCommands": 3,
+    "loadedProductDetails": false,
+    "loadedVariants": false,
+    "loadedVariantValues": false,
+    "loadedRatings": true
+  }
+]

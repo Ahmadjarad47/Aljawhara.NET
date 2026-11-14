@@ -1,0 +1,58 @@
+{
+  "baseline": {
+    "failed": 15,
+    "passed": 222,
+    "total": 237,
+    "failedTests": [
+      "Cart, products, and navbar SSR regressions renders delayed home API responses without a zoneless change detection error",
+      "Existing cart AI approval does not report success when persistence is blocked or the identity changes while queued",
+      "Home catalog with real Chrome browser storage discards an actual 581-product localStorage snapshot on initial load and after recreation",
+      "Home catalog with real Chrome browser storage renders the same empty state with fresh storage",
+      "HomePage browser state and server rendering cancels earlier featured requests so an older response cannot overwrite an empty catalog",
+      "HomePage browser state and server rendering clears rendered cards after a successful empty paginated response",
+      "HomePage browser state and server rendering continues loading when browser storage is unavailable",
+      "HomePage browser state and server rendering falls back to the API when corrupt cache cleanup also fails",
+      "HomePage browser state and server rendering ignores stale snapshots again on reload and preserves all customer storage",
+      "HomePage browser state and server rendering invalidates the remaining hero cache when the API environment or cache schema changes",
+      "HomePage browser state and server rendering loads an empty catalog in a fresh private-session equivalent without writing catalog storage",
+      "HomePage browser state and server rendering loads server data without touching browser storage, listeners, or timers",
+      "HomePage browser state and server rendering preserves language and wishlist visibility but replaces 581 cached products with the empty API result",
+      "HomePage browser state and server rendering reports offline failures separately and never restores old cards",
+      "HomePage browser state and server rendering updates language across tabs and in the same tab, then stops watching on destroy"
+    ]
+  },
+  "current": {
+    "failed": 14,
+    "passed": 223,
+    "total": 237,
+    "failedTests": [
+      "Cart, products, and navbar SSR regressions renders delayed home API responses without a zoneless change detection error",
+      "Home catalog with real Chrome browser storage discards an actual 581-product localStorage snapshot on initial load and after recreation",
+      "Home catalog with real Chrome browser storage renders the same empty state with fresh storage",
+      "HomePage browser state and server rendering cancels earlier featured requests so an older response cannot overwrite an empty catalog",
+      "HomePage browser state and server rendering clears rendered cards after a successful empty paginated response",
+      "HomePage browser state and server rendering continues loading when browser storage is unavailable",
+      "HomePage browser state and server rendering falls back to the API when corrupt cache cleanup also fails",
+      "HomePage browser state and server rendering ignores stale snapshots again on reload and preserves all customer storage",
+      "HomePage browser state and server rendering invalidates the remaining hero cache when the API environment or cache schema changes",
+      "HomePage browser state and server rendering loads an empty catalog in a fresh private-session equivalent without writing catalog storage",
+      "HomePage browser state and server rendering loads server data without touching browser storage, listeners, or timers",
+      "HomePage browser state and server rendering preserves language and wishlist visibility but replaces 581 cached products with the empty API result",
+      "HomePage browser state and server rendering reports offline failures separately and never restores old cards",
+      "HomePage browser state and server rendering updates language across tabs and in the same tab, then stops watching on destroy"
+    ]
+  },
+  "newFailures": [],
+  "correctedLoopbackRun": {
+    "total": 237,
+    "passed": 237,
+    "failed": 0,
+    "correction": "Absolute loopback API URL in test copy. Prior relative URL was incompatible with HomePage URL parsing."
+  },
+  "optimizedLocalClientBuild": {
+    "passed": true,
+    "initialBytesLabel": "665.10 kB",
+    "estimatedTransferLabel": "145.60 kB",
+    "scope": "Browser client only; SSR and remote font/critical CSS inlining disabled in copied configuration."
+  }
+}

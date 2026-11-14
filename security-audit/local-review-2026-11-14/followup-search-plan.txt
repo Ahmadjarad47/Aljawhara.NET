@@ -1,0 +1,8 @@
+Seq Scan on "Products"  (cost=0.00..31.51 rows=1001 width=4) (actual time=0.065..0.306 rows=1000.00 loops=1)
+  Filter: ((NOT "IsDeleted") AND "IsActive" AND (("Title")::text ~~ '%Benchmark%'::text))
+  Rows Removed by Filter: 1
+  Buffers: shared hit=19
+Planning:
+  Buffers: shared hit=94
+Planning Time: 3.566 ms
+Execution Time: 0.354 ms

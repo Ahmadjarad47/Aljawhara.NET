@@ -1,0 +1,48 @@
+{
+  "checks": [
+    {
+      "method": "POST",
+      "path": "/api/admin/Auth/user/{userId}/addresses",
+      "expected": 201,
+      "actual": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/Auth/user/{userId}/addresses/{addressId}",
+      "expected": 200,
+      "actual": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/Auth/user/{userId}/addresses/{addressId}",
+      "expected": 200,
+      "actual": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/Auth/user/{userId}/addresses/{addressId}/set-default",
+      "expected": 200,
+      "actual": 200,
+      "initialExpected": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/Auth/user/{userId}/addresses",
+      "expected": 200,
+      "actual": 200
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/Auth/user/{userId}/addresses/{addressId}",
+      "expected": 204,
+      "actual": 204
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/Auth/user/{userId}/addresses/{addressId}",
+      "expected": 404,
+      "actual": 404
+    }
+  ],
+  "uniqueDefaultConfirmedInDatabase": true
+}

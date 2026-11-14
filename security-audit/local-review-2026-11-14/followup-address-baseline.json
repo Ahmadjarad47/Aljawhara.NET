@@ -1,0 +1,62 @@
+{
+  "calls": [
+    {
+      "method": "POST",
+      "route": "/api/Auth/login",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/register",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/verify",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/login",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/addresses",
+      "expected": 401,
+      "actual": 401,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/addresses",
+      "expected": 400,
+      "actual": 400,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/addresses",
+      "expected": 201,
+      "actual": 400,
+      "actor": "owner",
+      "passed": false
+    }
+  ],
+  "invariants": [],
+  "completed": false
+}

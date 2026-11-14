@@ -8,7 +8,7 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
         Task<IEnumerable<Product>> GetProductsByCategoryAsync(int categoryId);
         Task<IEnumerable<Product>> GetProductsBySubCategoryAsync(int subCategoryId);
         Task<IEnumerable<Product>> GetFeaturedProductsAsync(int count = 10);
-        Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm);
+        Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm, bool includeDetails = true);
         Task<(IReadOnlyList<Product> Products, int TotalCount)> GetProductsWithFiltersAsync(
             int? categoryId = null,
             int? subCategoryId = null,
@@ -22,7 +22,8 @@ namespace Ecom.Infrastructure.Repositories.Interfaces
             bool? newArrival = null,
             bool? bestDiscount = null,
             int pageNumber = 1,
-            int pageSize = 20);
+            int pageSize = 20,
+            bool includeDetails = true);
         Task<Product?> GetProductWithDetailsAsync(int productId);
         Task<Product?> GetProductWithDetailsForUpdateAsync(int productId);
         Task<IEnumerable<Product>> GetRelatedProductsAsync(int productId, int count = 5);

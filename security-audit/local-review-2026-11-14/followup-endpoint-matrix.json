@@ -1,0 +1,5405 @@
+[
+  {
+    "id": "GET /api/admin/auth/isadmin",
+    "method": "GET",
+    "route": "/api/admin/Auth/isAdmin",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 16
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/auth/user/{userid}",
+    "method": "GET",
+    "route": "/api/admin/Auth/user/{userId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 14
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/auth/users",
+    "method": "GET",
+    "route": "/api/admin/Auth/users",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 628
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/auth/user/{userid}/addresses",
+    "method": "POST",
+    "route": "/api/admin/Auth/user/{userId}/addresses",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "administrator",
+        "expected": 201,
+        "actual": 201,
+        "source": "followup-admin-addresses.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/auth/user/{userid}/addresses",
+    "method": "GET",
+    "route": "/api/admin/Auth/user/{userId}/addresses",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      },
+      {
+        "actor": "administrator",
+        "expected": 200,
+        "actual": 200,
+        "source": "followup-admin-addresses.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/auth/user/{userid}/addresses/{addressid}",
+    "method": "GET",
+    "route": "/api/admin/Auth/user/{userId}/addresses/{addressId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required, addressId:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 17
+      },
+      {
+        "actor": "administrator",
+        "expected": 200,
+        "actual": 200,
+        "source": "followup-admin-addresses.json"
+      },
+      {
+        "actor": "administrator",
+        "expected": 404,
+        "actual": 404,
+        "source": "followup-admin-addresses.json"
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/auth/user/{userid}/addresses/{addressid}",
+    "method": "PUT",
+    "route": "/api/admin/Auth/user/{userId}/addresses/{addressId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required, addressId:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "administrator",
+        "expected": 200,
+        "actual": 200,
+        "source": "followup-admin-addresses.json"
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/auth/user/{userid}/addresses/{addressid}",
+    "method": "DELETE",
+    "route": "/api/admin/Auth/user/{userId}/addresses/{addressId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required, addressId:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "administrator",
+        "expected": 204,
+        "actual": 204,
+        "source": "followup-admin-addresses.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/auth/user/{userid}/addresses/{addressid}/set-default",
+    "method": "POST",
+    "route": "/api/admin/Auth/user/{userId}/addresses/{addressId}/set-default",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required, addressId:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "administrator",
+        "expected": 200,
+        "actual": 200,
+        "source": "followup-admin-addresses.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/carousels",
+    "method": "GET",
+    "route": "/api/admin/carousels",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "isActive:boolean, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/carousels",
+    "method": "POST",
+    "route": "/api/admin/carousels",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body multipart/form-data",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/carousels/{id}",
+    "method": "GET",
+    "route": "/api/admin/carousels/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 37
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/carousels/{id}",
+    "method": "PUT",
+    "route": "/api/admin/carousels/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body multipart/form-data",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/carousels/{id}",
+    "method": "DELETE",
+    "route": "/api/admin/carousels/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/carousels/{id}/toggle-active",
+    "method": "PUT",
+    "route": "/api/admin/carousels/{id}/toggle-active",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/categories",
+    "method": "GET",
+    "route": "/api/admin/categories",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "isActive:boolean, searchTerm:string, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 801
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/categories",
+    "method": "POST",
+    "route": "/api/admin/categories",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/categories/{id}",
+    "method": "GET",
+    "route": "/api/admin/categories/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 692
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/categories/{id}",
+    "method": "PUT",
+    "route": "/api/admin/categories/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/categories/{id}",
+    "method": "DELETE",
+    "route": "/api/admin/categories/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/categories/with-image",
+    "method": "POST",
+    "route": "/api/admin/categories/with-image",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body multipart/form-data",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/categories/bulk",
+    "method": "DELETE",
+    "route": "/api/admin/categories/bulk",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/categories/{id}/with-image",
+    "method": "PUT",
+    "route": "/api/admin/categories/{id}/with-image",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body multipart/form-data",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/categories/subcategories",
+    "method": "GET",
+    "route": "/api/admin/categories/subcategories",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "isActive:boolean, searchTerm:string, categoryId:integer, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 477
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/categories/subcategories",
+    "method": "POST",
+    "route": "/api/admin/categories/subcategories",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/categories/{id}/subcategories",
+    "method": "GET",
+    "route": "/api/admin/categories/{id}/subcategories",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required, includeRelated:boolean, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 477
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/categories/subcategories/{id}",
+    "method": "GET",
+    "route": "/api/admin/categories/subcategories/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 347
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/categories/subcategories/{id}",
+    "method": "PUT",
+    "route": "/api/admin/categories/subcategories/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/categories/subcategories/{id}",
+    "method": "DELETE",
+    "route": "/api/admin/categories/subcategories/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/categories/{id}/toggle-active",
+    "method": "PUT",
+    "route": "/api/admin/categories/{id}/toggle-active",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/categories/subcategories/{id}/toggle-active",
+    "method": "PUT",
+    "route": "/api/admin/categories/subcategories/{id}/toggle-active",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/categories/all",
+    "method": "GET",
+    "route": "/api/admin/categories/all",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 21
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/categories/subcategories/all",
+    "method": "GET",
+    "route": "/api/admin/categories/subcategories/all",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 19
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/coupons",
+    "method": "GET",
+    "route": "/api/admin/coupons",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 651
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/coupons",
+    "method": "POST",
+    "route": "/api/admin/coupons",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/coupons/active",
+    "method": "GET",
+    "route": "/api/admin/coupons/active",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 651
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/coupons/expired",
+    "method": "GET",
+    "route": "/api/admin/coupons/expired",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/coupons/{id}",
+    "method": "GET",
+    "route": "/api/admin/coupons/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 542
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/coupons/{id}",
+    "method": "PUT",
+    "route": "/api/admin/coupons/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/coupons/{id}",
+    "method": "DELETE",
+    "route": "/api/admin/coupons/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/coupons/code/{code}",
+    "method": "GET",
+    "route": "/api/admin/coupons/code/{code}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "code:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 542
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/coupons/{id}/activate",
+    "method": "PUT",
+    "route": "/api/admin/coupons/{id}/activate",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/coupons/{id}/deactivate",
+    "method": "PUT",
+    "route": "/api/admin/coupons/{id}/deactivate",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/coupons/cleanup-expired",
+    "method": "POST",
+    "route": "/api/admin/coupons/cleanup-expired",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/coupons/validate",
+    "method": "POST",
+    "route": "/api/admin/coupons/validate",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/dashboard/summary",
+    "method": "GET",
+    "route": "/api/admin/dashboard/summary",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 186
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/dashboard/last-orders",
+    "method": "GET",
+    "route": "/api/admin/dashboard/last-orders",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "count:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 190
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/dashboard/last-users",
+    "method": "GET",
+    "route": "/api/admin/dashboard/last-users",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "count:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 357
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/dashboard/visitors/chart",
+    "method": "GET",
+    "route": "/api/admin/dashboard/visitors/chart",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "days:integer, period:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 1261
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/dashboard/users/chart",
+    "method": "GET",
+    "route": "/api/admin/dashboard/users/chart",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "days:integer, period:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 1261
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/dashboard/orders/chart",
+    "method": "GET",
+    "route": "/api/admin/dashboard/orders/chart",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "days:integer, period:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 1261
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/dashboard/transactions/chart",
+    "method": "GET",
+    "route": "/api/admin/dashboard/transactions/chart",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "days:integer, period:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 1261
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/health/summary",
+    "method": "GET",
+    "route": "/api/admin/health/summary",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 86
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/health/chart",
+    "method": "GET",
+    "route": "/api/admin/health/chart",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "minutes:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 3481
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/monitoring/summary",
+    "method": "GET",
+    "route": "/api/admin/monitoring/summary",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 6720
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/monitoring/logs",
+    "method": "GET",
+    "route": "/api/admin/monitoring/logs",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "Level:string, Category:string, Search:string, TraceId:string, From:string, To:string, Page:integer, PageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 22044
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/order",
+    "method": "GET",
+    "route": "/api/admin/order",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "status:schema, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 297
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/order/{id}",
+    "method": "GET",
+    "route": "/api/admin/order/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 34
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/order/number/{ordernumber}",
+    "method": "GET",
+    "route": "/api/admin/order/number/{orderNumber}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "orderNumber:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 44
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/order/user/{userid}",
+    "method": "GET",
+    "route": "/api/admin/order/user/{userId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/order/{id}/status",
+    "method": "PUT",
+    "route": "/api/admin/order/{id}/status",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/order/{id}/cancel",
+    "method": "PUT",
+    "route": "/api/admin/order/{id}/cancel",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/order/statistics",
+    "method": "GET",
+    "route": "/api/admin/order/statistics",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 120
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/order/sales",
+    "method": "GET",
+    "route": "/api/admin/order/sales",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "startDate:string, endDate:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 50
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/order/{id}/payment",
+    "method": "POST",
+    "route": "/api/admin/order/{id}/payment",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/order/{id}/transactions",
+    "method": "GET",
+    "route": "/api/admin/order/{id}/transactions",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products",
+    "method": "GET",
+    "route": "/api/admin/products",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "categoryId:integer, subCategoryId:integer, minPrice:number, maxPrice:number, searchTerm:string, isActive:boolean, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 726
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/products",
+    "method": "POST",
+    "route": "/api/admin/products",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body multipart/form-data",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/{id}",
+    "method": "GET",
+    "route": "/api/admin/products/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 617
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/products/{id}",
+    "method": "PUT",
+    "route": "/api/admin/products/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body multipart/form-data",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/products/{id}",
+    "method": "DELETE",
+    "route": "/api/admin/products/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/featured",
+    "method": "GET",
+    "route": "/api/admin/products/featured",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 726
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/category/{categoryid}",
+    "method": "GET",
+    "route": "/api/admin/products/category/{categoryId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "categoryId:integer required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 726
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/subcategory/{subcategoryid}",
+    "method": "GET",
+    "route": "/api/admin/products/subcategory/{subCategoryId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "subCategoryId:integer required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 705
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/{id}/related",
+    "method": "GET",
+    "route": "/api/admin/products/{id}/related",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 108
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/{id}/ratings",
+    "method": "GET",
+    "route": "/api/admin/products/{id}/ratings",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/products/{id}/ratings",
+    "method": "POST",
+    "route": "/api/admin/products/{id}/ratings",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/in-stock",
+    "method": "GET",
+    "route": "/api/admin/products/in-stock",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 422
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/out-of-stock",
+    "method": "GET",
+    "route": "/api/admin/products/out-of-stock",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/products/low-stock",
+    "method": "GET",
+    "route": "/api/admin/products/low-stock",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "threshold:integer, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/products/{id}/stock",
+    "method": "PUT",
+    "route": "/api/admin/products/{id}/stock",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/products/{id}/stock/increase",
+    "method": "PUT",
+    "route": "/api/admin/products/{id}/stock/increase",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/products/{id}/stock/reduce",
+    "method": "PUT",
+    "route": "/api/admin/products/{id}/stock/reduce",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/products/{id}/stock/status",
+    "method": "PUT",
+    "route": "/api/admin/products/{id}/stock/status",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/products/{id}/toggle-active",
+    "method": "PUT",
+    "route": "/api/admin/products/{id}/toggle-active",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/shipping",
+    "method": "GET",
+    "route": "/api/admin/shipping",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 696
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/shipping",
+    "method": "PUT",
+    "route": "/api/admin/shipping",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/transaction/sadad/reconcile",
+    "method": "POST",
+    "route": "/api/admin/transaction/sadad/reconcile",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction",
+    "method": "GET",
+    "route": "/api/admin/transaction",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "OrderId:integer, OrderNumber:string, AppUserId:string, PaymentMethod:schema, Status:schema, StartDate:string, EndDate:string, MinAmount:number, MaxAmount:number, IsRefunded:boolean, PageNumber:integer, PageSize:integer, SortBy:string, SortDirection:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 871
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/transaction",
+    "method": "POST",
+    "route": "/api/admin/transaction",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/{id}",
+    "method": "GET",
+    "route": "/api/admin/transaction/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 40
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/transaction/{id}",
+    "method": "PUT",
+    "route": "/api/admin/transaction/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/admin/transaction/{id}",
+    "method": "DELETE",
+    "route": "/api/admin/transaction/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "No change. Retains all financial transactions and accounting links.",
+    "previous": false,
+    "result": "VERIFIED",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "real bearer identities",
+        "case": "Five persisted ledger cases; 401/403/410 and unchanged records and FK",
+        "source": "Transaction_deletion_preserves_ledger_values_and_payment_references"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/reference/{reference}",
+    "method": "GET",
+    "route": "/api/admin/transaction/reference/{reference}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "reference:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 53
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/order/{orderid}",
+    "method": "GET",
+    "route": "/api/admin/transaction/order/{orderId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "orderId:integer required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 109
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/order/{orderid}/latest",
+    "method": "GET",
+    "route": "/api/admin/transaction/order/{orderId}/latest",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "orderId:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 42
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/transaction/process-payment",
+    "method": "POST",
+    "route": "/api/admin/transaction/process-payment",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/transaction/refund",
+    "method": "POST",
+    "route": "/api/admin/transaction/refund",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/transaction/{id}/status",
+    "method": "PUT",
+    "route": "/api/admin/transaction/{id}/status",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/transaction/{id}/complete",
+    "method": "PUT",
+    "route": "/api/admin/transaction/{id}/complete",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/transaction/{id}/fail",
+    "method": "PUT",
+    "route": "/api/admin/transaction/{id}/fail",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/admin/transaction/{id}/pending",
+    "method": "PUT",
+    "route": "/api/admin/transaction/{id}/pending",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/analytics",
+    "method": "GET",
+    "route": "/api/admin/transaction/analytics",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "startDate:string, endDate:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 508
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/analytics/order/{orderid}",
+    "method": "GET",
+    "route": "/api/admin/transaction/analytics/order/{orderId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "orderId:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 290
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/revenue/payment-methods",
+    "method": "GET",
+    "route": "/api/admin/transaction/revenue/payment-methods",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "startDate:string, endDate:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/trends",
+    "method": "GET",
+    "route": "/api/admin/transaction/trends",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "startDate:string, endDate:string, period:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/refunded",
+    "method": "GET",
+    "route": "/api/admin/transaction/refunded",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "startDate:string, endDate:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/refunded/total",
+    "method": "GET",
+    "route": "/api/admin/transaction/refunded/total",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "startDate:string, endDate:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 27
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/{id}/can-refund",
+    "method": "GET",
+    "route": "/api/admin/transaction/{id}/can-refund",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 19
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/search",
+    "method": "GET",
+    "route": "/api/admin/transaction/search",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "searchTerm:string, limit:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 400,
+        "type": "application/problem+json",
+        "bodyBytes": 254
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/status/{status}",
+    "method": "GET",
+    "route": "/api/admin/transaction/status/{status}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "status:schema required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/payment-method/{paymentmethod}",
+    "method": "GET",
+    "route": "/api/admin/transaction/payment-method/{paymentMethod}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "paymentMethod:schema required, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/export/csv",
+    "method": "GET",
+    "route": "/api/admin/transaction/export/csv",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "OrderId:integer, OrderNumber:string, AppUserId:string, PaymentMethod:schema, Status:schema, StartDate:string, EndDate:string, MinAmount:number, MaxAmount:number, IsRefunded:boolean, PageNumber:integer, PageSize:integer, SortBy:string, SortDirection:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "text/csv",
+        "bodyBytes": 199
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/transaction/export/excel",
+    "method": "GET",
+    "route": "/api/admin/transaction/export/excel",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "OrderId:integer, OrderNumber:string, AppUserId:string, PaymentMethod:schema, Status:schema, StartDate:string, EndDate:string, MinAmount:number, MaxAmount:number, IsRefunded:boolean, PageNumber:integer, PageSize:integer, SortBy:string, SortDirection:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "bodyBytes": 3378
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/user-manager/users",
+    "method": "GET",
+    "route": "/api/admin/user-manager/users",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "SearchTerm:string, IsBlocked:boolean, EmailConfirmed:boolean, IsActive:boolean, Page:integer, PageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 948
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/user-manager/users/{userid}",
+    "method": "GET",
+    "route": "/api/admin/user-manager/users/{userId}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "application/json",
+        "bodyBytes": 28
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/user-manager/users/block",
+    "method": "POST",
+    "route": "/api/admin/user-manager/users/block",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/user-manager/users/unblock",
+    "method": "POST",
+    "route": "/api/admin/user-manager/users/unblock",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/user-manager/users/change-password",
+    "method": "POST",
+    "route": "/api/admin/user-manager/users/change-password",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/user-manager/users/change-email",
+    "method": "POST",
+    "route": "/api/admin/user-manager/users/change-email",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/user-manager/users/send-email-confirmation",
+    "method": "POST",
+    "route": "/api/admin/user-manager/users/send-email-confirmation",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/user-manager/users/{userid}/confirm-email",
+    "method": "POST",
+    "route": "/api/admin/user-manager/users/{userId}/confirm-email",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required, token:string",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/admin/user-manager/users/{userid}/reset-password",
+    "method": "POST",
+    "route": "/api/admin/user-manager/users/{userId}/reset-password",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/admin/user-manager/addresses",
+    "method": "GET",
+    "route": "/api/admin/user-manager/addresses",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "userId:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 400,
+        "type": "application/problem+json",
+        "bodyBytes": 246
+      }
+    ]
+  },
+  {
+    "id": "POST /api/ai-shopping/sessions",
+    "method": "POST",
+    "route": "/api/ai-shopping/sessions",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Disabled feature boundary",
+        "expected": 404,
+        "actual": 404,
+        "problemCode": "AI_SHOPPING_DISABLED",
+        "cacheControl": "no-store",
+        "passed": true,
+        "source": "Isolated live API with AI disabled"
+      }
+    ],
+    "blocker": "Live check covers disabled feature only. Enabled HTTP workflows were exercised in-process with synthetic providers."
+  },
+  {
+    "id": "POST /api/ai-shopping/chat",
+    "method": "POST",
+    "route": "/api/ai-shopping/chat",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Disabled feature boundary",
+        "expected": 404,
+        "actual": 404,
+        "problemCode": "AI_SHOPPING_DISABLED",
+        "cacheControl": "no-store",
+        "passed": true,
+        "source": "Isolated live API with AI disabled"
+      }
+    ],
+    "blocker": "Live check covers disabled feature only. Enabled HTTP workflows were exercised in-process with synthetic providers."
+  },
+  {
+    "id": "GET /api/ai-shopping/conversations/{id}",
+    "method": "GET",
+    "route": "/api/ai-shopping/conversations/{id}",
+    "auth": "No controller auth requirement",
+    "ownership": "Shopping session/conversation binding",
+    "input": "id:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Disabled feature boundary",
+        "expected": 404,
+        "actual": 404,
+        "problemCode": "AI_SHOPPING_DISABLED",
+        "cacheControl": "no-store",
+        "passed": true,
+        "source": "Isolated live API with AI disabled"
+      }
+    ],
+    "blocker": "Live check covers disabled feature only. Enabled HTTP workflows were exercised in-process with synthetic providers."
+  },
+  {
+    "id": "POST /api/ai-shopping/conversations/{id}/recalculate",
+    "method": "POST",
+    "route": "/api/ai-shopping/conversations/{id}/recalculate",
+    "auth": "No controller auth requirement",
+    "ownership": "Shopping session/conversation binding",
+    "input": "id:string required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Disabled feature boundary",
+        "expected": 404,
+        "actual": 404,
+        "problemCode": "AI_SHOPPING_DISABLED",
+        "cacheControl": "no-store",
+        "passed": true,
+        "source": "Isolated live API with AI disabled"
+      }
+    ],
+    "blocker": "Live check covers disabled feature only. Enabled HTTP workflows were exercised in-process with synthetic providers."
+  },
+  {
+    "id": "POST /api/ai-shopping/conversations/{id}/recommendations/{recommendationid}/confirm",
+    "method": "POST",
+    "route": "/api/ai-shopping/conversations/{id}/recommendations/{recommendationId}/confirm",
+    "auth": "No controller auth requirement",
+    "ownership": "Shopping session/conversation binding",
+    "input": "id:string required, recommendationId:string required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Disabled feature boundary",
+        "expected": 404,
+        "actual": 404,
+        "problemCode": "AI_SHOPPING_DISABLED",
+        "cacheControl": "no-store",
+        "passed": true,
+        "source": "Isolated live API with AI disabled"
+      }
+    ],
+    "blocker": "Live check covers disabled feature only. Enabled HTTP workflows were exercised in-process with synthetic providers."
+  },
+  {
+    "id": "POST /api/ai-shopping/index/batch",
+    "method": "POST",
+    "route": "/api/ai-shopping/index/batch",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "resetCheckpoint:boolean",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/ai-shopping/conversations/{id}/recommendations/{recommendationid}/prepare-cart",
+    "method": "POST",
+    "route": "/api/ai-shopping/conversations/{id}/recommendations/{recommendationId}/prepare-cart",
+    "auth": "No controller auth requirement",
+    "ownership": "Shopping session/conversation binding",
+    "input": "id:string required, recommendationId:string required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Disabled feature boundary",
+        "expected": 404,
+        "actual": 404,
+        "problemCode": "AI_SHOPPING_DISABLED",
+        "cacheControl": "no-store",
+        "passed": true,
+        "source": "Isolated live API with AI disabled"
+      }
+    ],
+    "blocker": "Live check covers disabled feature only. Enabled HTTP workflows were exercised in-process with synthetic providers."
+  },
+  {
+    "id": "GET /api/auth/isauth",
+    "method": "GET",
+    "route": "/api/Auth/isAuth",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "GET /api/auth/isadmin",
+    "method": "GET",
+    "route": "/api/Auth/isAdmin",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 16
+      },
+      {
+        "actor": "browser customer",
+        "actual": 403,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/register",
+    "method": "POST",
+    "route": "/api/Auth/register",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 400,
+        "actual": 400
+      },
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "fixture",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/login",
+    "method": "POST",
+    "route": "/api/Auth/login",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "fixture",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "fixture",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/verify",
+    "method": "POST",
+    "route": "/api/Auth/verify",
+    "auth": "No controller auth requirement",
+    "ownership": "Account-bound proof or session credential",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 400,
+        "actual": 400
+      },
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "fixture",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/resend-verification",
+    "method": "POST",
+    "route": "/api/Auth/resend-verification",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 400,
+        "actual": 400
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/change-password",
+    "method": "POST",
+    "route": "/api/Auth/change-password",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/forgot-password",
+    "method": "POST",
+    "route": "/api/Auth/forgot-password",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "browser recovery",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/reset-password",
+    "method": "POST",
+    "route": "/api/Auth/reset-password",
+    "auth": "No controller auth requirement",
+    "ownership": "Account-bound proof or session credential",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "On success updates password and revokes prior sessions; challenge cannot be reused.",
+    "previous": true,
+    "result": "VERIFIED",
+    "checks": [
+      {
+        "actor": "browser recovery",
+        "actual": 400,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "Playwright synthetic customer",
+        "case": "Ordinary mail flow, invalid/expired/consumed rejection, success, new password login",
+        "source": "followup-recovery-result.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/logout",
+    "method": "POST",
+    "route": "/api/Auth/logout",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "No input in OpenAPI",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "GET /api/auth/me",
+    "method": "GET",
+    "route": "/api/Auth/me",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/auth/me/username",
+    "method": "PUT",
+    "route": "/api/Auth/me/username",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/auth/me/phone",
+    "method": "PUT",
+    "route": "/api/Auth/me/phone",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/refresh-token",
+    "method": "POST",
+    "route": "/api/Auth/refresh-token",
+    "auth": "No controller auth requirement",
+    "ownership": "Account-bound proof or session credential",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 400,
+        "actual": 400
+      }
+    ]
+  },
+  {
+    "id": "GET /api/auth/addresses",
+    "method": "GET",
+    "route": "/api/Auth/addresses",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "customer",
+        "expected": 200,
+        "actual": 200
+      },
+      {
+        "actor": "other customer",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/addresses",
+    "method": "POST",
+    "route": "/api/Auth/addresses",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "VERIFIED",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "browser customer",
+        "actual": 201,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 400,
+        "actual": 400,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 201,
+        "actual": 201,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/auth/addresses",
+    "method": "PUT",
+    "route": "/api/Auth/addresses",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "VERIFIED",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 400,
+        "actual": 400,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/auth/addresses/{addressid}",
+    "method": "GET",
+    "route": "/api/Auth/addresses/{addressId}",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "addressId:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "VERIFIED",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/auth/addresses/{addressid}",
+    "method": "DELETE",
+    "route": "/api/Auth/addresses/{addressId}",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "addressId:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": false,
+    "result": "VERIFIED",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/auth/contact",
+    "method": "POST",
+    "route": "/api/Auth/contact",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 400,
+        "actual": 400
+      }
+    ]
+  },
+  {
+    "id": "GET /api/carousels",
+    "method": "GET",
+    "route": "/api/Carousels",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/carousels/{id}",
+    "method": "GET",
+    "route": "/api/Carousels/{id}",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 404,
+        "type": "text/plain",
+        "bodyBytes": 37
+      }
+    ]
+  },
+  {
+    "id": "GET /api/carousels/customer-satisfaction",
+    "method": "GET",
+    "route": "/api/Carousels/customer-satisfaction",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 43
+      }
+    ]
+  },
+  {
+    "id": "GET /api/carousels/latest-third-reviews",
+    "method": "GET",
+    "route": "/api/Carousels/latest-third-reviews",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/carousels/categories-with-images",
+    "method": "GET",
+    "route": "/api/Carousels/categories-with-images",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/categories",
+    "method": "GET",
+    "route": "/api/Categories",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "includeSubCategories:boolean",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 700
+      },
+      {
+        "actor": "browser guest",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser recovery",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/categories/{id}",
+    "method": "GET",
+    "route": "/api/Categories/{id}",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 698
+      }
+    ]
+  },
+  {
+    "id": "GET /api/categories/subcategories",
+    "method": "GET",
+    "route": "/api/Categories/subcategories",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 349
+      }
+    ]
+  },
+  {
+    "id": "GET /api/categories/{id}/subcategories",
+    "method": "GET",
+    "route": "/api/Categories/{id}/subcategories",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 349
+      }
+    ]
+  },
+  {
+    "id": "GET /api/categories/subcategories/{id}",
+    "method": "GET",
+    "route": "/api/Categories/subcategories/{id}",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 347
+      }
+    ]
+  },
+  {
+    "id": "GET /api/coupons/active",
+    "method": "GET",
+    "route": "/api/Coupons/active",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 207
+      }
+    ]
+  },
+  {
+    "id": "GET /api/coupons",
+    "method": "GET",
+    "route": "/api/Coupons",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 207
+      }
+    ]
+  },
+  {
+    "id": "POST /api/coupons",
+    "method": "POST",
+    "route": "/api/Coupons",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/coupons/{id}",
+    "method": "GET",
+    "route": "/api/Coupons/{id}",
+    "auth": "No controller auth requirement",
+    "ownership": "Public or assigned coupon",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 205
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/coupons/{id}",
+    "method": "PUT",
+    "route": "/api/Coupons/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "DELETE /api/coupons/{id}",
+    "method": "DELETE",
+    "route": "/api/Coupons/{id}",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential deletion; verify action invariants",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/coupons/code/{code}",
+    "method": "GET",
+    "route": "/api/Coupons/code/{code}",
+    "auth": "No controller auth requirement",
+    "ownership": "Public or assigned coupon",
+    "input": "code:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 205
+      }
+    ]
+  },
+  {
+    "id": "POST /api/coupons/validate",
+    "method": "POST",
+    "route": "/api/Coupons/validate",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/coupons/my-coupons",
+    "method": "GET",
+    "route": "/api/Coupons/my-coupons",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/coupons/{id}/activate",
+    "method": "PUT",
+    "route": "/api/Coupons/{id}/activate",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/coupons/{id}/deactivate",
+    "method": "PUT",
+    "route": "/api/Coupons/{id}/deactivate",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/coupons/expired",
+    "method": "GET",
+    "route": "/api/Coupons/expired",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "POST /api/coupons/cleanup-expired",
+    "method": "POST",
+    "route": "/api/Coupons/cleanup-expired",
+    "auth": "Role: Admin",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /admin/monitoring",
+    "method": "GET",
+    "route": "/admin/monitoring",
+    "auth": "No controller auth requirement",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 200,
+        "actual": 500
+      },
+      {
+        "actor": "anonymous",
+        "case": "restored missing static assets in audit host",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "GET /api/orders/{id}",
+    "method": "GET",
+    "route": "/api/Orders/{id}",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "anonymous",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/orders/number/{ordernumber}",
+    "method": "GET",
+    "route": "/api/Orders/number/{orderNumber}",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "orderNumber:string required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      },
+      {
+        "actor": "anonymous",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/orders/my-orders",
+    "method": "GET",
+    "route": "/api/Orders/my-orders",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "customer",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "POST /api/orders",
+    "method": "POST",
+    "route": "/api/Orders",
+    "auth": "Anonymous metadata",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "browser customer",
+        "actual": 201,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 201,
+        "actual": 201,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/orders/{id}/payment-status",
+    "method": "GET",
+    "route": "/api/Orders/{id}/payment-status",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required, verify:boolean",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      },
+      {
+        "actor": "anonymous",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/orders/{id}/payment-attempts",
+    "method": "POST",
+    "route": "/api/Orders/{id}/payment-attempts",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/orders/{id}/cancel",
+    "method": "PUT",
+    "route": "/api/Orders/{id}/cancel",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/orders/{id}/payment",
+    "method": "POST",
+    "route": "/api/Orders/{id}/payment",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Model validation rejects empty payment body or omitted invoice ID; corrected expectation from controller contract",
+        "expected": 400,
+        "actual": 400
+      }
+    ]
+  },
+  {
+    "id": "GET /api/orders/{id}/transactions",
+    "method": "GET",
+    "route": "/api/Orders/{id}/transactions",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      },
+      {
+        "actor": "anonymous",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/orders/{id}/invoice-payment",
+    "method": "GET",
+    "route": "/api/Orders/{id}/invoice-payment",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      },
+      {
+        "actor": "anonymous",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "other customer",
+        "expected": 404,
+        "actual": 404,
+        "passed": true,
+        "source": "followup-ownership.json"
+      },
+      {
+        "actor": "owner",
+        "expected": 200,
+        "actual": 200,
+        "passed": true,
+        "source": "followup-ownership.json"
+      }
+    ]
+  },
+  {
+    "id": "POST /api/orders/{id}/payment-link",
+    "method": "POST",
+    "route": "/api/Orders/{id}/payment-link",
+    "auth": "Anonymous metadata",
+    "ownership": "Order owner or order-scoped guest capability",
+    "input": "id:integer required",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      }
+    ]
+  },
+  {
+    "id": "POST /api/orders/webhook/sadad-paid",
+    "method": "POST",
+    "route": "/api/Orders/webhook/sadad-paid",
+    "auth": "Anonymous metadata",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Required invoice ID absent",
+        "expected": 400,
+        "actual": 400
+      }
+    ],
+    "blocker": "Provider webhook delivery and authentication are outside the live check; in-process doubles exercised verification queuing."
+  },
+  {
+    "id": "GET /api/orders/payment-callback",
+    "method": "GET",
+    "route": "/api/Orders/payment-callback",
+    "auth": "Anonymous metadata",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "invoice_id:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "Model validation rejects empty payment body or omitted invoice ID; corrected expectation from controller contract",
+        "expected": 400,
+        "actual": 400
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products",
+    "method": "GET",
+    "route": "/api/Products",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "categoryId:integer, subCategoryId:integer, minPrice:number, maxPrice:number, searchTerm:string, sortBy:string, inStock:boolean, onSale:boolean, newArrival:boolean, bestDiscount:boolean, pageNumber:integer, pageSize:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 294104
+      },
+      {
+        "actor": "browser guest",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/{id}",
+    "method": "GET",
+    "route": "/api/Products/{id}",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 617
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/featured",
+    "method": "GET",
+    "route": "/api/Products/featured",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "count:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 3094
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/category/{categoryid}",
+    "method": "GET",
+    "route": "/api/Products/category/{categoryId}",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "categoryId:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 313123
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/subcategory/{subcategoryid}",
+    "method": "GET",
+    "route": "/api/Products/subcategory/{subCategoryId}",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "subCategoryId:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 313123
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/subcategory/{subcategoryid}/random",
+    "method": "GET",
+    "route": "/api/Products/subcategory/{subCategoryId}/random",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "subCategoryId:integer required, count:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 960
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/{id}/related",
+    "method": "GET",
+    "route": "/api/Products/{id}/related",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required, count:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 1546
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/{id}/ratings",
+    "method": "GET",
+    "route": "/api/Products/{id}/ratings",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "POST /api/products/{id}/ratings",
+    "method": "POST",
+    "route": "/api/Products/{id}/ratings",
+    "auth": "Authenticated",
+    "ownership": "Delivered order belonging to signed-in reviewer",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/if-rating-return-it",
+    "method": "GET",
+    "route": "/api/Products/if-rating-return-it",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "productId:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "browser customer",
+        "actual": 404,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/in-stock",
+    "method": "GET",
+    "route": "/api/Products/in-stock",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 294104
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/out-of-stock",
+    "method": "GET",
+    "route": "/api/Products/out-of-stock",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/low-stock",
+    "method": "GET",
+    "route": "/api/Products/low-stock",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "threshold:integer",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "GET /api/products/{id}/stock",
+    "method": "GET",
+    "route": "/api/Products/{id}/stock",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "id:integer required",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 50
+      }
+    ]
+  },
+  {
+    "id": "GET /api/shipping",
+    "method": "GET",
+    "route": "/api/shipping",
+    "auth": "Anonymous metadata",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "public",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 696
+      },
+      {
+        "actor": "browser guest",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser customer",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser admin",
+        "actual": 200,
+        "source": "followup-browser.json"
+      },
+      {
+        "actor": "browser recovery",
+        "actual": 200,
+        "source": "followup-browser.json"
+      }
+    ]
+  },
+  {
+    "id": "GET /api/transactions/my",
+    "method": "GET",
+    "route": "/api/Transactions/my",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "OrderId:integer, OrderNumber:string, AppUserId:string, PaymentMethod:schema, Status:schema, StartDate:string, EndDate:string, MinAmount:number, MaxAmount:number, IsRefunded:boolean, PageNumber:integer, PageSize:integer, SortBy:string, SortDirection:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "POST /api/visitors/track",
+    "method": "POST",
+    "route": "/api/visitors/track",
+    "auth": "No controller auth requirement",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "GET /api/whatsapp/invoices/{id}/document",
+    "method": "GET",
+    "route": "/api/whatsapp/invoices/{id}/document",
+    "auth": "Anonymous metadata",
+    "ownership": "Document capability",
+    "input": "id:integer required, token:string",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 404,
+        "actual": 404
+      }
+    ]
+  },
+  {
+    "id": "POST /api/whatsapp/webhook",
+    "method": "POST",
+    "route": "/api/whatsapp/webhook",
+    "auth": "Anonymous metadata",
+    "ownership": "No explicit ownership determined; see action",
+    "input": "token:string | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "case": "validation or missing fixture",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "GET /api/whatsapp/admin/invoices",
+    "method": "GET",
+    "route": "/api/whatsapp/admin/invoices",
+    "auth": "Policy: AdminOnly",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      },
+      {
+        "actor": "admin",
+        "expected": "Read/controlled missing fixture",
+        "actual": 200,
+        "type": "application/json",
+        "bodyBytes": 2
+      }
+    ]
+  },
+  {
+    "id": "POST /api/whatsapp/admin/invoices/{id}/retry-preparation",
+    "method": "POST",
+    "route": "/api/whatsapp/admin/invoices/{id}/retry-preparation",
+    "auth": "Policy: AdminOnly",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "POST /api/whatsapp/admin/invoices/{id}/reconcile",
+    "method": "POST",
+    "route": "/api/whatsapp/admin/invoices/{id}/reconcile",
+    "auth": "Policy: AdminOnly",
+    "ownership": "Administrator scope; review delegated actions separately",
+    "input": "id:integer required | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 403,
+        "actual": 403
+      }
+    ]
+  },
+  {
+    "id": "GET /api/account/whatsapp/preferences",
+    "method": "GET",
+    "route": "/api/account/whatsapp/preferences",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": "No input in OpenAPI",
+    "effects": "Read expected; special callbacks/health may persist state",
+    "previous": true,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      },
+      {
+        "actor": "customer",
+        "expected": 200,
+        "actual": 200
+      }
+    ]
+  },
+  {
+    "id": "PUT /api/account/whatsapp/preferences",
+    "method": "PUT",
+    "route": "/api/account/whatsapp/preferences",
+    "auth": "Authenticated",
+    "ownership": "Current account; verify resource match",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "POST /api/account/whatsapp/phone-verification",
+    "method": "POST",
+    "route": "/api/account/whatsapp/phone-verification",
+    "auth": "Authenticated",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  },
+  {
+    "id": "POST /api/account/whatsapp/phone-verification/confirm",
+    "method": "POST",
+    "route": "/api/account/whatsapp/phone-verification/confirm",
+    "auth": "Authenticated",
+    "ownership": "No explicit ownership determined; see action",
+    "input": " | body application/json, text/json, application/*+json",
+    "effects": "Potential state change or validation; see action",
+    "previous": false,
+    "result": "PARTIAL",
+    "checks": [
+      {
+        "actor": "anonymous",
+        "expected": 401,
+        "actual": 401
+      }
+    ]
+  }
+]

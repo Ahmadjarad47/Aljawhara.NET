@@ -1,0 +1,10 @@
+{
+  "authMeStatus": 200,
+  "authSessionSql": 1,
+  "sqlCommandsInWindow": 2,
+  "poolSnapshot": [
+    "active|1",
+    "idle|4"
+  ],
+  "measurement": "One authenticated request; SQL log also receives background work"
+}

@@ -54,7 +54,9 @@ namespace Ecom.Application.Services.Interfaces
         Task<ProductDto> UpdateProductWithFilesAsync(ProductUpdateWithFilesDto productDto);
         Task<bool> DeleteProductAsync(int id);
 
-        Task<RatingDto> AddProductRatingAsync(RatingCreateDto ratingDto);
+        Task<RatingDto> AddProductRatingAsync(string userId, RatingCreateDto ratingDto);
+        Task<RatingDto?> GetOwnProductRatingAsync(int productId, string userId);
+        Task<RatingDto?> AddCustomerProductRatingAsync(string userId, int orderId, RatingCreateDto ratingDto);
         Task<IEnumerable<RatingDto>> GetProductRatingsAsync(int productId);
 
         // Stock management methods

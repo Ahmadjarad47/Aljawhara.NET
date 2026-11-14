@@ -1,0 +1,42 @@
+[
+  {
+    "method": "POST",
+    "route": "/api/Auth/login",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "ms": 294
+  },
+  {
+    "method": "POST",
+    "route": "/api/admin/categories",
+    "expected": 201,
+    "actual": 201,
+    "passed": true,
+    "ms": 174
+  },
+  {
+    "method": "POST",
+    "route": "/api/admin/categories/subcategories",
+    "expected": 201,
+    "actual": 201,
+    "passed": true,
+    "ms": 55
+  },
+  {
+    "method": "POST",
+    "route": "/api/admin/products",
+    "expected": 201,
+    "actual": 201,
+    "passed": true,
+    "ms": 379
+  },
+  {
+    "method": "POST",
+    "route": "/api/admin/coupons",
+    "expected": 201,
+    "actual": 201,
+    "passed": true,
+    "ms": 198
+  }
+]

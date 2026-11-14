@@ -1,5 +1,6 @@
-using Ecom.API.Controllers.Extensions;
+using System.Security.Claims;
 using Ecom.Application.DTOs.Product;
+using Ecom.Application.Services;
 using Ecom.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -118,9 +119,10 @@ namespace Ecom.API.Controllers
         [Authorize]
         public async Task<ActionResult<RatingDto>> myProductRate([FromQuery]int productId)
         {
-            var userId = User.GetUserId().ToString();
-            var ratings = await _productService.GetProductRatingsAsync(productId);
-            RatingDto? userRating = ratings.FirstOrDefault(r => r.CreatedBy == userId);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
+            var userRating = await _productService.GetOwnProductRatingAsync(productId, userId);
 
             if (userRating == null)
             {
@@ -130,7 +132,8 @@ namespace Ecom.API.Controllers
             return Ok(userRating);
         }
         [HttpPost("{id}/ratings")]
-        public async Task<ActionResult<RatingDto>> AddProductRating(int id, [FromBody] RatingCreateDto ratingDto)
+        [Authorize]
+        public async Task<ActionResult<RatingDto>> AddProductRating(int id, [FromBody] CustomerRatingCreateDto ratingDto)
         {
             if (id != ratingDto.ProductId)
             {
@@ -142,14 +145,26 @@ namespace Ecom.API.Controllers
                 return BadRequest(ModelState);
             }
 
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
             try
             {
-                var rating = await _productService.AddProductRatingAsync(ratingDto);
+                var rating = await _productService.AddCustomerProductRatingAsync(userId, ratingDto.OrderId, ratingDto);
+                if (rating is null) return Forbid();
                 return CreatedAtAction(nameof(GetProductRatings), new { id = id }, rating);
             }
-            catch (Exception ex)
+            catch (DuplicateRatingException ex)
             {
-                return BadRequest(ex.Message);
+                return Conflict(ex.Message);
+            }
+            catch (ArgumentException)
+            {
+                return NotFound();
+            }
+            catch (InvalidOperationException)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden);
             }
         }
 

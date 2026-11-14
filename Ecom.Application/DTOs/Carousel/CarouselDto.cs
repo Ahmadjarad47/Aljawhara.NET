@@ -89,8 +89,6 @@ namespace Ecom.Application.DTOs.Carousel
         [Range(0, double.MaxValue, ErrorMessage = "Price must be 0 or greater")]
         public decimal Price { get; set; }
         
-        public string Image { get; set; } = string.Empty;
-
         [StringLength(500, ErrorMessage = "Product URL cannot exceed 500 characters")]
         public string ProductUrl { get; set; } = string.Empty;
     }

@@ -89,10 +89,11 @@ public class AuthController : ControllerBase
         
         if (!result.Success)
         {
-                return BadRequest(new ApiResponseDto
+            return BadRequest(new AccountValidationResponseDto
             {
                 Success = false,
-                Message = result.Message
+                Message = result.Message,
+                FieldErrors = result.FieldErrors
             });
         }
 
@@ -382,10 +383,11 @@ public class AuthController : ControllerBase
         var result = await _userManagerService.UpdateUsernameAsync(userId, dto.Username);
         if (!result.Success)
         {
-            return BadRequest(new ApiResponseDto
+            return BadRequest(new AccountValidationResponseDto
             {
                 Success = false,
-                Message = result.Message
+                Message = result.Message,
+                FieldErrors = result.ErrorCode is { } code ? new() { ["username"] = [code] } : null
             });
         }
 
@@ -727,6 +729,8 @@ public class AuthController : ControllerBase
     //}
 
     [HttpPost("contact")]
+    [EnableRateLimiting("contact")]
+    [RequestSizeLimit(32 * 1024)]
     public async Task<IActionResult> Contact([FromBody] ContactDto contactDto)
     {
         if (!ModelState.IsValid)
@@ -764,13 +768,12 @@ public class AuthController : ControllerBase
                 Message = "Your message has been sent successfully. We will get back to you soon."
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return BadRequest(new ApiResponseDto
             {
                 Success = false,
-                Message = "An error occurred while sending your message.",
-                Errors = new List<string> { ex.Message }
+                Message = "An error occurred while sending your message."
             });
         }
     }

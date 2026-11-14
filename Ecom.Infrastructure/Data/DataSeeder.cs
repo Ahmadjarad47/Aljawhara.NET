@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Linq;
+using System.Security.Cryptography;
+using Microsoft.Extensions.Configuration;
 
 namespace Ecom.Infrastructure.Data
 {
@@ -14,41 +16,41 @@ namespace Ecom.Infrastructure.Data
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
-            if (serviceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
+            if (!serviceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment())
                 return;
-          
+
+            if (serviceProvider.GetRequiredService<IConfiguration>().GetValue<bool>("DevelopmentFixtures:Enabled") != true)
+                return;
+
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUsers>>();
-            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-            // Ensure database is created
-            await context.Database.EnsureCreatedAsync();
-
-            ////// Seed Roles
-            await SeedRolesAsync(roleManager);
-
-
-            ////// Seed Admin User
-            await SeedAdminUserAsync(userManager);
-
-            //////// Seed all entities in order 
-            ///
-            //#if DEBUG
             await SeedCategoriesAsync(context);
             await SeedSubCategoriesAsync(context);
             await SeedProductsAsync(context);
             await SeedProductDetailsAsync(context);
-            await SeedUsersAsync(userManager);
-            await SeedShippingAddressesAsync(context);
+            var fixtureUsers = await SeedUsersAsync(userManager);
+            await SeedShippingAddressesAsync(context, fixtureUsers);
             await SeedRatingsAsync(context);
             await SeedCouponsAsync(context);
-            await SeedOrdersAsync(context);
-            await SeedOrderItemsAsync(context);
-            await SeedTransactionsAsync(context);
+            await SeedOrdersAsync(context, fixtureUsers);
+            await SeedOrderItemsAsync(context, fixtureUsers);
+            await SeedTransactionsAsync(context, fixtureUsers);
             await SeedVisitorsAsync(context);
             await SeedHealthPingsAsync(context);
-//#endif
+        }
+
+        public static async Task InitializeIdentityAsync(IServiceProvider services)
+        {
+            var environment = services.GetRequiredService<IHostEnvironment>();
+            // Keep non-demo role initialization in the environments where it previously ran.
+            if (environment.IsProduction())
+                return;
+
+            await SeedRolesAsync(services.GetRequiredService<RoleManager<IdentityRole>>());
+            // A real bootstrap administrator is separate from demo fixtures.
+            await SeedAdminUserAsync(services.GetRequiredService<UserManager<AppUsers>>());
         }
 
         /// <summary>
@@ -534,25 +536,26 @@ namespace Ecom.Infrastructure.Data
             await context.SaveChangesAsync();
         }
 
-        private static async Task SeedUsersAsync(UserManager<AppUsers> userManager)
+        private static async Task<List<string>> SeedUsersAsync(UserManager<AppUsers> userManager)
         {
+            var created = new List<string>();
             if (await userManager.Users.CountAsync() > 1) // More than just admin
             {
-                return;
+                return created;
             }
 
             var users = new[]
             {
-                new { Email = "user1@example.com", Password = "User@123", Name = "Ahmed", CreatedAt = GetRandomDate(2022, 4) },
-                new { Email = "user2@example.com", Password = "User@123", Name = "Sara", CreatedAt = GetRandomDate(2022, 7) },
-                new { Email = "user3@example.com", Password = "User@123", Name = "Mohammed", CreatedAt = GetRandomDate(2022, 9) },
-                new { Email = "user4@example.com", Password = "User@123", Name = "Fatima", CreatedAt = GetRandomDate(2023, 1) },
-                new { Email = "user5@example.com", Password = "User@123", Name = "Ali", CreatedAt = GetRandomDate(2023, 5) },
-                new { Email = "user6@example.com", Password = "User@123", Name = "Layla", CreatedAt = GetRandomDate(2023, 8) },
-                new { Email = "user7@example.com", Password = "User@123", Name = "Omar", CreatedAt = GetRandomDate(2023, 11) },
-                new { Email = "user8@example.com", Password = "User@123", Name = "Aisha", CreatedAt = GetRandomDate(2024, 2) },
-                new { Email = "user9@example.com", Password = "User@123", Name = "Hassan", CreatedAt = GetRandomDate(2024, 6) },
-                new { Email = "user10@example.com", Password = "User@123", Name = "Noor", CreatedAt = GetRandomDate(2024, 9) }
+                new { Email = "user1@example.com", Name = "Ahmed", CreatedAt = GetRandomDate(2022, 4) },
+                new { Email = "user2@example.com", Name = "Sara", CreatedAt = GetRandomDate(2022, 7) },
+                new { Email = "user3@example.com", Name = "Mohammed", CreatedAt = GetRandomDate(2022, 9) },
+                new { Email = "user4@example.com", Name = "Fatima", CreatedAt = GetRandomDate(2023, 1) },
+                new { Email = "user5@example.com", Name = "Ali", CreatedAt = GetRandomDate(2023, 5) },
+                new { Email = "user6@example.com", Name = "Layla", CreatedAt = GetRandomDate(2023, 8) },
+                new { Email = "user7@example.com", Name = "Omar", CreatedAt = GetRandomDate(2023, 11) },
+                new { Email = "user8@example.com", Name = "Aisha", CreatedAt = GetRandomDate(2024, 2) },
+                new { Email = "user9@example.com", Name = "Hassan", CreatedAt = GetRandomDate(2024, 6) },
+                new { Email = "user10@example.com", Name = "Noor", CreatedAt = GetRandomDate(2024, 9) }
             };
 
             foreach (var userData in users)
@@ -571,9 +574,12 @@ namespace Ecom.Infrastructure.Data
                         IsActive = _random.Next(100) > 10 // 90% active
                     };
 
-                    var result = await userManager.CreateAsync(user, userData.Password);
+                    // Satisfy Identity complexity without embedding or disclosing the credential.
+                    var password = $"Aa1!{Convert.ToHexString(RandomNumberGenerator.GetBytes(32))}";
+                    var result = await userManager.CreateAsync(user, password);
                     if (result.Succeeded)
                     {
+                        created.Add(user.Id);
                         await userManager.AddToRoleAsync(user, "User");
                         // Update CreatedAt after creation
                         user.CreatedAt = userData.CreatedAt;
@@ -581,16 +587,17 @@ namespace Ecom.Infrastructure.Data
                     }
                 }
             }
+            return created;
         }
 
-        private static async Task SeedShippingAddressesAsync(EcomDbContext context)
+        private static async Task SeedShippingAddressesAsync(EcomDbContext context, List<string> fixtureUsers)
         {
             if (await context.ShippingAddresses.AnyAsync())
             {
                 return;
             }
 
-            var users = await context.Set<AppUsers>().ToListAsync();
+            var users = await context.Users.Where(u => fixtureUsers.Contains(u.Id)).ToListAsync();
             if (!users.Any())
             {
                 return;
@@ -911,15 +918,15 @@ namespace Ecom.Infrastructure.Data
             await context.SaveChangesAsync();
         }
 
-        private static async Task SeedOrdersAsync(EcomDbContext context)
+        private static async Task SeedOrdersAsync(EcomDbContext context, List<string> fixtureUsers)
         {
             if (await context.Orders.AnyAsync())
             {
                 return;
             }
 
-            var users = await context.Set<AppUsers>().ToListAsync();
-            var shippingAddresses = await context.ShippingAddresses.ToListAsync();
+            var users = await context.Users.Where(u => fixtureUsers.Contains(u.Id)).ToListAsync();
+            var shippingAddresses = await context.ShippingAddresses.Where(a => a.AppUserId != null && fixtureUsers.Contains(a.AppUserId)).ToListAsync();
             var coupons = await context.Coupons.Where(c => c.IsActive).ToListAsync();
 
             if (!users.Any() || !shippingAddresses.Any())
@@ -1052,14 +1059,14 @@ namespace Ecom.Infrastructure.Data
             await context.SaveChangesAsync();
         }
 
-        private static async Task SeedOrderItemsAsync(EcomDbContext context)
+        private static async Task SeedOrderItemsAsync(EcomDbContext context, List<string> fixtureUsers)
         {
             if (await context.OrderItems.AnyAsync())
             {
                 return;
             }
 
-            var orders = await context.Orders.ToListAsync();
+            var orders = await context.Orders.Where(o => o.AppUserId != null && fixtureUsers.Contains(o.AppUserId)).ToListAsync();
             var products = await context.Products.ToListAsync();
 
             if (!orders.Any() || !products.Any())
@@ -1097,14 +1104,15 @@ namespace Ecom.Infrastructure.Data
             await context.SaveChangesAsync();
         }
 
-        private static async Task SeedTransactionsAsync(EcomDbContext context)
+        private static async Task SeedTransactionsAsync(EcomDbContext context, List<string> fixtureUsers)
         {
             if (await context.Transactions.AnyAsync())
             {
                 return;
             }
 
-            var orders = await context.Orders.Include(o => o.AppUser).ToListAsync();
+            var orders = await context.Orders.Where(o => o.AppUserId != null && fixtureUsers.Contains(o.AppUserId))
+                .Include(o => o.AppUser).ToListAsync();
             if (!orders.Any())
             {
                 return;

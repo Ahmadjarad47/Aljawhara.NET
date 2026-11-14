@@ -1,7 +1,7 @@
 using AutoMapper;
 using Ecom.Application.DTOs.Carousel;
 using Ecom.Application.Services.Interfaces;
-using Ecom.Domain.Interfaces;
+using Ecom.Infrastructure.Services;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.UnitOfWork;
 using Microsoft.EntityFrameworkCore;
@@ -12,13 +12,13 @@ namespace Ecom.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IFileService _fileService;
+        private readonly CatalogImageService _images;
 
-        public CarouselService(IUnitOfWork unitOfWork, IMapper mapper, IFileService fileService)
+        public CarouselService(IUnitOfWork unitOfWork, IMapper mapper, CatalogImageService images)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _fileService = fileService;
+            _images = images;
         }
 
         public async Task<CarouselDto?> GetCarouselByIdAsync(int id)
@@ -53,20 +53,8 @@ namespace Ecom.Application.Services
         {
             var carousel = _mapper.Map<Carousel>(carouselDto);
 
-            // Handle file upload if image is provided
             if (carouselDto.Image != null)
-            {
-                try
-                {
-                    var directory = $"carousels/{DateTime.UtcNow:yyyy/MM/dd}";
-                    var imageUrl = await _fileService.SaveFileAsync(carouselDto.Image, directory);
-                    carousel.Image = imageUrl;
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception($"Error uploading image: {ex.Message}", ex);
-                }
-            }
+                carousel.Image = (await _images.UploadAsync([carouselDto.Image], CatalogImageArea.Carousels, Guid.NewGuid()))[0];
 
             await _unitOfWork.Carousels.AddAsync(carousel);
             await _unitOfWork.SaveChangesAsync();
@@ -105,46 +93,15 @@ namespace Ecom.Application.Services
             existingCarousel.ProductUrl = carouselDto.ProductUrl;
 
             // Handle image deletion if specified
-            if (!string.IsNullOrEmpty(carouselDto.ImageToDelete) && carouselDto.ImageToDelete == oldImageUrl)
-            {
-                try
-                {
-                    await _fileService.DeleteFileAsync(carouselDto.ImageToDelete);
-                    existingCarousel.Image = string.Empty;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error deleting image {carouselDto.ImageToDelete}: {ex.Message}");
-                }
-            }
 
-            // Handle new file upload if image is provided
+            if (!string.IsNullOrEmpty(carouselDto.ImageToDelete) &&
+                !string.Equals(carouselDto.ImageToDelete, oldImageUrl, StringComparison.Ordinal))
+                throw new CatalogImageException("The image selected for removal does not belong to this carousel.");
+
             if (carouselDto.Image != null)
-            {
-                try
-                {
-                    // Delete old image if it exists
-                    if (!string.IsNullOrEmpty(oldImageUrl) && oldImageUrl != carouselDto.ImageToDelete)
-                    {
-                        try
-                        {
-                            await _fileService.DeleteFileAsync(oldImageUrl);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error deleting old image {oldImageUrl}: {ex.Message}");
-                        }
-                    }
-
-                    var directory = $"carousels/{DateTime.UtcNow:yyyy/MM/dd}";
-                    var imageUrl = await _fileService.SaveFileAsync(carouselDto.Image, directory);
-                    existingCarousel.Image = imageUrl;
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception($"Error uploading image: {ex.Message}", ex);
-                }
-            }
+                existingCarousel.Image = (await _images.UploadAsync([carouselDto.Image], CatalogImageArea.Carousels, Guid.NewGuid()))[0];
+            else if (!string.IsNullOrEmpty(carouselDto.ImageToDelete))
+                existingCarousel.Image = string.Empty;
 
             _unitOfWork.Carousels.Update(existingCarousel);
             await _unitOfWork.SaveChangesAsync();
@@ -157,19 +114,6 @@ namespace Ecom.Application.Services
             var carousel = await _unitOfWork.Carousels.GetByIdAsync(id);
             if (carousel == null)
                 return false;
-
-            // Delete the image file if it exists
-            if (!string.IsNullOrEmpty(carousel.Image))
-            {
-                try
-                {
-                    await _fileService.DeleteFileAsync(carousel.Image);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error deleting image {carousel.Image}: {ex.Message}");
-                }
-            }
 
             _unitOfWork.Carousels.SoftDelete(carousel);
             await _unitOfWork.SaveChangesAsync();

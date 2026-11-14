@@ -202,25 +202,13 @@ namespace Ecom.API.Controllers
         }
 
         /// <summary>
-        /// Delete a transaction
+        /// Legacy deletion route. Financial records are retained.
         /// </summary>
         [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteTransaction(int id)
-        {
-            try
-            {
-                var result = await _transactionService.DeleteTransactionAsync(id);
-                if (!result)
-                {
-                    return NotFound($"Transaction with ID {id} not found.");
-                }
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Error deleting transaction: {ex.Message}");
-            }
-        }
+        public ActionResult DeleteTransaction(int id) => Problem(
+            statusCode: StatusCodes.Status410Gone,
+            title: "Transaction deletion is disabled.",
+            detail: "Financial records are retained for reconciliation and audit.");
 
         /// <summary>
         /// Process payment for an order
@@ -556,11 +544,11 @@ namespace Ecom.API.Controllers
                 var csvData = await _transactionService.ExportTransactionsToCsvAsync(filter);
                 var fileName = $"transactions_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
                 
-                return File(csvData, "text/csv", fileName);
+                return File(csvData, "text/csv; charset=utf-8", fileName);
             }
-            catch (Exception ex)
+            catch (ArgumentException)
             {
-                return BadRequest($"Error exporting transactions: {ex.Message}");
+                return BadRequest("Invalid transaction export filter.");
             }
         }
 
@@ -577,9 +565,9 @@ namespace Ecom.API.Controllers
                 
                 return File(excelData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
-            catch (Exception ex)
+            catch (ArgumentException)
             {
-                return BadRequest($"Error exporting transactions: {ex.Message}");
+                return BadRequest("Invalid transaction export filter.");
             }
         }
     }

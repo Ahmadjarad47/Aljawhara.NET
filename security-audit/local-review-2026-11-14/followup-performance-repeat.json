@@ -1,0 +1,138 @@
+{
+  "sample": {
+    "baseline": {
+      "firstObservedFull": {
+        "n": 1,
+        "bytes": 294104,
+        "p50ms": 304.62,
+        "p95ms": 304.62,
+        "productSql": 1
+      },
+      "full": {
+        "productSql": 0,
+        "allSql": 0,
+        "n": 12,
+        "bytes": 294104,
+        "p50ms": 4.36,
+        "p95ms": 16.51
+      },
+      "search": {
+        "productSql": 4,
+        "allSql": 4,
+        "n": 28,
+        "bytes": 312790,
+        "p50ms": 49.84,
+        "p95ms": 78.53
+      },
+      "page": {
+        "productSql": 3,
+        "allSql": 3,
+        "n": 12,
+        "bytes": 6264,
+        "p50ms": 5.54,
+        "p95ms": 7.32
+      },
+      "detail": {
+        "productSql": 5,
+        "allSql": 5,
+        "n": 12,
+        "bytes": 617,
+        "p50ms": 5.46,
+        "p95ms": 6.26
+      },
+      "shipping": {
+        "productSql": 0,
+        "allSql": 1,
+        "n": 12,
+        "bytes": 696,
+        "p50ms": 2.78,
+        "p95ms": 7.6
+      }
+    },
+    "optimized": {
+      "firstObservedFull": {
+        "n": 1,
+        "bytes": 294104,
+        "p50ms": 274.67,
+        "p95ms": 274.67,
+        "productSql": 1
+      },
+      "full": {
+        "productSql": 0,
+        "allSql": 0,
+        "n": 12,
+        "bytes": 294104,
+        "p50ms": 4.29,
+        "p95ms": 16.56
+      },
+      "search": {
+        "productSql": 2,
+        "allSql": 2,
+        "n": 28,
+        "bytes": 312790,
+        "p50ms": 33.62,
+        "p95ms": 45.91
+      },
+      "page": {
+        "productSql": 3,
+        "allSql": 3,
+        "n": 12,
+        "bytes": 6264,
+        "p50ms": 5.61,
+        "p95ms": 6.58
+      },
+      "detail": {
+        "productSql": 5,
+        "allSql": 5,
+        "n": 12,
+        "bytes": 617,
+        "p50ms": 5.46,
+        "p95ms": 9.49
+      },
+      "shipping": {
+        "productSql": 0,
+        "allSql": 1,
+        "n": 12,
+        "bytes": 696,
+        "p50ms": 2.86,
+        "p95ms": 7.8
+      }
+    }
+  },
+  "correctness": {
+    "full": true,
+    "search": true,
+    "page": true,
+    "detail": true,
+    "shipping": true
+  },
+  "processBefore": [
+    {
+      "port": 54294,
+      "cpu": 5.875,
+      "working": 63905792,
+      "private": 78483456
+    },
+    {
+      "port": 54293,
+      "cpu": 5.8125,
+      "working": 63795200,
+      "private": 78532608
+    }
+  ],
+  "processAfter": [
+    {
+      "port": 54294,
+      "cpu": 10.3125,
+      "working": 190693376,
+      "private": 126590976
+    },
+    {
+      "port": 54293,
+      "cpu": 10.59375,
+      "working": 195874816,
+      "private": 130850816
+    }
+  ],
+  "note": "Per-process counters include hosted workers; first observed full is cache-cold only when it performs SQL. Search and filtered page bypass the repository collection cache."
+}

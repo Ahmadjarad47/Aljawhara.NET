@@ -1,0 +1,484 @@
+{
+  "checks": [
+    {
+      "name": "Public catalog and product detail",
+      "result": "passed"
+    },
+    {
+      "name": "Guest cart",
+      "result": "passed"
+    },
+    {
+      "name": "Guest denied admin route",
+      "result": "passed"
+    },
+    {
+      "name": "Register and verify email",
+      "result": "passed"
+    },
+    {
+      "name": "Customer login",
+      "result": "passed"
+    },
+    {
+      "name": "Customer denied admin route",
+      "result": "passed"
+    },
+    {
+      "name": "Catalog and add to customer cart",
+      "result": "passed"
+    },
+    {
+      "name": "Apply valid coupon",
+      "result": "passed"
+    },
+    {
+      "name": "Place one pay-on-delivery order",
+      "result": "passed"
+    },
+    {
+      "name": "Customer order history",
+      "result": "passed"
+    },
+    {
+      "name": "Open review surface",
+      "result": "passed"
+    },
+    {
+      "name": "Admin login and dashboard",
+      "result": "passed"
+    },
+    {
+      "name": "Admin product list",
+      "result": "passed"
+    },
+    {
+      "name": "Recovery mail, invalid and expired code handling, normal reset and login",
+      "result": "failed",
+      "detail": "Expected values to be strictly equal:"
+    }
+  ],
+  "requests": [
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Products",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Products/1",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Products/subcategory/1/random",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "guest",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "POST",
+      "path": "/api/Auth/register",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "POST",
+      "path": "/api/Auth/verify",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "POST",
+      "path": "/api/Auth/login",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Auth/isAdmin",
+      "status": 403
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Products/1",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Products/subcategory/1/random",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Products/if-rating-return-it",
+      "status": 404
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "POST",
+      "path": "/api/Coupons/validate",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Auth/addresses",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "POST",
+      "path": "/api/Auth/addresses",
+      "status": 201
+    },
+    {
+      "context": "customer",
+      "method": "POST",
+      "path": "/api/Orders",
+      "status": 201
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Orders/my-orders",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Products/1",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Products/subcategory/1/random",
+      "status": 200
+    },
+    {
+      "context": "customer",
+      "method": "GET",
+      "path": "/api/Products/if-rating-return-it",
+      "status": 404
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "POST",
+      "path": "/api/Auth/login",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/Auth/isAdmin",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/dashboard/last-users",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/dashboard/last-orders",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/dashboard/transactions/chart",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/dashboard/users/chart",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/dashboard/summary",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/Auth/isAdmin",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/categories/all",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/categories/subcategories/all",
+      "status": 200
+    },
+    {
+      "context": "admin",
+      "method": "GET",
+      "path": "/api/admin/products",
+      "status": 200
+    },
+    {
+      "context": "recovery",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "recovery",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "recovery",
+      "method": "POST",
+      "path": "/api/Auth/forgot-password",
+      "status": 200
+    },
+    {
+      "context": "recovery",
+      "method": "POST",
+      "path": "/api/Auth/reset-password",
+      "status": 400
+    },
+    {
+      "context": "recovery",
+      "method": "POST",
+      "path": "/api/Auth/reset-password",
+      "status": 400
+    },
+    {
+      "context": "recovery",
+      "method": "GET",
+      "path": "/api/shipping",
+      "status": 200
+    },
+    {
+      "context": "recovery",
+      "method": "GET",
+      "path": "/api/Categories",
+      "status": 200
+    },
+    {
+      "context": "recovery",
+      "method": "POST",
+      "path": "/api/Auth/forgot-password",
+      "status": 200
+    },
+    {
+      "context": "recovery",
+      "method": "POST",
+      "path": "/api/Auth/reset-password",
+      "status": 400
+    }
+  ],
+  "blockedExternalRequests": 3
+}

@@ -17,6 +17,7 @@ namespace Ecom.Domain.Entity
         public int TotalInStock { get; set; } = 0;
 
         public string[] Images { get; set; } = Array.Empty<string>();
+        public Guid? ImageOwnerId { get; set; }
         public List<ProductDetails> productDetails { get; set; } = new List<ProductDetails>();
 
         public List<Rating> Ratings { get; set; } = new List<Rating>();

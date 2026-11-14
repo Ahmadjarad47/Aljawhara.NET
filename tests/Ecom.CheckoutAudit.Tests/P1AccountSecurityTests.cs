@@ -71,6 +71,277 @@ public sealed class P1AccountSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Removing_a_saved_address_keeps_existing_orders_and_financial_records_visible()
+    {
+        var owner = await LoginAsync(Owner);
+        var admin = await LoginAsync(Admin);
+        await using var scope = _host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var userId = await db.Users.Where(u => u.Email == Owner).Select(u => u.Id).SingleAsync(Ct);
+        var address = new ShippingAddress { AppUserId = userId, FullName = "Historical recipient" };
+        var order = new Order { AppUserId = userId, OrderNumber = "ADDRESS-HISTORY-FIXTURE", ShippingAddress = address,
+            Total = 12.5m, Subtotal = 12.5m };
+        var transaction = new Transaction { AppUserId = userId, Order = order, Amount = 12.5m, PaymentMethod = PaymentMethod.Cod };
+        db.Add(transaction);
+        await db.SaveChangesAsync(Ct);
+
+        using var removed = await SendAsync(HttpMethod.Delete, $"/api/auth/addresses/{address.Id}", owner.Token);
+        Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+        using var hidden = await SendAsync(HttpMethod.Get, $"/api/auth/addresses/{address.Id}", owner.Token);
+        Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+        using var hiddenFromAdminAddressBook = await SendAsync(HttpMethod.Get,
+            $"/api/admin/auth/user/{userId}/addresses/{address.Id}", admin.Token);
+        Assert.Equal(HttpStatusCode.NotFound, hiddenFromAdminAddressBook.StatusCode);
+
+        using var customerOrder = await SendAsync(HttpMethod.Get, $"/api/orders/{order.Id}", owner.Token);
+        Assert.Equal(HttpStatusCode.OK, customerOrder.StatusCode);
+        using var orderHistory = await SendAsync(HttpMethod.Get, "/api/orders/my-orders", owner.Token);
+        Assert.Equal(HttpStatusCode.OK, orderHistory.StatusCode);
+        Assert.Contains((await orderHistory.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: Ct)).EnumerateArray(),
+            entry => entry.GetProperty("id").GetInt32() == order.Id);
+        using var retainedTransaction = await SendAsync(HttpMethod.Get, $"/api/admin/transaction/{transaction.Id}", admin.Token);
+        Assert.Equal(HttpStatusCode.OK, retainedTransaction.StatusCode);
+        db.ChangeTracker.Clear();
+        Assert.True(await db.ShippingAddresses.Where(a => a.Id == address.Id).Select(a => a.IsDeleted).SingleAsync(Ct));
+        Assert.Equal(address.Id, await db.Orders.Where(o => o.Id == order.Id).Select(o => o.ShippingAddressId).SingleAsync(Ct));
+        Assert.Equal(order.Total, await db.Transactions.Where(t => t.Id == transaction.Id).Select(t => t.Amount).SingleAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Customers_can_create_multiple_addresses_and_only_the_owner_can_change_them()
+    {
+        var owner = await LoginAsync(Owner);
+        var other = await LoginAsync(Other);
+        const string route = "/api/auth/addresses";
+        var input = new { fullName = "Fixture recipient", addressLine1 = "Fixture address", phoneNumber = "+96550012345" };
+
+        using var first = await SendAsync(HttpMethod.Post, route, owner.Token, input);
+        using var second = await SendAsync(HttpMethod.Post, route, owner.Token, input with { addressLine1 = "Second address" });
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        var firstId = (await first.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: Ct)).GetProperty("data").GetProperty("id").GetInt32();
+        var secondId = (await second.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: Ct)).GetProperty("data").GetProperty("id").GetInt32();
+        Assert.NotEqual(firstId, secondId);
+        var update = new { id = secondId, input.fullName, addressLine1 = "Owner update", input.phoneNumber };
+
+        using var deniedRead = await SendAsync(HttpMethod.Get, $"{route}/{secondId}", other.Token);
+        using var deniedUpdate = await SendAsync(HttpMethod.Put, route, other.Token, update);
+        using var deniedDelete = await SendAsync(HttpMethod.Delete, $"{route}/{secondId}", other.Token);
+        Assert.Equal(HttpStatusCode.NotFound, deniedRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedUpdate.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedDelete.StatusCode);
+
+        await using var scope = _host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        Assert.Equal("Second address", await db.ShippingAddresses.Where(a => a.Id == secondId)
+            .Select(a => a.AddressLine1).SingleAsync(Ct));
+        using var ownerUpdate = await SendAsync(HttpMethod.Put, route, owner.Token, update);
+        Assert.Equal(HttpStatusCode.OK, ownerUpdate.StatusCode);
+        Assert.Equal("Owner update", await db.ShippingAddresses.Where(a => a.Id == secondId)
+            .Select(a => a.AddressLine1).SingleAsync(Ct));
+        using var ownerDelete = await SendAsync(HttpMethod.Delete, $"{route}/{secondId}", owner.Token);
+        Assert.Equal(HttpStatusCode.OK, ownerDelete.StatusCode);
+        Assert.False(await db.ShippingAddresses.IgnoreQueryFilters().AnyAsync(a => a.Id == secondId, Ct));
+        Assert.True(await db.ShippingAddresses.AnyAsync(a => a.Id == firstId, Ct));
+    }
+
+    [Fact]
+    public async Task Catalog_search_keeps_summary_values_and_admin_search_keeps_product_details()
+    {
+        var admin = await LoginAsync(Admin);
+        await using var scope = _host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var product = new Product
+        {
+            Title = "Fixture Search Product", newPrice = 12.5m, TotalInStock = 3,
+            Images = ["/fixture.png"],
+            subCategory = new SubCategory { Name = "Fixture Subcategory", Category = new Category { Name = "Fixture Category" } },
+            Ratings = [new Rating { RatingNumber = 4, Content = "Synthetic review" }]
+        };
+        db.Products.Add(product);
+        await db.SaveChangesAsync(Ct);
+
+        using var summary = await _client.GetAsync("/api/products?searchTerm=Fixture%20Search", Ct);
+        Assert.Equal(HttpStatusCode.OK, summary.StatusCode);
+        var item = Assert.Single((await summary.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: Ct)).EnumerateArray());
+        Assert.Equal(product.Id, item.GetProperty("id").GetInt32());
+        Assert.Equal("Fixture Subcategory", item.GetProperty("subCategoryName").GetString());
+        Assert.Equal(4, item.GetProperty("averageRating").GetDouble());
+        Assert.Equal(1, item.GetProperty("totalReviews").GetInt32());
+        Assert.Equal("/fixture.png", item.GetProperty("mainImage").GetString());
+
+        using var details = await SendAsync(HttpMethod.Get, "/api/admin/products?searchTerm=Fixture%20Search", admin.Token);
+        Assert.Equal(HttpStatusCode.OK, details.StatusCode);
+        var detail = Assert.Single((await details.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: Ct))
+            .GetProperty("items").EnumerateArray());
+        Assert.Equal(product.Id, detail.GetProperty("id").GetInt32());
+        Assert.Single(detail.GetProperty("ratings").EnumerateArray());
+        Assert.Single(detail.GetProperty("images").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Global_rate_limit_separates_real_accounts_from_each_other_and_from_anonymous_requests()
+    {
+        var owner = await LoginAsync(Owner);
+        var other = await LoginAsync(Other);
+
+        for (var i = 0; i < 100; i++)
+        {
+            using var response = await SendAsync(HttpMethod.Get, "/api/auth/me", owner.Token);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        using var limited = await SendAsync(HttpMethod.Get, "/api/auth/me", owner.Token);
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        using var unaffected = await SendAsync(HttpMethod.Get, "/api/auth/me", other.Token);
+        Assert.Equal(HttpStatusCode.OK, unaffected.StatusCode);
+        using var anonymous = await _client.GetAsync("/api/auth/me", Ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+    }
+
+    [Fact]
+    public async Task Transaction_deletion_preserves_ledger_values_and_payment_references()
+    {
+        var customer = await LoginAsync(Owner);
+        var admin = await LoginAsync(Admin);
+        await using var scope = _host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var order = new Order { OrderNumber = "FINANCIAL-RETENTION", Total = 12.5m, Subtotal = 12.5m,
+            Status = OrderStatus.Delivered, ShippingAddress = new ShippingAddress { FullName = "Fixture" } };
+        var transactions = new[]
+        {
+            new Transaction { Order = order, Amount = 12.5m, PaymentMethod = PaymentMethod.Card,
+                Status = TransactionStatus.Paid, TransactionReference = "verified", GatewayVerifiedAtUtc = DateTime.UtcNow },
+            new Transaction { Order = order, Amount = 12.5m, PaymentMethod = PaymentMethod.Card,
+                Status = TransactionStatus.Refunded, TransactionReference = "refunded", IsRefunded = true, RefundAmount = 2.5m },
+            new Transaction { Order = order, Amount = 12.5m, PaymentMethod = PaymentMethod.Cod,
+                Status = TransactionStatus.Collected, TransactionReference = "cash" },
+            new Transaction { Order = order, Amount = 12.5m, PaymentMethod = PaymentMethod.Bank,
+                Status = TransactionStatus.Failed, TransactionReference = "historical", Notes = "Original ledger note" },
+            new Transaction { Order = order, Amount = 12.5m, PaymentMethod = PaymentMethod.Card,
+                Status = TransactionStatus.Paid, TransactionReference = "linked" }
+        };
+        db.Transactions.AddRange(transactions);
+        await db.SaveChangesAsync(Ct);
+        var attempt = new PaymentAttempt { OrderId = order.Id, TransactionId = transactions[^1].Id,
+            MerchantReference = "retention-attempt", IdempotencyKeyHash = "retention-key",
+            RequestHash = "retention-request", Amount = 12.5m, Status = PaymentAttemptStatus.Paid };
+        db.PaymentAttempts.Add(attempt);
+        await db.SaveChangesAsync(Ct);
+        db.ChangeTracker.Clear();
+
+        var ledger = db.Transactions.IgnoreQueryFilters().Where(t => t.OrderId == order.Id)
+            .OrderBy(t => t.Id).Select(t => new { t.Id, t.Status, t.Amount, t.PaymentMethod, t.TransactionReference,
+                t.IsRefunded, t.RefundAmount, t.Notes, t.GatewayVerifiedAtUtc, t.IsDeleted, t.UpdatedAt });
+        var before = await ledger.ToListAsync(Ct);
+        var route = $"/api/admin/transaction/{transactions[0].Id}";
+        using var anonymous = await _client.DeleteAsync(route, Ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        using var forbidden = await SendAsync(HttpMethod.Delete, route, customer.Token);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        foreach (var transaction in transactions)
+        {
+            var transactionRoute = $"/api/admin/transaction/{transaction.Id}";
+            using var response = await SendAsync(HttpMethod.Delete, transactionRoute, admin.Token);
+            Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+            using var visible = await SendAsync(HttpMethod.Get, transactionRoute, admin.Token);
+            Assert.Equal(HttpStatusCode.OK, visible.StatusCode);
+        }
+        Assert.Equal(before, await ledger.ToListAsync(Ct));
+        Assert.Equal(transactions[^1].Id, await db.PaymentAttempts.Where(p => p.Id == attempt.Id)
+            .Select(p => p.TransactionId).SingleAsync(Ct));
+        Assert.Equal(order.Total, await db.Orders.Where(o => o.Id == order.Id).Select(o => o.Total).SingleAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Production_bearer_identity_controls_customer_and_Admin_review_writes()
+    {
+        var owner = await LoginAsync(Owner);
+        var other = await LoginAsync(Other);
+        var admin = await LoginAsync(Admin);
+        await using var scope = _host.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var ownerId = await db.Users.Where(u => u.Email == Owner).Select(u => u.Id).SingleAsync(Ct);
+        var adminId = await db.Users.Where(u => u.Email == Admin).Select(u => u.Id).SingleAsync(Ct);
+        var product = new Product { Title = "Test product",
+            subCategory = new SubCategory { Name = "Test subcategory", Category = new Category { Name = "Test category" } } };
+        var order = new Order { OrderNumber = "P2-REVIEWS", AppUserId = ownerId, Status = OrderStatus.Delivered,
+            ShippingAddress = new ShippingAddress { FullName = "Recipient" },
+            Items = [new OrderItem { Product = product, Quantity = 1 }] };
+        db.Add(order);
+        await db.SaveChangesAsync(Ct);
+
+        var input = new { productId = product.Id, orderId = order.Id, ratingNumber = 4, content = "Test review",
+            reviewerUserId = adminId, createdBy = adminId };
+        var path = $"/api/products/{product.Id}/ratings";
+        var adminPath = $"/api/admin/products/{product.Id}/ratings";
+        using var invalid = await SendAsync(HttpMethod.Post, path, owner.Token + "tampered", input);
+        Assert.Equal(HttpStatusCode.Unauthorized, invalid.StatusCode);
+        using var nonOwner = await SendAsync(HttpMethod.Post, path, other.Token, input);
+        Assert.Equal(HttpStatusCode.Forbidden, nonOwner.StatusCode);
+        using var notAdmin = await SendAsync(HttpMethod.Post, adminPath, other.Token, input);
+        Assert.Equal(HttpStatusCode.Forbidden, notAdmin.StatusCode);
+        using var review = await SendAsync(HttpMethod.Post, path, owner.Token, input);
+        Assert.Equal(HttpStatusCode.Created, review.StatusCode);
+        using var adminReview = await SendAsync(HttpMethod.Post, adminPath, admin.Token, input with { createdBy = ownerId });
+        Assert.Equal(HttpStatusCode.Created, adminReview.StatusCode);
+        using var duplicate = await SendAsync(HttpMethod.Post, adminPath, admin.Token, input);
+        Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+        var ratings = await db.Ratings.OrderBy(r => r.Id).ToListAsync(Ct);
+        Assert.Equal(new[] { ownerId, adminId }, ratings.Select(r => r.ReviewerUserId));
+        Assert.Equal(new[] { ownerId, adminId }, ratings.Select(r => r.CreatedBy));
+    }
+
+    [Fact]
+    public async Task Arabic_usernames_work_at_registration_and_profile_update()
+    {
+        const string email = "arabic-registration@example.test";
+        const string username = "أحمد ٢٢٣";
+        using var registration = await RegisterAsync(username, email);
+        Assert.Equal(HttpStatusCode.OK, registration.StatusCode);
+
+        await using var scope = _host.Services.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUsers>>();
+        Assert.Equal(username, (await users.FindByEmailAsync(email))?.UserName);
+
+        using var duplicate = await RegisterAsync(username, "duplicate@example.test");
+        await AssertFieldErrorAsync(duplicate, "username", "DuplicateUserName");
+
+        var owner = await LoginAsync(Owner);
+        const string changed = "مُحمَّد 123";
+        using var update = await SendAsync(HttpMethod.Put, "/api/auth/me/username", owner.Token, new { username = changed });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        Assert.Equal(changed, (await users.FindByEmailAsync(Owner))?.UserName);
+
+        using var invalidUpdate = await SendAsync(HttpMethod.Put, "/api/auth/me/username", owner.Token,
+            new { username = "مُحمَّد\u202e123" });
+        await AssertFieldErrorAsync(invalidUpdate, "username", "InvalidUserName");
+    }
+
+    [Fact]
+    public async Task Registration_errors_identify_username_and_password_separately()
+    {
+        using var invalidName = await RegisterAsync("أحمد/123", "invalid-name@example.test");
+        await AssertFieldErrorAsync(invalidName, "username", "InvalidUserName");
+
+        using var invalidPassword = await RegisterAsync("أحمد123", "invalid-password@example.test", "Synthetic!Password");
+        await AssertFieldErrorAsync(invalidPassword, "password", "PasswordRequiresDigit");
+    }
+
+    private Task<HttpResponseMessage> RegisterAsync(string username, string email, string password = Original) =>
+        _client.PostAsJsonAsync("/api/auth/register", new { username, email, phoneNumber = "1234567890",
+            password, confirmPassword = password }, Ct);
+
+    private async Task AssertFieldErrorAsync(HttpResponseMessage response, string field, string code)
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<AccountValidationResponseDto>(Ct);
+        Assert.NotNull(payload?.FieldErrors);
+        var error = Assert.Single(payload.FieldErrors);
+        Assert.Equal(field, error.Key);
+        Assert.Contains(code, error.Value);
+    }
+
+    [Fact]
     public async Task Concurrent_refresh_across_hosts_redeems_once_and_stores_only_the_winning_hash()
     {
         var login = await LoginAsync(Owner);

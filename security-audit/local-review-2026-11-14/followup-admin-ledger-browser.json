@@ -1,0 +1,7 @@
+{
+  "result": "passed",
+  "checks": [
+    "admin ledger renders retained paid row",
+    "single and bulk delete controls absent"
+  ]
+}

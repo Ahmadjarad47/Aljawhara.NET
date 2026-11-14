@@ -1,0 +1,8 @@
+{
+  "configuredLockTimeoutMs": 250,
+  "clientElapsedMs": 339.1,
+  "waitingWriteRejected": true,
+  "uncommittedStockVisible": false,
+  "writeAcceptedAfterRelease": true,
+  "finalStockUnchanged": true
+}

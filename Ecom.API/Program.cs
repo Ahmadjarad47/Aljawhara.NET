@@ -150,10 +150,11 @@ builder.Services.AddIdentity<AppUsers, IdentityRole>(options =>
     options.Tokens.EmailConfirmationTokenProvider = TokenOptions.DefaultEmailProvider;
     options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultProvider;
     
-    // Security: Prevent user enumeration
-    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+    // UsernameValidator handles allowed characters, including Arabic names.
+    options.User.AllowedUserNameCharacters = string.Empty;
 })
 .AddEntityFrameworkStores<EcomDbContext>()
+.AddUserValidator<UsernameValidator>()
 .AddDefaultTokenProviders();
 
 // Add AutoMapper
@@ -200,16 +201,17 @@ builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<AuthSessionService>();
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddScoped<IFileService, CloudflareR2Service>();
+builder.Services.AddScoped<ICatalogObjectStorage, CloudflareR2Service>();
+builder.Services.AddScoped<CatalogImageService>();
+builder.Services.AddOptions<CatalogImageOptions>().BindConfiguration("CatalogImages")
+    .Validate(options => options.IsValid(), "CatalogImages limits are outside their allowed ranges.")
+    .ValidateOnStart();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddSingleton<ISmtpTransport, SmtpTransport>();
 builder.Services.AddScoped<IUserManagerService, UserManagerService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddOptions<TelegramOptions>()
-    .Configure(options =>
-    {
-        builder.Configuration.GetSection("Telegram").Bind(options);
-        if (builder.Environment.IsEnvironment("Testing")) options.Enabled = true;
-    })
+    .BindConfiguration("Telegram")
     .Validate(options => options.IsValid(), "Invalid Telegram settings. Configure BotToken and ChatId when Telegram notifications are enabled.")
     .ValidateOnStart();
 builder.Services.AddHttpClient<TelegramOrderNotificationService>(client =>
@@ -383,14 +385,22 @@ builder.Services.AddRateLimiter(options =>
 {
     // Global rate limiter
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+    {
+        var userId = context.User.Identity?.IsAuthenticated == true
+            ? context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            : null;
+        var key = string.IsNullOrEmpty(userId)
+            ? $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}"
+            : $"user:{userId}";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: key,
             factory: partition => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
                 PermitLimit = 100, // Requests per window
                 Window = TimeSpan.FromMinutes(1) // Time window
-            }));
+            });
+    });
 
     static RateLimitPartition<string> PerClient(HttpContext context, int permits, TimeSpan window) =>
         RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
@@ -400,6 +410,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth-issue", context => PerClient(context, 10, TimeSpan.FromMinutes(5)));
     options.AddPolicy("auth-verify", context => PerClient(context, 20, TimeSpan.FromMinutes(5)));
     options.AddPolicy("auth-refresh", context => PerClient(context, 40, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("contact", context => PerClient(context, 3, TimeSpan.FromMinutes(10)));
 
     // Rejection response
     options.OnRejected = async (context, token) =>
@@ -485,9 +496,6 @@ app.UseResponseCompression();
 // Security: Request timeout (configured via Kestrel options above)
 // app.UseRequestTimeouts(); // Uncomment if RequestTimeouts package is added
 
-// Security: Rate limiting (must be before authentication)
-app.UseRateLimiter();
-
 // Security: HTTPS redirection
 if (!app.Environment.IsDevelopment())
 {
@@ -513,6 +521,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthentication();
+// Authentication supplies the stable account ID; sensitive endpoint policies still use the client IP.
+app.UseRateLimiter();
 app.UseAuthorization();
 
 // Only the empty dashboard shell and assets are public. All monitoring data requires an Admin JWT.
@@ -558,7 +568,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 
     await context.Database.MigrateAsync();
 
-    // Existing application initialization
+    await DataSeeder.InitializeIdentityAsync(scope.ServiceProvider);
     await DataSeeder.SeedAsync(scope.ServiceProvider);
 
   

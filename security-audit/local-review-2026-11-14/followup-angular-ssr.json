@@ -1,0 +1,43 @@
+{
+  "routes": [
+    {
+      "route": "/",
+      "status": 200,
+      "cacheControl": "no-store",
+      "hasAngularRoot": true,
+      "renderedCatalogFixture": true
+    },
+    {
+      "route": "/product",
+      "status": 200,
+      "cacheControl": "no-store",
+      "hasAngularRoot": true,
+      "renderedCatalogFixture": true
+    },
+    {
+      "route": "/product/1",
+      "status": 200,
+      "cacheControl": "no-store",
+      "hasAngularRoot": true,
+      "renderedCatalogFixture": true
+    },
+    {
+      "route": "/auth/forgot-password",
+      "status": 200,
+      "cacheControl": "",
+      "hasAngularRoot": true,
+      "renderedCatalogFixture": false
+    },
+    {
+      "route": "/auth/reset-password",
+      "status": 200,
+      "cacheControl": "",
+      "hasAngularRoot": true,
+      "renderedCatalogFixture": false
+    }
+  ],
+  "initialRaw": "659.37 kB",
+  "initialEstimatedTransfer": "145.56 kB",
+  "prerenderedRoutes": 30,
+  "environment": "Loopback, external font and critical CSS inlining disabled"
+}

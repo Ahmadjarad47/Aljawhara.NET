@@ -1,0 +1,20 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/Orders/{id}",
+    "expected": 200,
+    "actual": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/Orders/3/transactions",
+    "expected": 200,
+    "actual": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/Auth/addresses/{id}",
+    "expected": 404,
+    "actual": 404
+  }
+]

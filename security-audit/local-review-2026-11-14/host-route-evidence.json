@@ -1,0 +1,22 @@
+[
+  {
+    "method": "GET",
+    "path": "/health",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/admin/monitoring",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/swagger/v1/swagger.json",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/openapi/v1.json",
+    "status": 200
+  }
+]

@@ -175,7 +175,7 @@ namespace Ecom.Application.Services
                             if (!product.IsInStock || product.TotalInStock < requested.Quantity)
                                 throw new ArgumentException($"Insufficient stock for '{product.Title}'.");
                             subtotal += product.newPrice * requested.Quantity;
-                            orderItems.Add(new OrderItem { ProductId = product.Id, Name = product.Title, Image = product.Images?.FirstOrDefault() ?? "", Price = KwdMoney.Round(product.newPrice), Quantity = requested.Quantity });
+                            orderItems.Add(new OrderItem { ProductId = product.Id, Name = product.Title, Price = KwdMoney.Round(product.newPrice), Quantity = requested.Quantity });
                         }
                         order.Subtotal = KwdMoney.Round(subtotal);
 
@@ -211,9 +211,14 @@ namespace Ecom.Application.Services
                         foreach (var item in orderItems)
                         {
                             item.OrderId = order.Id;
-                            await _unitOfWork.OrderItems.AddAsync(item);
                             if (!await _productService.ReduceProductStockAsync(item.ProductId, item.Quantity))
                                 throw new InvalidOperationException($"Failed to reserve stock for {item.ProductId}.");
+                            // The stock write holds the product row lock. Snapshot the current image
+                            // here so concurrent catalog edits cannot leave a new order referencing a removed object.
+                            var images = await ecomDb.Products.Where(p => p.Id == item.ProductId)
+                                .Select(p => p.Images).SingleAsync();
+                            item.Image = images.FirstOrDefault() ?? "";
+                            await _unitOfWork.OrderItems.AddAsync(item);
                             ecomDb.InventoryReservations.Add(new InventoryReservation
                             {
                                 OrderId = order.Id, ProductId = item.ProductId, Quantity = item.Quantity,

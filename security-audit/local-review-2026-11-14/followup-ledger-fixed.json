@@ -1,0 +1,26 @@
+[
+  {
+    "fixture": "paid",
+    "deleteStatus": 410,
+    "readStatus": 200,
+    "remainingRows": 1
+  },
+  {
+    "fixture": "refunded",
+    "deleteStatus": 410,
+    "readStatus": 200,
+    "remainingRows": 1
+  },
+  {
+    "fixture": "cash",
+    "deleteStatus": 410,
+    "readStatus": 200,
+    "remainingRows": 1
+  },
+  {
+    "fixture": "historical-failed",
+    "deleteStatus": 410,
+    "readStatus": 200,
+    "remainingRows": 1
+  }
+]

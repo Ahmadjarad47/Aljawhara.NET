@@ -2,7 +2,7 @@ using AutoMapper;
 using Ecom.Application.DTOs.Category;
 using Ecom.Application.Services.Interfaces;
 using Ecom.Domain.Entity;
-using Ecom.Domain.Interfaces;
+using Ecom.Infrastructure.Services;
 using Ecom.Infrastructure.UnitOfWork;
 
 namespace Ecom.Application.Services
@@ -11,13 +11,13 @@ namespace Ecom.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IFileService _fileService;
+        private readonly CatalogImageService _images;
 
-        public CategoryService(IUnitOfWork unitOfWork, IMapper mapper, IFileService fileService)
+        public CategoryService(IUnitOfWork unitOfWork, IMapper mapper, CatalogImageService images)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _fileService = fileService;
+            _images = images;
         }
 
         public async Task<CategoryDto?> GetCategoryByIdAsync(int id)
@@ -56,18 +56,7 @@ namespace Ecom.Application.Services
             var category = _mapper.Map<Category>(categoryDto);
 
             if (categoryDto.Image != null)
-            {
-                try
-                {
-                    var directory = $"categories/{DateTime.UtcNow:yyyy/MM/dd}";
-                    var imageUrl = await _fileService.SaveFileAsync(categoryDto.Image, directory);
-                    category.Image = imageUrl;
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception($"Error uploading image: {ex.Message}", ex);
-                }
-            }
+                category.Image = (await _images.UploadAsync([categoryDto.Image], CatalogImageArea.Categories, Guid.NewGuid()))[0];
 
             await _unitOfWork.Categories.AddAsync(category);
             await _unitOfWork.SaveChangesAsync();
@@ -101,45 +90,15 @@ namespace Ecom.Application.Services
             existingCategory.Description = categoryDto.Description;
             existingCategory.DescriptionAr = categoryDto.DescriptionAr;
 
-            if (!string.IsNullOrEmpty(categoryDto.ImageToDelete) && categoryDto.ImageToDelete == oldImageUrl)
-            {
-                try
-                {
-                    await _fileService.DeleteFileAsync(categoryDto.ImageToDelete);
-                    existingCategory.Image = null;
-                    oldImageUrl = null;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error deleting image {categoryDto.ImageToDelete}: {ex.Message}");
-                }
-            }
+
+            if (!string.IsNullOrEmpty(categoryDto.ImageToDelete) &&
+                !string.Equals(categoryDto.ImageToDelete, oldImageUrl, StringComparison.Ordinal))
+                throw new CatalogImageException("The image selected for removal does not belong to this category.");
 
             if (categoryDto.Image != null)
-            {
-                try
-                {
-                    if (!string.IsNullOrEmpty(oldImageUrl) && oldImageUrl != categoryDto.ImageToDelete)
-                    {
-                        try
-                        {
-                            await _fileService.DeleteFileAsync(oldImageUrl);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error deleting old image {oldImageUrl}: {ex.Message}");
-                        }
-                    }
-
-                    var directory = $"categories/{DateTime.UtcNow:yyyy/MM/dd}";
-                    var imageUrl = await _fileService.SaveFileAsync(categoryDto.Image, directory);
-                    existingCategory.Image = imageUrl;
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception($"Error uploading image: {ex.Message}", ex);
-                }
-            }
+                existingCategory.Image = (await _images.UploadAsync([categoryDto.Image], CatalogImageArea.Categories, Guid.NewGuid()))[0];
+            else if (!string.IsNullOrEmpty(categoryDto.ImageToDelete))
+                existingCategory.Image = null;
 
             _unitOfWork.Categories.Update(existingCategory);
             await _unitOfWork.SaveChangesAsync();
@@ -152,18 +111,6 @@ namespace Ecom.Application.Services
             var category = await _unitOfWork.Categories.GetByIdAsync(id);
             if (category == null)
                 return false;
-
-            if (!string.IsNullOrEmpty(category.Image))
-            {
-                try
-                {
-                    await _fileService.DeleteFileAsync(category.Image);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error deleting image {category.Image}: {ex.Message}");
-                }
-            }
 
             // Check if category has subcategories
             var hasSubCategories = await _unitOfWork.SubCategories.ExistsAsync(sc => sc.CategoryId == id);

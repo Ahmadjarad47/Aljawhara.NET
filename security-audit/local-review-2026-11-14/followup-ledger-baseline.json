@@ -1,0 +1,22 @@
+[
+  {
+    "fixture": "paid",
+    "httpStatus": 204,
+    "remainingRows": 0
+  },
+  {
+    "fixture": "refunded",
+    "httpStatus": 204,
+    "remainingRows": 0
+  },
+  {
+    "fixture": "cash",
+    "httpStatus": 204,
+    "remainingRows": 0
+  },
+  {
+    "fixture": "historical-failed",
+    "httpStatus": 204,
+    "remainingRows": 0
+  }
+]

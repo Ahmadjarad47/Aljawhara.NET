@@ -1,0 +1,1 @@
+{"orders" : 4, "guestOrders" : 1, "customerOrders" : 3, "orderItemOrphans" : 0, "transactionOrphans" : 0, "orderTotalMismatches" : 0, "transactionTotalMismatches" : 0, "productStock" : 8, "orderedUnits" : 4, "couponReservations" : 4, "paymentAttempts" : 0}

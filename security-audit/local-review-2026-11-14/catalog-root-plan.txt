@@ -1,0 +1,13 @@
+Limit  (cost=55.65..55.70 rows=20 width=12) (actual time=0.267..0.269 rows=20.00 loops=1)
+  Buffers: shared hit=22
+  ->  Sort  (cost=55.65..58.15 rows=1001 width=12) (actual time=0.266..0.267 rows=20.00 loops=1)
+        Sort Key: "CreatedAt" DESC
+        Sort Method: top-N heapsort  Memory: 25kB
+        Buffers: shared hit=22
+        ->  Seq Scan on "Products" p  (cost=0.00..29.01 rows=1001 width=12) (actual time=0.019..0.192 rows=1001.00 loops=1)
+              Filter: ((NOT "IsDeleted") AND "IsActive")
+              Buffers: shared hit=19
+Planning:
+  Buffers: shared hit=130
+Planning Time: 2.415 ms
+Execution Time: 0.283 ms

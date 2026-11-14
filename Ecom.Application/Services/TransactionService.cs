@@ -473,17 +473,6 @@ namespace Ecom.Application.Services
             return _mapper.Map<TransactionAdvancedDto>(updatedTransaction);
         }
 
-        public async Task<bool> DeleteTransactionAsync(int id)
-        {
-            var transaction = await _unitOfWork.Transactions.GetByIdAsync(id);
-            if (transaction == null)
-                return false;
-
-            _unitOfWork.Transactions.Remove(transaction);
-            await _unitOfWork.SaveChangesAsync();
-            return true;
-        }
-
         public async Task<PagedResult<TransactionAdvancedDto>> GetTransactionsByOrderAsync(int orderId, int pageNumber = 1, int pageSize = 20)
         {
             var transactions = await _unitOfWork.Transactions.GetTransactionsByOrderAsync(orderId);
@@ -769,29 +758,11 @@ namespace Ecom.Application.Services
             return _mapper.Map<List<TransactionAdvancedDto>>(transactions);
         }
 
-        public async Task<byte[]> ExportTransactionsToCsvAsync(TransactionFilterDto filter)
-        {
-            var transactions = await GetTransactionsAsync(filter);
-            var csv = new StringBuilder();
-            
-            // Add headers
-            csv.AppendLine("ID,Order Number,Customer Name,Amount,Payment Method,Status,Transaction Date,Refunded");
-            
-            // Add data
-            foreach (var transaction in transactions.Items)
-            {
-                csv.AppendLine($"{transaction.Id},{transaction.OrderNumber},{transaction.CustomerName},{transaction.Amount},{transaction.PaymentMethodName},{transaction.Status.ToString()},{transaction.TransactionDate:yyyy-MM-dd HH:mm:ss},{transaction.IsRefunded}");
-            }
-            
-            return Encoding.UTF8.GetBytes(csv.ToString());
-        }
+        public async Task<byte[]> ExportTransactionsToCsvAsync(TransactionFilterDto filter) =>
+            TransactionExport.Csv((await GetTransactionsAsync(filter)).Items);
 
-        public async Task<byte[]> ExportTransactionsToExcelAsync(TransactionFilterDto filter)
-        {
-            // This would require EPPlus or similar library
-            // For now, return CSV as placeholder
-            return await ExportTransactionsToCsvAsync(filter);
-        }
+        public async Task<byte[]> ExportTransactionsToExcelAsync(TransactionFilterDto filter) =>
+            TransactionExport.Excel((await GetTransactionsAsync(filter)).Items);
 
         private static System.Linq.Expressions.Expression<Func<Transaction, object>> GetSortExpression(string sortBy)
         {

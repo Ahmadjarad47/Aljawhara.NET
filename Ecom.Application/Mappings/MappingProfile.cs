@@ -84,7 +84,6 @@ namespace Ecom.Application.Mappings
             CreateMap<Rating, RatingDto>()
                 .ForMember(dest => dest.ProductTitle, opt => opt.MapFrom(src => src.Product != null ? src.Product.Title : string.Empty))
                 .ForMember(dest => dest.RatingName, opt => opt.Ignore());
-            CreateMap<RatingCreateDto, Rating>();
             CreateMap<RatingUpdateDto, Rating>();
         }
 
@@ -256,7 +255,8 @@ namespace Ecom.Application.Mappings
             CreateMap<CarouselCreateDto, Carousel>();
             CreateMap<CarouselCreateWithFileDto, Carousel>()
                 .ForMember(dest => dest.Image, opt => opt.Ignore()); // Image will be set manually after file upload
-            CreateMap<CarouselUpdateDto, Carousel>();
+            CreateMap<CarouselUpdateDto, Carousel>()
+                .ForMember(dest => dest.Image, opt => opt.Ignore());
             CreateMap<CarouselUpdateWithFileDto, Carousel>()
                 .ForMember(dest => dest.Image, opt => opt.Ignore()); // Image will be set manually after file upload
         }

@@ -4,8 +4,6 @@ using Ecom.Domain.Entity;
 using Ecom.Domain.constant;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using MailKit.Net.Smtp;
-using MailKit.Security;
 using MimeKit;
 using System.Net;
 
@@ -16,17 +14,20 @@ namespace Ecom.Application.Services
         private readonly IConfiguration _configuration;
         private readonly ILogger<EmailService> _logger;
 
-        public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+        private readonly ISmtpTransport _transport;
+
+        public EmailService(IConfiguration configuration, ILogger<EmailService> logger, ISmtpTransport? transport = null)
         {
             _configuration = configuration;
             _logger = logger;
+            _transport = transport ?? new SmtpTransport();
         }
 
         public async Task<bool> SendEmailConfirmationAsync(AppUsers user, string confirmationToken)
         {
             try
             {
-                var confirmationLink = $"{_configuration["AppSettings:BaseUrl"]}/auth/verify?userId={user.Id}&token={confirmationToken}";
+                var confirmationLink = ConfirmationLink("/auth/verify", user.Id, confirmationToken);
                 
                 var subject = "تأكيد البريد الإلكتروني - المتجر الجوهرة";
                 var body = $@"
@@ -48,13 +49,13 @@ namespace Ecom.Application.Services
                                         </tr>
                                         <tr>
                                             <td style='padding: 40px 30px;'>
-                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
+                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{Html(user.UserName)}</strong>,</p>
                                                 <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 30px 0;'>شكراً لك على التسجيل في المتجر الجوهرة. يرجى تأكيد عنوان بريدك الإلكتروني بالنقر على الزر أدناه:</p>
                                                 <div style='text-align: center; margin: 30px 0;'>
-                                                    <a href='{confirmationLink}' style='display: inline-block; background-color: #054239d9; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(5,66,57,0.3); transition: all 0.3s;'>تأكيد البريد الإلكتروني</a>
+                                                    <a href='{Html(confirmationLink)}' style='display: inline-block; background-color: #054239d9; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(5,66,57,0.3); transition: all 0.3s;'>تأكيد البريد الإلكتروني</a>
                                                 </div>
                                                 <p style='color: #777777; font-size: 14px; line-height: 1.6; margin: 30px 0 20px 0;'>إذا لم يعمل الزر، يرجى نسخ الرابط التالي ولصقه في المتصفح:</p>
-                                                <p style='color: #054239d9; font-size: 13px; word-break: break-all; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-right: 4px solid #054239d9; margin: 0;'>{confirmationLink}</p>
+                                                <p style='color: #054239d9; font-size: 13px; word-break: break-all; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-right: 4px solid #054239d9; margin: 0;'>{Html(confirmationLink)}</p>
                                                 <p style='color: #dc3545; font-size: 14px; margin: 25px 0 0 0;'><strong>ملاحظة:</strong> هذا الرابط صالح لمدة 24 ساعة فقط.</p>
                                             </td>
                                         </tr>
@@ -70,7 +71,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync(user.Email!, subject, body);
+                return await SendEmailAsync(user.Email!, subject, body, $"تأكيد البريد الإلكتروني للمتجر الجوهرة.\n\nمرحباً {user.UserName}،\n{confirmationLink}");
             }
             catch (Exception ex)
             {
@@ -105,9 +106,9 @@ namespace Ecom.Application.Services
                                         </tr>
                                         <tr>
                                             <td style='padding: 40px 30px;'>
-                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
+                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{Html(user.UserName)}</strong>,</p>
                                                 <p>أدخل الرمز التالي في صفحة إعادة تعيين كلمة المرور:</p>
-                                                <p><strong dir='ltr'>{code}</strong></p>
+                                                <p><strong dir='ltr'>{Html(code)}</strong></p>
                                                 <p>الرمز صالح لمدة {lifetime} دقائق.</p>
                                                 <div style='background-color: #fff3cd; border-right: 4px solid #ffc107; padding: 15px; border-radius: 5px; margin-top: 25px;'>
                                                     <p style='color: #856404; font-size: 14px; margin: 0;'><strong>تنبيه:</strong> إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذه الرسالة.</p>
@@ -126,7 +127,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync(user.Email!, subject, body);
+                return await SendEmailAsync(user.Email!, subject, body, $"مرحباً {user.UserName}،\nرمز إعادة تعيين كلمة المرور: {code}\nصالح لمدة {lifetime} دقائق.");
             }
             catch (Exception ex)
             {
@@ -139,7 +140,8 @@ namespace Ecom.Application.Services
         {
             try
             {
-                var confirmationLink = $"{_configuration["AppSettings:BaseUrl"]}/api/auth/confirm-email-change?userId={user.Id}&newEmail={newEmail}&token={confirmationToken}";
+                var confirmationLink = ConfirmationLink("/api/auth/confirm-email-change", user.Id, confirmationToken) +
+                    $"&newEmail={Uri.EscapeDataString(newEmail)}";
                 
                 var subject = "تأكيد تغيير البريد الإلكتروني - المتجر الجوهرة";
                 var body = $@"
@@ -161,17 +163,17 @@ namespace Ecom.Application.Services
                                         </tr>
                                         <tr>
                                             <td style='padding: 40px 30px;'>
-                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
+                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{Html(user.UserName)}</strong>,</p>
                                                 <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 20px 0;'>لقد طلبت تغيير عنوان بريدك الإلكتروني إلى:</p>
                                                 <div style='background-color: #e7f3ff; border-right: 4px solid #054239d9; padding: 15px; border-radius: 5px; margin: 20px 0;'>
-                                                    <p style='color: #054239d9; font-size: 16px; font-weight: bold; margin: 0;'>{newEmail}</p>
+                                                    <p style='color: #054239d9; font-size: 16px; font-weight: bold; margin: 0;'>{Html(newEmail)}</p>
                                                 </div>
                                                 <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 30px 0;'>يرجى تأكيد هذا التغيير بالنقر على الزر أدناه:</p>
                                                 <div style='text-align: center; margin: 30px 0;'>
-                                                    <a href='{confirmationLink}' style='display: inline-block; background-color: #054239d9; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(5,66,57,0.3); transition: all 0.3s;'>تأكيد تغيير البريد الإلكتروني</a>
+                                                    <a href='{Html(confirmationLink)}' style='display: inline-block; background-color: #054239d9; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(5,66,57,0.3); transition: all 0.3s;'>تأكيد تغيير البريد الإلكتروني</a>
                                                 </div>
                                                 <p style='color: #777777; font-size: 14px; line-height: 1.6; margin: 30px 0 20px 0;'>إذا لم يعمل الزر، يرجى نسخ الرابط التالي ولصقه في المتصفح:</p>
-                                                <p style='color: #054239d9; font-size: 13px; word-break: break-all; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-right: 4px solid #054239d9; margin: 0;'>{confirmationLink}</p>
+                                                <p style='color: #054239d9; font-size: 13px; word-break: break-all; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-right: 4px solid #054239d9; margin: 0;'>{Html(confirmationLink)}</p>
                                                 <p style='color: #dc3545; font-size: 14px; margin: 25px 0 0 0;'><strong>ملاحظة:</strong> هذا الرابط صالح لمدة 24 ساعة فقط.</p>
                                                 <div style='background-color: #f8d7da; border-right: 4px solid #dc3545; padding: 15px; border-radius: 5px; margin-top: 25px;'>
                                                     <p style='color: #721c24; font-size: 14px; margin: 0;'><strong>تحذير:</strong> إذا لم تطلب تغيير البريد الإلكتروني، يرجى الاتصال بالدعم فوراً.</p>
@@ -190,7 +192,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync(newEmail, subject, body);
+                return await SendEmailAsync(newEmail, subject, body, $"تغيير البريد الإلكتروني إلى {newEmail}.\n\nمرحباً {user.UserName}،\n{confirmationLink}");
             }
             catch (Exception ex)
             {
@@ -224,11 +226,11 @@ namespace Ecom.Application.Services
                                         </tr>
                                         <tr>
                                             <td style='padding: 40px 30px;'>
-                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
+                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{Html(user.UserName)}</strong>,</p>
                                                 <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 30px 0;'>تم حظر حسابك{blockDuration}.</p>
                                                 <div style='background-color: #fff3cd; border-right: 4px solid #ffc107; padding: 20px; border-radius: 5px; margin: 20px 0;'>
                                                     <p style='color: #856404; font-size: 15px; margin: 0 0 10px 0;'><strong>السبب:</strong></p>
-                                                    <p style='color: #856404; font-size: 15px; margin: 0; line-height: 1.6;'>{reason}</p>
+                                                    <p style='color: #856404; font-size: 15px; margin: 0; line-height: 1.6;'>{MultilineHtml(reason)}</p>
                                                 </div>
                                                 <div style='background-color: #d1ecf1; border-right: 4px solid #054239d9; padding: 15px; border-radius: 5px; margin-top: 25px;'>
                                                     <p style='color: #0c5460; font-size: 14px; margin: 0;'>إذا كنت تعتقد أن هذا خطأ، يرجى الاتصال بفريق الدعم لدينا.</p>
@@ -247,7 +249,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync(user.Email!, subject, body);
+                return await SendEmailAsync(user.Email!, subject, body, $"مرحباً {user.UserName}،\nتم حظر حسابك{blockDuration}.\nالسبب: {reason}");
             }
             catch (Exception ex)
             {
@@ -285,7 +287,7 @@ namespace Ecom.Application.Services
                                                         <span style='font-size: 40px; color: #28a745;'>✓</span>
                                                     </div>
                                                 </div>
-                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
+                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{Html(user.UserName)}</strong>,</p>
                                                 <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 30px 0;'>تم إلغاء حظر حسابك ويمكنك الآن الوصول إلى جميع ميزات المتجر الجوهرة.</p>
                                                 <div style='background-color: #d4edda; border-right: 4px solid #28a745; padding: 20px; border-radius: 5px; margin: 20px 0;'>
                                                     <p style='color: #155724; font-size: 18px; font-weight: bold; margin: 0;'>مرحباً بعودتك!</p>
@@ -304,7 +306,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync(user.Email!, subject, body);
+                return await SendEmailAsync(user.Email!, subject, body, $"مرحباً {user.UserName}،\nتم رفع الحظر عن حسابك.");
             }
             catch (Exception ex)
             {
@@ -431,7 +433,7 @@ namespace Ecom.Application.Services
                                                         <span style='font-size: 40px; color: #28a745;'>✓</span>
                                                     </div>
                                                 </div>
-                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{user.UserName}</strong>,</p>
+                                                <p style='color: #333333; font-size: 16px; line-height: 1.8; margin: 0 0 20px 0;'>عزيزي/عزيزتي <strong>{Html(user.UserName)}</strong>,</p>
                                                 <p style='color: #555555; font-size: 15px; line-height: 1.8; margin: 0 0 30px 0;'>تم تغيير كلمة المرور الخاصة بحسابك بنجاح.</p>
                                                 <div style='background-color: #f8d7da; border-right: 4px solid #dc3545; padding: 15px; border-radius: 5px; margin-top: 25px;'>
                                                     <p style='color: #721c24; font-size: 14px; margin: 0;'><strong>تحذير:</strong> إذا لم تقم بتغيير كلمة المرور، يرجى الاتصال بنا فوراً.</p>
@@ -450,7 +452,7 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync(user.Email!, subject, body);
+                return await SendEmailAsync(user.Email!, subject, body, $"مرحباً {user.UserName}،\nتم تغيير كلمة المرور.");
             }
             catch (Exception ex)
             {
@@ -463,11 +465,11 @@ namespace Ecom.Application.Services
         {
             try
             {
-                var contactSubject = $"إرسال نموذج الاتصال: {subject}";
+                const string contactSubject = "إرسال جديد من نموذج الاتصال";
                 var phoneInfo = !string.IsNullOrWhiteSpace(phoneNumber) ? $@"
                                     <tr>
                                         <td style='padding: 12px; font-weight: bold; width: 180px; background-color: #f8f9fa; border: 1px solid #e9ecef;'>رقم الهاتف:</td>
-                                        <td style='padding: 12px; border: 1px solid #e9ecef;'>{phoneNumber}</td>
+                                        <td style='padding: 12px; border: 1px solid #e9ecef;'>{MultilineHtml(phoneNumber)}</td>
                                     </tr>" : "";
                 var body = $@"
                     <!DOCTYPE html>
@@ -493,23 +495,23 @@ namespace Ecom.Application.Services
                                                     <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse;'>
                                                         <tr>
                                                             <td style='padding: 12px; font-weight: bold; width: 180px; background-color: #ffffff; border: 1px solid #e9ecef;'>الاسم:</td>
-                                                            <td style='padding: 12px; border: 1px solid #e9ecef; background-color: #ffffff;'>{name}</td>
+                                                            <td style='padding: 12px; border: 1px solid #e9ecef; background-color: #ffffff;'>{MultilineHtml(name)}</td>
                                                         </tr>
                                                         <tr>
                                                             <td style='padding: 12px; font-weight: bold; width: 180px; background-color: #f8f9fa; border: 1px solid #e9ecef;'>البريد الإلكتروني:</td>
-                                                            <td style='padding: 12px; border: 1px solid #e9ecef;'>{email}</td>
+                                                            <td style='padding: 12px; border: 1px solid #e9ecef;'>{Html(email)}</td>
                                                         </tr>
                                                         {phoneInfo}
                                                         <tr>
                                                             <td style='padding: 12px; font-weight: bold; width: 180px; background-color: {(string.IsNullOrWhiteSpace(phoneNumber) ? "#ffffff" : "#f8f9fa")}; border: 1px solid #e9ecef;'>الموضوع:</td>
-                                                            <td style='padding: 12px; border: 1px solid #e9ecef; background-color: {(string.IsNullOrWhiteSpace(phoneNumber) ? "#ffffff" : "#f8f9fa")};'>{subject}</td>
+                                                            <td style='padding: 12px; border: 1px solid #e9ecef; background-color: {(string.IsNullOrWhiteSpace(phoneNumber) ? "#ffffff" : "#f8f9fa")};'>{MultilineHtml(subject)}</td>
                                                         </tr>
                                                     </table>
                                                 </div>
                                                 <div style='background-color: #e7f3ff; padding: 20px; border-radius: 8px; border-right: 4px solid #054239d9;'>
                                                     <h3 style='color: #054239d9; margin: 0 0 15px 0; font-size: 20px;'>الرسالة</h3>
                                                     <div style='background-color: #ffffff; padding: 20px; border-radius: 5px; border: 1px solid #d1ecf1;'>
-                                                        <p style='color: #333333; font-size: 15px; line-height: 1.8; margin: 0; white-space: pre-wrap;'>{message}</p>
+                                                        <p style='color: #333333; font-size: 15px; line-height: 1.8; margin: 0; overflow-wrap: anywhere;'>{MultilineHtml(message)}</p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -526,11 +528,12 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync("info@aljawhara.com", contactSubject, body);
+                var textBody = $"رسالة من نموذج الاتصال\nالاسم: {name}\nالبريد الإلكتروني: {email}\nالهاتف: {phoneNumber}\nالموضوع: {subject}\n\n{message}";
+                return await SendEmailAsync("info@aljawhara.com", contactSubject, body, textBody);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending contact email from {Email}", email);
+                _logger.LogError("Contact email preparation failed. FailureType={FailureType}", ex.GetType().Name);
                 return false;
             }
         }
@@ -545,7 +548,7 @@ namespace Ecom.Application.Services
 
                 var itemsHtml = string.Join("", order.Items.Select(item => $@"
                     <tr>
-                        <td style='padding: 12px; border: 1px solid #e9ecef; background-color: #ffffff;'>{item.Name}</td>
+                        <td style='padding: 12px; border: 1px solid #e9ecef; background-color: #ffffff;'>{Html(item.Name)}</td>
                         <td style='padding: 12px; border: 1px solid #e9ecef; text-align: center; background-color: #ffffff;'>{item.Quantity}</td>
                         <td style='padding: 12px; border: 1px solid #e9ecef; text-align: right; background-color: #ffffff;'>{item.Price:C}</td>
                         <td style='padding: 12px; border: 1px solid #e9ecef; text-align: right; background-color: #ffffff; font-weight: bold;'>{item.Total:C}</td>
@@ -574,7 +577,7 @@ namespace Ecom.Application.Services
                 };
 
                 var eventDescription = eventType == "Created" 
-                    ? $"تم إنشاء طلب جديد من قبل <strong>{order.CustomerName}</strong>." 
+                    ? $"تم إنشاء طلب جديد من قبل <strong>{Html(order.CustomerName)}</strong>."
                     : $"تم تحديث حالة الطلب إلى <strong style='color: {statusColor};'>{statusText}</strong>.";
 
                 var body = $@"
@@ -592,7 +595,7 @@ namespace Ecom.Application.Services
                                         <tr>
                                             <td style='background: linear-gradient(135deg, #054239d9 0%, #054239 100%); padding: 30px; text-align: center;'>
                                                 <h1 style='color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;'>
-                                                    إشعار الطلب - {order.OrderNumber}
+                                                    إشعار الطلب - {Html(order.OrderNumber)}
                                                 </h1>
                                             </td>
                                         </tr>
@@ -605,11 +608,11 @@ namespace Ecom.Application.Services
                                                     <table style='width: 100%; border-collapse: collapse;'>
                                                         <tr>
                                                             <td style='padding: 12px; font-weight: bold; width: 200px; background-color: #ffffff; border: 1px solid #e9ecef;'>رقم الطلب:</td>
-                                                            <td style='padding: 12px; border: 1px solid #e9ecef; background-color: #ffffff;'>{order.OrderNumber}</td>
+                                                            <td style='padding: 12px; border: 1px solid #e9ecef; background-color: #ffffff;'>{Html(order.OrderNumber)}</td>
                                                         </tr>
                                                         <tr>
                                                             <td style='padding: 12px; font-weight: bold; background-color: #f8f9fa; border: 1px solid #e9ecef;'>اسم العميل:</td>
-                                                            <td style='padding: 12px; border: 1px solid #e9ecef;'>{order.CustomerName}</td>
+                                                            <td style='padding: 12px; border: 1px solid #e9ecef;'>{Html(order.CustomerName)}</td>
                                                         </tr>
                                                         <tr>
                                                             <td style='padding: 12px; font-weight: bold; background-color: #ffffff; border: 1px solid #e9ecef;'>الحالة:</td>
@@ -629,7 +632,7 @@ namespace Ecom.Application.Services
                                                         </tr>
                                                         {(order.CouponDiscountAmount.HasValue && order.CouponDiscountAmount > 0 ? $@"
                                                         <tr>
-                                                            <td style='padding: 12px; font-weight: bold; background-color: #f8f9fa; border: 1px solid #e9ecef;'>كوبون ({order.CouponCode}):</td>
+                                                            <td style='padding: 12px; font-weight: bold; background-color: #f8f9fa; border: 1px solid #e9ecef;'>كوبون ({Html(order.CouponCode)}):</td>
                                                             <td style='padding: 12px; border: 1px solid #e9ecef; color: #28a745; font-weight: bold;'>-{order.CouponDiscountAmount:C}</td>
                                                         </tr>" : "")}
                                                         <tr>
@@ -667,15 +670,15 @@ namespace Ecom.Application.Services
                                                 <div style='background-color: #e7f3ff; padding: 20px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #054239d9;'>
                                                     <h3 style='margin: 0 0 15px 0; color: #054239d9; font-size: 20px;'>عنوان الشحن</h3>
                                                     <div style='background-color: #ffffff; padding: 20px; border-radius: 5px; border: 1px solid #d1ecf1;'>
-                                                        <p style='margin: 8px 0; color: #333333; font-size: 15px;'><strong>{order.ShippingAddress.FullName}</strong></p>
-                                                        <p style='margin: 8px 0; color: #555555; font-size: 15px;'>{order.ShippingAddress.Street}</p>
+                                                        <p style='margin: 8px 0; color: #333333; font-size: 15px;'><strong>{Html(order.ShippingAddress.FullName)}</strong></p>
+                                                        <p style='margin: 8px 0; color: #555555; font-size: 15px;'>{Html(order.ShippingAddress.Street)}</p>
                                                         <p style='margin: 8px 0; color: #555555; font-size: 15px;'>
-                                                            {order.ShippingAddress.City}
-                                                            {(!string.IsNullOrEmpty(order.ShippingAddress.State) ? $", {order.ShippingAddress.State}" : "")}
-                                                            {order.ShippingAddress.PostalCode}
+                                                            {Html(order.ShippingAddress.City)}
+                                                            {(!string.IsNullOrEmpty(order.ShippingAddress.State) ? $", {Html(order.ShippingAddress.State)}" : "")}
+                                                            {Html(order.ShippingAddress.PostalCode)}
                                                         </p>
-                                                        <p style='margin: 8px 0; color: #555555; font-size: 15px;'>{order.ShippingAddress.Country}</p>
-                                                        <p style='margin: 8px 0; color: #333333; font-size: 15px;'><strong>الهاتف:</strong> {order.ShippingAddress.Phone}</p>
+                                                        <p style='margin: 8px 0; color: #555555; font-size: 15px;'>{Html(order.ShippingAddress.Country)}</p>
+                                                        <p style='margin: 8px 0; color: #333333; font-size: 15px;'><strong>الهاتف:</strong> {Html(order.ShippingAddress.Phone)}</p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -694,7 +697,13 @@ namespace Ecom.Application.Services
                     </body>
                     </html>";
 
-                return await SendEmailAsync(email, subject, body);
+                var address = order.ShippingAddress;
+                var textBody = $"{subject}\n{order.CustomerName} | {statusText}\n{order.CreatedAt:yyyy-MM-dd HH:mm:ss}\n\n" +
+                    string.Join("\n", order.Items.Select(item => $"{item.Name} × {item.Quantity}: {item.Total:C}")) +
+                    $"\n\nالمجموع الفرعي: {order.Subtotal:C}\nالكوبون: {order.CouponCode} {order.CouponDiscountAmount:C}" +
+                    $"\nالشحن: {order.Shipping:C}\nالضريبة: {order.Tax:C}\nالإجمالي: {order.Total:C}" +
+                    $"\n\n{address.FullName}\n{address.Street}\n{address.City} {address.State} {address.PostalCode}\n{address.Country}\n{address.Phone}";
+                return await SendEmailAsync(email, subject, body, textBody);
             }
             catch (Exception ex)
             {
@@ -703,7 +712,22 @@ namespace Ecom.Application.Services
             }
         }
 
-        private async Task<bool> SendEmailAsync(string toEmail, string subject, string body, string? textBody = null)
+        private static string Html(string? text) => WebUtility.HtmlEncode(text ?? "");
+
+        private static string MultilineHtml(string? text) =>
+            Html(text).ReplaceLineEndings("\n").Replace("\n", "<br>");
+
+        private string ConfirmationLink(string path, string userId, string token)
+        {
+            var baseUrl = _configuration["AppSettings:BaseUrl"]?.TrimEnd('/');
+            if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var origin) ||
+                origin.Scheme is not ("https" or "http") ||
+                origin.UserInfo.Length != 0 || origin.Query.Length != 0 || origin.Fragment.Length != 0)
+                throw new InvalidOperationException("Invalid confirmation link configuration.");
+            return $"{baseUrl}{path}?userId={Uri.EscapeDataString(userId)}&token={Uri.EscapeDataString(token)}";
+        }
+
+        private async Task<bool> SendEmailAsync(string toEmail, string subject, string body, string textBody)
         {
             try
             {
@@ -734,11 +758,7 @@ namespace Ecom.Application.Services
                 };
                 message.Body = bodyBuilder.ToMessageBody();
 
-                using var client = new SmtpClient();
-                await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.SslOnConnect);
-                await client.AuthenticateAsync(smtpUsername, smtpPassword);
-                await client.SendAsync(message);
-                await client.DisconnectAsync(true);
+                await _transport.SendAsync(message, smtpHost, smtpPort, smtpUsername, smtpPassword);
 
                 return true;
             }

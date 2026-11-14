@@ -1,0 +1,443 @@
+[
+  {
+    "label": "Valid credentials",
+    "method": "POST",
+    "route": "/api/Auth/login",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Valid credentials",
+    "method": "POST",
+    "route": "/api/Auth/login",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/Auth/me",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in customer",
+    "method": "GET",
+    "route": "/api/Auth/me",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/Auth/addresses",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in customer",
+    "method": "GET",
+    "route": "/api/Auth/addresses",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/Orders/my-orders",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in customer",
+    "method": "GET",
+    "route": "/api/Orders/my-orders",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/Transactions/my",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in customer",
+    "method": "GET",
+    "route": "/api/Transactions/my",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/account/whatsapp/preferences",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in customer",
+    "method": "GET",
+    "route": "/api/account/whatsapp/preferences",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/dashboard/summary",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/dashboard/summary",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/dashboard/summary",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/products",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/products",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/products",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/categories",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/categories",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/categories",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/coupons",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/coupons",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/coupons",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/order",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/order",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/order",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/transaction",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/transaction",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/transaction",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/user-manager/users",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/user-manager/users",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/user-manager/users",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/monitoring/summary",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/monitoring/summary",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/monitoring/summary",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require sign-in",
+    "method": "GET",
+    "route": "/api/admin/shipping",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require administrator role",
+    "method": "GET",
+    "route": "/api/admin/shipping",
+    "expected": 403,
+    "actual": 403,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Signed-in administrator",
+    "method": "GET",
+    "route": "/api/admin/shipping",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Require a valid email and password",
+    "method": "POST",
+    "route": "/api/Auth/login",
+    "expected": 400,
+    "actual": 400,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Validate required registration fields",
+    "method": "POST",
+    "route": "/api/Auth/register",
+    "expected": 400,
+    "actual": 400,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Validate route parameter type",
+    "method": "GET",
+    "route": "/api/Products/not-an-integer",
+    "expected": 400,
+    "actual": 400,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Product rating requires sign-in",
+    "method": "POST",
+    "route": "/api/Products/1/ratings",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Public product detail and cache policy",
+    "method": "GET",
+    "route": "/api/Products/1",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "No catalog deletion while descendants remain",
+    "method": "DELETE",
+    "route": "/api/admin/categories/3",
+    "expected": 400,
+    "actual": 400,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Category remains readable",
+    "method": "GET",
+    "route": "/api/Categories/3",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Nested product remains readable",
+    "method": "GET",
+    "route": "/api/Products/1",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Sign out customer",
+    "method": "POST",
+    "route": "/api/Auth/logout",
+    "expected": 200,
+    "actual": 200,
+    "passed": true,
+    "cacheControl": "no-store"
+  },
+  {
+    "label": "Session is revoked after sign-out",
+    "method": "GET",
+    "route": "/api/Auth/me",
+    "expected": 401,
+    "actual": 401,
+    "passed": true,
+    "cacheControl": "no-store"
+  }
+]

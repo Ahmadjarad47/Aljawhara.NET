@@ -1,0 +1,36 @@
+{
+  "equivalent": [
+    {
+      "case": "newest",
+      "rows": 20,
+      "total": 1001
+    },
+    {
+      "case": "category",
+      "rows": 20,
+      "total": 1001
+    },
+    {
+      "case": "rating",
+      "rows": 20,
+      "total": 1001
+    },
+    {
+      "case": "discount",
+      "rows": 20,
+      "total": 1001
+    }
+  ],
+  "sample": {
+    "baseline": {
+      "n": 20,
+      "p50ms": 6.34,
+      "p95ms": 6.91
+    },
+    "optimized": {
+      "n": 20,
+      "p50ms": 5.66,
+      "p95ms": 6.74
+    }
+  }
+}

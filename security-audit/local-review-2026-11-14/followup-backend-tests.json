@@ -1,0 +1,246 @@
+[
+  {
+    "run": "followup-focused.trx",
+    "source": "followup-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "followup-reliability.trx",
+    "source": "followup-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 2,
+    "passed": 0,
+    "failed": 2,
+    "skipped": 0,
+    "failures": [
+      "Ecom.CheckoutAudit.Tests.MigrationTests.Failed_catalog_upgrade_rolls_back_schema_and_history_and_can_be_retried",
+      "Ecom.CheckoutAudit.Tests.HttpSecurityTests.Checkout_retry_after_discarded_success_response_does_not_repeat_financial_or_inventory_writes"
+    ]
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_07_45_38_net10.0.trx",
+    "source": "followup-results",
+    "suite": "Ecom.AIShopping.Tests",
+    "total": 49,
+    "passed": 48,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_07_45_40_net10.0.trx",
+    "source": "followup-results",
+    "suite": "Ecom.AIShopping.SecurityTests",
+    "total": 21,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_07_45_41_net10.0.trx",
+    "source": "followup-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 305,
+    "passed": 304,
+    "failed": 1,
+    "skipped": 0,
+    "failures": [
+      "Ecom.CheckoutAudit.Tests.WhatsAppInvoiceTests.Arabic_renderer_produces_searchable_paginated_pdf"
+    ]
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_07_45_45_net10.0.trx",
+    "source": "followup-results",
+    "suite": "Ecom.AIShopping.IntegrationTests",
+    "total": 15,
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_05_21_net10.0.trx",
+    "source": "complete-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 308,
+    "passed": 307,
+    "failed": 1,
+    "skipped": 0,
+    "failures": [
+      "Ecom.CheckoutAudit.Tests.CredentialConfigurationTests.Api_defaults_and_shared_launch_template_do_not_supply_credentials"
+    ]
+  },
+  {
+    "run": "followup-harness-closure.trx",
+    "source": "targeted-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "reliability-stable.trx",
+    "source": "targeted-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_08_34_net10.0.trx",
+    "source": "final-workspace-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 308,
+    "passed": 308,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_08_35_net10.0.trx",
+    "source": "final-workspace-results",
+    "suite": "Ecom.AIShopping.Tests",
+    "total": 49,
+    "passed": 48,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_08_36_net10.0.trx",
+    "source": "final-workspace-results",
+    "suite": "Ecom.AIShopping.SecurityTests",
+    "total": 21,
+    "passed": 5,
+    "failed": 16,
+    "skipped": 0,
+    "failures": [
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Overposting_and_invalid_messages_are_rejected(body: \"{\\\"message\\\":\\\"نزهة\\\",\\\"ownerHash\\\":\\\"victim\\\"}\")",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Authenticated_user_identity_is_server_derived_and_cannot_read_guest_or_other_user",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Per_owner_rate_limit_is_enforced_at_HTTP_boundary",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Overposting_and_invalid_messages_are_rejected(body: \"{\\\"message\\\":null}\")",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Invalid_quantities_and_forged_products_cannot_change_preview(quantity: 101)",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Invalid_quantities_and_forged_products_cannot_change_preview(quantity: -10)",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Overposting_and_invalid_messages_are_rejected(body: \"{\\\"message\\\":\\\"نزهة\\\",\\\"unitPrice\\\":0.001}\")",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Disabled_feature_needs_no_AI_secret_database_or_provider",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Malicious_catalog_name_is_JSON_text_and_never_HTML",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Account_and_missing_API_responses_are_never_cacheable",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Anonymous_missing_forged_or_other_guest_capabilities_cannot_read_conversation",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Stale_tab_cannot_overwrite_newer_recommendations",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Index_operations_require_administrator_authorization",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Browser_cart_preparation_is_owner_bound_and_rejects_browser_prices",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.Invalid_quantities_and_forged_products_cannot_change_preview(quantity: 0)",
+      "Ecom.AIShopping.SecurityTests.HttpBoundaryTests.No_approval_and_model_price_overposting_cannot_trigger_confirmation"
+    ]
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_08_42_net10.0.trx",
+    "source": "final-workspace-results",
+    "suite": "Ecom.AIShopping.IntegrationTests",
+    "total": 15,
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "checkout-closure.trx",
+    "source": "complete-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 308,
+    "passed": 308,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "address-migration.trx",
+    "source": "targeted-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "address-regressions.trx",
+    "source": "targeted-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "ai-security-fixture.trx",
+    "source": "targeted-results",
+    "suite": "Ecom.AIShopping.SecurityTests",
+    "total": 21,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_24_10_net10.0.trx",
+    "source": "continued-results",
+    "suite": "Ecom.AIShopping.Tests",
+    "total": 49,
+    "passed": 48,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_24_16_net10.0.trx",
+    "source": "continued-results",
+    "suite": "Ecom.AIShopping.SecurityTests",
+    "total": 21,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_24_19_net10.0.trx",
+    "source": "continued-results",
+    "suite": "Ecom.AIShopping.IntegrationTests",
+    "total": 15,
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "LOQ_AJ47_2026-11-14_08_24_26_net10.0.trx",
+    "source": "continued-results",
+    "suite": "Ecom.CheckoutAudit.Tests",
+    "total": 310,
+    "passed": 310,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  },
+  {
+    "run": "continued-checkout-final.trx",
+    "source": "continued-results",
+    "suite": "ProductionSeedingTests",
+    "total": 311,
+    "passed": 311,
+    "failed": 0,
+    "skipped": 0,
+    "failures": []
+  }
+]

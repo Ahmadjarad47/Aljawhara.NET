@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Ecom.Application.DTOs.Auth
 {
+    public sealed record RegistrationResult(bool Success, string UserId, string Message,
+        Dictionary<string, string[]>? FieldErrors = null);
+
     public class RegisterDto
     {
         [Required]
@@ -154,6 +157,11 @@ namespace Ecom.Application.DTOs.Auth
         public List<string> Errors { get; set; } = new();
     }
 
+    public class AccountValidationResponseDto : ApiResponseDto
+    {
+        public Dictionary<string, string[]>? FieldErrors { get; set; }
+    }
+
     public class ContactDto
     {
         [Required]
@@ -162,6 +170,7 @@ namespace Ecom.Application.DTOs.Auth
 
         [Required]
         [EmailAddress]
+        [StringLength(254)]
         public string Email { get; set; } = string.Empty;
 
         [StringLength(20)]

@@ -9,6 +9,7 @@ using Ecom.Domain.Entity;
 using Ecom.Domain.constant;
 using Ecom.Domain.Interfaces;
 using Ecom.Infrastructure.Data;
+using Ecom.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -32,6 +33,150 @@ public sealed class HttpSecurityTests : IAsyncLifetime
     private int _userOrderId;
     private int _productId;
 
+    [Fact]
+    public async Task Transaction_downloads_are_admin_only_and_advertise_their_actual_formats()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        foreach (var (format, mediaType, extension) in new[]
+        {
+            ("csv", "text/csv", ".csv"),
+            ("excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx")
+        })
+        {
+            var path = $"/api/admin/transaction/export/{format}?pageSize=1";
+            using var anonymous = await _client.GetAsync(path, ct);
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+            using var customerRequest = new HttpRequestMessage(HttpMethod.Get, path);
+            customerRequest.Headers.Add("X-Test-User", "user-b");
+            using var customer = await _client.SendAsync(customerRequest, ct);
+            Assert.Equal(HttpStatusCode.Forbidden, customer.StatusCode);
+
+            using var adminRequest = new HttpRequestMessage(HttpMethod.Get, path);
+            adminRequest.Headers.Add("X-Test-User", "shipping-admin");
+            using var admin = await _client.SendAsync(adminRequest, ct);
+            Assert.Equal(HttpStatusCode.OK, admin.StatusCode);
+            Assert.Equal(mediaType, admin.Content.Headers.ContentType?.MediaType);
+            Assert.EndsWith(extension, admin.Content.Headers.ContentDisposition?.FileNameStar);
+            var data = await admin.Content.ReadAsByteArrayAsync(ct);
+            if (format == "excel")
+                Assert.True(data.AsSpan().StartsWith("PK"u8));
+            else
+                Assert.Contains("\"HTTP-GUEST\"", Encoding.UTF8.GetString(data));
+        }
+    }
+
+    [Fact]
+    public async Task Catalog_routes_validate_uploads_and_only_delete_unreferenced_product_owned_objects()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var store = _factory.Catalog;
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var product = await db.Products.SingleAsync(p => p.Id == _productId, ct);
+        var other = new Product { Title = "Other", Description = "Fixture", SubCategoryId = product.SubCategoryId };
+        db.Products.Add(other);
+        var carousel = new Carousel { Title = "Existing carousel" };
+        db.Carousels.Add(carousel);
+        await db.SaveChangesAsync(ct);
+
+        const string products = "/api/admin/products";
+        const string categories = "/api/admin/categories";
+        const string carousels = "/api/admin/carousels";
+        const string fakeImage = "not an image";
+        var valid = RasterFixture();
+        var withTrailer = valid.Concat(Encoding.UTF8.GetBytes(fakeImage)).ToArray();
+        var categoryId = await db.Categories.Select(c => c.Id).SingleAsync(ct);
+
+        async Task<HttpStatusCode> SendAsync(HttpMethod method, string path, byte[]? bytes = null,
+            string field = "Image", string? remove = null, string user = "shipping-admin", bool addValidFirst = false)
+        {
+            using var form = new MultipartFormDataContent();
+            foreach (var (name, value) in new (string, string)[]
+            {
+                ("Title", "Updated"), ("Name", "Updated"), ("Description", "Test fixture"),
+                ("OldPrice", "2"), ("NewPrice", "1"), ("SubCategoryId", product.SubCategoryId.ToString()),
+                ("IsInStock", "true"), ("TotalInStock", "5"), ("Id", other.Id.ToString())
+            })
+                form.Add(new StringContent(value), name);
+            if (remove is not null) form.Add(new StringContent(remove), "ImagesToDelete");
+            if (addValidFirst) form.Add(new ByteArrayContent(valid), field, "first.png");
+            if (bytes is not null)
+            {
+                var part = new ByteArrayContent(bytes);
+                part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/html");
+                form.Add(part, field, "client-name.html");
+            }
+            using var request = new HttpRequestMessage(method, path) { Content = form };
+            request.Headers.Add("X-Test-User", user);
+            using var response = await _client.SendAsync(request, ct);
+            return response.StatusCode;
+        }
+
+        var junk = Encoding.UTF8.GetBytes(fakeImage);
+        Assert.Equal(HttpStatusCode.Forbidden, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", valid, "Images", user: "user-b"));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Post, products, junk, "Images", addValidFirst: true));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", junk, "Images"));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Post, $"{categories}/with-image", junk));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Put, $"{categories}/{categoryId}/with-image", junk));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Post, carousels, junk));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Put, $"{carousels}/{carousel.Id}", junk));
+        Assert.Empty(store.Writes);
+
+        Assert.Equal(HttpStatusCode.Created, await SendAsync(HttpMethod.Post, $"{categories}/with-image", withTrailer));
+        Assert.Equal(HttpStatusCode.Created, await SendAsync(HttpMethod.Post, carousels, withTrailer));
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(HttpMethod.Put, $"{products}/{other.Id}", withTrailer, "Images"));
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", withTrailer, "Images"));
+        Assert.Equal(4, store.Writes.Count);
+        Assert.All(store.Writes, entry =>
+        {
+            Assert.Equal("image/png", entry.Type);
+            Assert.EndsWith(".png", entry.Key);
+            Assert.DoesNotContain("client-name", entry.Key);
+            Assert.DoesNotContain(fakeImage, Encoding.UTF8.GetString(entry.Bytes));
+        });
+        await db.Entry(product).ReloadAsync(ct);
+        await db.Entry(other).ReloadAsync(ct);
+        var ownUrl = Assert.Single(product.Images);
+        var otherUrl = Assert.Single(other.Images);
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", remove: otherUrl));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", remove: "https://elsewhere.test/file.png"));
+        Assert.Empty(store.Deletes);
+
+        // Legacy associations can contain a different bucket/host or be shared with another entity.
+        var foreignBucket = ownUrl.Replace(store.BucketScope, "other-bucket");
+        var foreignOwner = otherUrl;
+        var aliasHost = ownUrl.Replace("assets.example.test", "untrusted.example.test");
+        product.Images = [ownUrl, foreignBucket, foreignOwner, aliasHost];
+        await db.SaveChangesAsync(ct);
+        foreach (var url in new[] { foreignBucket, foreignOwner, aliasHost })
+            Assert.Equal(HttpStatusCode.OK, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", remove: url));
+        Assert.Empty(store.Deletes);
+
+        db.ChangeTracker.Clear();
+        product = await db.Products.SingleAsync(p => p.Id == _productId, ct);
+        var item = new OrderItem { ProductId = product.Id, OrderId = _userOrderId, Quantity = 1, Image = ownUrl };
+        db.OrderItems.Add(item);
+        await db.SaveChangesAsync(ct);
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", remove: ownUrl));
+        Assert.Empty(store.Deletes);
+
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", valid, "Images"));
+        await db.Entry(product).ReloadAsync(ct);
+        var unshared = Assert.Single(product.Images);
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(HttpMethod.Put, $"{products}/{product.Id}", remove: unshared));
+        Assert.Equal(unshared, store.PublicUrl(Assert.Single(store.Deletes)));
+        await db.Entry(other).ReloadAsync(ct);
+        Assert.Equal(otherUrl, Assert.Single(other.Images));
+    }
+
+    internal static byte[] RasterFixture(int width = 2, int height = 2, SkiaSharp.SKEncodedImageFormat format = SkiaSharp.SKEncodedImageFormat.Png)
+    {
+        using var bitmap = new SkiaSharp.SKBitmap(width, height);
+        bitmap.Erase(SkiaSharp.SKColors.Blue);
+        using var data = bitmap.Encode(format, 90);
+        return data.ToArray();
+    }
+
     public async ValueTask InitializeAsync()
     {
         _factory = new CheckoutApiFactory(ConnectionString);
@@ -54,6 +199,70 @@ public sealed class HttpSecurityTests : IAsyncLifetime
 
     private string ConnectionString =>
         PostgresTestDatabase.ConnectionString(_databaseName);
+
+    [Fact]
+    public async Task Product_rating_requires_the_callers_delivered_order_for_that_product()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var order = await context.Orders.SingleAsync(o => o.Id == _userOrderId, ct);
+        order.Status = OrderStatus.Cancelled;
+        order.Items.Add(new OrderItem { ProductId = _productId, Name = "HTTP Product", Quantity = 1 });
+        var deliveredOrder = new Order
+        {
+            AppUserId = order.AppUserId, ShippingAddressId = order.ShippingAddressId,
+            OrderNumber = "HTTP-DELIVERED", Status = OrderStatus.Delivered,
+            Items = [new OrderItem { ProductId = _productId, Name = "HTTP Product", Quantity = 1 }]
+        };
+        var unrelatedOrder = new Order
+        {
+            AppUserId = order.AppUserId, ShippingAddressId = order.ShippingAddressId,
+            OrderNumber = "HTTP-UNRELATED", Status = OrderStatus.Delivered
+        };
+        context.Orders.AddRange(deliveredOrder, unrelatedOrder);
+        await context.SaveChangesAsync(ct);
+
+        var path = $"/api/products/{_productId}/ratings";
+
+        async Task<HttpStatusCode> RateAsync(int? orderId, string? userId = "user-b")
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, path);
+            request.Content = orderId is int id
+                ? JsonContent.Create(new { productId = _productId, orderId = id, content = "Test review", ratingNumber = 5,
+                    createdBy = "user-a", reviewerUserId = "user-a" })
+                : JsonContent.Create(new { productId = _productId, content = "Test review", ratingNumber = 5 });
+            if (userId is not null) request.Headers.Add("X-Test-User", userId);
+            using var response = await _client.SendAsync(request, ct);
+            return response.StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await RateAsync(deliveredOrder.Id, null));
+        Assert.Equal(HttpStatusCode.BadRequest, await RateAsync(null));
+        Assert.Equal(HttpStatusCode.Forbidden, await RateAsync(order.Id));
+        Assert.Equal(HttpStatusCode.Forbidden, await RateAsync(deliveredOrder.Id, "user-a"));
+        Assert.Equal(HttpStatusCode.Forbidden, await RateAsync(unrelatedOrder.Id));
+        Assert.False(await context.Ratings.AnyAsync(ct));
+
+        var concurrent = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => RateAsync(deliveredOrder.Id)));
+        Assert.Single(concurrent, result => result == HttpStatusCode.Created);
+        Assert.Equal(7, concurrent.Count(result => result == HttpStatusCode.Conflict));
+        Assert.Equal(HttpStatusCode.Conflict, await RateAsync(deliveredOrder.Id));
+        var rating = await context.Ratings.SingleAsync(ct);
+        Assert.Equal("user-b", rating.CreatedBy);
+        Assert.Equal("user-b", rating.ReviewerUserId);
+        Assert.Equal(_productId, rating.ProductId);
+
+        async Task<HttpStatusCode> GetOwnAsync(string userId)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/products/if-rating-return-it?productId={_productId}&userId=user-b");
+            request.Headers.Add("X-Test-User", userId);
+            using var response = await _client.SendAsync(request, ct);
+            return response.StatusCode;
+        }
+        Assert.Equal(HttpStatusCode.NotFound, await GetOwnAsync("user-a"));
+        Assert.Equal(HttpStatusCode.OK, await GetOwnAsync("user-b"));
+    }
 
     [Fact]
     public async Task WhatsApp_management_requires_admin_and_public_pdf_requires_capability()
@@ -169,6 +378,41 @@ public sealed class HttpSecurityTests : IAsyncLifetime
         Assert.Single(order.Items);
         Assert.Equal(4, order.Items[0].Quantity);
         Assert.Equal(1, await context.Products.Where(item => item.Id == _productId).Select(item => item.TotalInStock).SingleAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Checkout_retry_after_discarded_success_response_does_not_repeat_financial_or_inventory_writes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var payload = new
+        {
+            items = new[] { new { productId = _productId, quantity = 1 } },
+            shippingAddress = new { fullName = "Retry Fixture", phone = "50000000", street = "Fixture Street" },
+            paymentMethod = (int)PaymentMethod.Cod
+        };
+        async Task<HttpResponseMessage> CheckoutAsync(HttpClient client)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/orders") { Content = JsonContent.Create(payload) };
+            request.Headers.Add("Idempotency-Key", "synthetic-checkout-lost-response-regression");
+            return await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+        }
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EcomDbContext>();
+        var initialStock = await db.Products.Where(p => p.Id == _productId).Select(p => p.TotalInStock).SingleAsync(ct);
+        using (var discarded = await CheckoutAsync(_client))
+            Assert.Equal(HttpStatusCode.Created, discarded.StatusCode);
+        var committed = await db.Orders.Where(o => o.CheckoutIdempotencyKeyHash != null).Select(o => o.Id).SingleAsync(ct);
+
+        await using var secondHost = new CheckoutApiFactory(ConnectionString);
+        using var secondClient = secondHost.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var retried = await CheckoutAsync(secondClient);
+        Assert.Equal(HttpStatusCode.Created, retried.StatusCode);
+        var body = await retried.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+        Assert.Equal(committed, body.GetProperty("orderId").GetInt32());
+        Assert.Equal(1, await db.Orders.CountAsync(o => o.CheckoutIdempotencyKeyHash != null, ct));
+        Assert.Equal(1, await db.Transactions.CountAsync(t => t.OrderId == committed, ct));
+        Assert.Equal(1, await db.InventoryReservations.CountAsync(r => r.OrderId == committed, ct));
+        Assert.Equal(initialStock - 1, await db.Products.Where(p => p.Id == _productId).Select(p => p.TotalInStock).SingleAsync(ct));
     }
 
     [Fact]
@@ -476,6 +720,7 @@ public sealed class HttpSecurityTests : IAsyncLifetime
 internal sealed class CheckoutApiFactory(string connectionString) : WebApplicationFactory<Program>
 {
     public CountingSadadHandler SadadHandler { get; } = new();
+    public FakeCatalogStorage Catalog { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -510,7 +755,29 @@ internal sealed class CheckoutApiFactory(string connectionString) : WebApplicati
             services.RemoveAll<IGupshupWhatsAppService>();
             services.AddSingleton<TestGupshupSender>();
             services.AddSingleton<IGupshupWhatsAppService>(sp => sp.GetRequiredService<TestGupshupSender>());
+            services.RemoveAll<ICatalogObjectStorage>();
+            services.AddSingleton<ICatalogObjectStorage>(Catalog);
         });
+    }
+}
+
+internal sealed class FakeCatalogStorage : ICatalogObjectStorage
+{
+    public string BucketScope => "test-bucket";
+    public List<(string Key, byte[] Bytes, string Type)> Writes { get; } = [];
+    public List<string> Deletes { get; } = [];
+
+    public string PublicUrl(string key) => $"https://assets.example.test/{key}";
+    public async Task PutAsync(string key, Stream image, string contentType)
+    {
+        using var output = new MemoryStream();
+        await image.CopyToAsync(output);
+        Writes.Add((key, output.ToArray(), contentType));
+    }
+    public Task DeleteAsync(string key)
+    {
+        Deletes.Add(key);
+        return Task.CompletedTask;
     }
 }
 

@@ -1,0 +1,306 @@
+{
+  "calls": [
+    {
+      "method": "POST",
+      "route": "/api/Auth/login",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/register",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/verify",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/login",
+      "expected": 200,
+      "actual": 200,
+      "actor": "fixture",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/addresses",
+      "expected": 401,
+      "actual": 401,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/addresses",
+      "expected": 400,
+      "actual": 400,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Auth/addresses",
+      "expected": 201,
+      "actual": 201,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Auth/addresses/5",
+      "expected": 401,
+      "actual": 401,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Auth/addresses/5",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Auth/addresses/5",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Auth/addresses",
+      "expected": 200,
+      "actual": 200,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "PUT",
+      "route": "/api/Auth/addresses",
+      "expected": 401,
+      "actual": 401,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "PUT",
+      "route": "/api/Auth/addresses",
+      "expected": 400,
+      "actual": 400,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "PUT",
+      "route": "/api/Auth/addresses",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "DELETE",
+      "route": "/api/Auth/addresses/5",
+      "expected": 401,
+      "actual": 401,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "DELETE",
+      "route": "/api/Auth/addresses/5",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "PUT",
+      "route": "/api/Auth/addresses",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "DELETE",
+      "route": "/api/Auth/addresses/5",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Auth/addresses/5",
+      "expected": 404,
+      "actual": 404,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "POST",
+      "route": "/api/Orders",
+      "expected": 201,
+      "actual": 201,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3",
+      "expected": 404,
+      "actual": 404,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/number/ORD-20261114-0002",
+      "expected": 404,
+      "actual": 404,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/number/ORD-20261114-0002",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/number/ORD-20261114-0002",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/transactions",
+      "expected": 404,
+      "actual": 404,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/transactions",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/transactions",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/payment-status",
+      "expected": 404,
+      "actual": 404,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/payment-status",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/payment-status",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/invoice-payment",
+      "expected": 404,
+      "actual": 404,
+      "actor": "anonymous",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/invoice-payment",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    },
+    {
+      "method": "GET",
+      "route": "/api/Orders/3/invoice-payment",
+      "expected": 200,
+      "actual": 200,
+      "actor": "owner",
+      "passed": true
+    },
+    {
+      "method": "PUT",
+      "route": "/api/Orders/3/cancel",
+      "expected": 404,
+      "actual": 404,
+      "actor": "other customer",
+      "passed": true
+    }
+  ],
+  "invariants": [
+    "Denied operations left all address fields unchanged",
+    "Owner update persisted and owner deletion removed the unused address",
+    "Denied order reads and cancellation preserved all order and transaction fields"
+  ],
+  "completed": true
+}

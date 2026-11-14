@@ -1,6 +1,10 @@
 using Ecom.Application.DTOs.Common;
 using Ecom.Application.DTOs.Product;
+using Ecom.Application.Services;
+using System.Security.Claims;
 using Ecom.Application.Services.Interfaces;
+using Ecom.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -135,6 +139,7 @@ namespace Ecom.API.Controllers
         }
 
         [HttpPost]
+        [RequestSizeLimit(CatalogImageOptions.RequestBytes)]
         public async Task<ActionResult<ProductDto>> CreateProduct(
             [FromForm] ProductCreateWithFilesDto productDto)
         {
@@ -148,13 +153,14 @@ namespace Ecom.API.Controllers
                 var product = await _productService.CreateProductWithFilesAsync(productDto);
                 return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
             }
-            catch (Exception ex)
+            catch (CatalogImageException ex)
             {
                 return BadRequest(ex.Message);
             }
         }
 
         [HttpPut("{id}")]
+        [RequestSizeLimit(CatalogImageOptions.RequestBytes)]
         public async Task<ActionResult<ProductDto>> UpdateProduct(
             int id,
             [FromForm] ProductUpdateWithFilesDto productDto)
@@ -175,9 +181,13 @@ namespace Ecom.API.Controllers
             {
                 return NotFound(ex.Message);
             }
-            catch (Exception ex)
+            catch (CatalogImageException ex)
             {
                 return BadRequest(ex.Message);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict("The product changed while it was being edited. Reload it and try again.");
             }
         }
 
@@ -231,14 +241,25 @@ namespace Ecom.API.Controllers
                 return BadRequest(ModelState);
             }
 
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
             try
             {
-                var rating = await _productService.AddProductRatingAsync(ratingDto);
+                var rating = await _productService.AddProductRatingAsync(userId, ratingDto);
                 return CreatedAtAction(nameof(GetProductRatings), new { id = id }, rating);
             }
-            catch (Exception ex)
+            catch (DuplicateRatingException ex)
             {
-                return BadRequest(ex.Message);
+                return Conflict(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden);
             }
         }
 

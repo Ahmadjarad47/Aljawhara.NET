@@ -1,0 +1,5 @@
+{
+  "exitCode": 0,
+  "build": "Fresh copied Angular development build, with recovery and ledger changes",
+  "flow": "Request by form, read synthetic mailbox, follow link, enter code, reject invalid and expired code, request new code, reset, reject consumed code, sign in, assert no recovery material in URL/logs/storage"
+}

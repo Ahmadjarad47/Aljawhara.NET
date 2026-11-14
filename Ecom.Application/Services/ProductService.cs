@@ -1,11 +1,15 @@
 using AutoMapper;
 using Ecom.Application.DTOs.Product;
 using Ecom.Application.Services.Interfaces;
-using Ecom.Domain.Interfaces;
+using Ecom.Domain.constant;
+using Ecom.Infrastructure.Data;
+using Ecom.Infrastructure.Services;
+using Microsoft.Extensions.Logging;
 using Ecom.Domain.Entity;
 using Ecom.Infrastructure.UnitOfWork;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Ecom.Application.Services
 {
@@ -13,14 +17,17 @@ namespace Ecom.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IFileService _fileService;
+        private readonly CatalogImageService _images;
+        private readonly ILogger<ProductService>? _logger;
         private readonly UserManager<AppUsers> _userManager;
 
-        public ProductService(IUnitOfWork unitOfWork, IMapper mapper, IFileService fileService, UserManager<AppUsers> userManager)
+        public ProductService(IUnitOfWork unitOfWork, IMapper mapper, CatalogImageService images, UserManager<AppUsers> userManager,
+            ILogger<ProductService>? logger = null)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _fileService = fileService;
+            _images = images;
+            _logger = logger;
             _userManager = userManager;
         }
 
@@ -59,7 +66,7 @@ namespace Ecom.Application.Services
 
         public async Task<IEnumerable<ProductSummaryDto>> SearchProductsAsync(string searchTerm)
         {
-            var products = await _unitOfWork.Products.SearchProductsAsync(searchTerm);
+            var products = await _unitOfWork.Products.SearchProductsAsync(searchTerm, includeDetails: false);
             return _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
         }
 
@@ -91,7 +98,8 @@ namespace Ecom.Application.Services
                 newArrival: newArrival,
                 bestDiscount: bestDiscount,
                 pageNumber: pageNumber,
-                pageSize: pageSize);
+                pageSize: pageSize,
+                includeDetails: false);
 
             var productDtos = _mapper.Map<IEnumerable<ProductSummaryDto>>(products);
             return (productDtos, totalCount);
@@ -142,27 +150,10 @@ namespace Ecom.Application.Services
         {
             var product = _mapper.Map<Product>(productDto);
 
-            // Handle file uploads if images are provided
-            if (productDto.Images != null && productDto.Images.Count > 0)
+            if (productDto.Images is { Count: > 0 })
             {
-                var imageUrls = new List<string>();
-                var directory = $"products/{DateTime.UtcNow:yyyy/MM/dd}";
-
-                foreach (var image in productDto.Images)
-                {
-                    try
-                    {
-                        var imageUrl = await _fileService.SaveFileAsync(image, directory);
-                        imageUrls.Add(imageUrl);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log the error but continue with other images
-                        Console.WriteLine($"Error uploading image {image.FileName}: {ex.Message}");
-                    }
-                }
-
-                product.Images = imageUrls.ToArray();
+                product.ImageOwnerId = Guid.NewGuid();
+                product.Images = await _images.UploadAsync(productDto.Images.ToArray(), CatalogImageArea.Products, product.ImageOwnerId.Value);
             }
 
             // Handle Variants
@@ -263,8 +254,19 @@ namespace Ecom.Application.Services
             if (existingProduct == null)
                 throw new ArgumentException($"Product with ID {productDto.Id} not found.");
 
-            // Store old image URLs for deletion
-            var oldImageUrls = existingProduct.Images?.ToList() ?? new List<string>();
+            var oldImageUrls = existingProduct.Images;
+            var removals = (productDto.ImagesToDelete ?? []).ToHashSet(StringComparer.Ordinal);
+            if (removals.Any(url => !oldImageUrls.Contains(url, StringComparer.Ordinal)))
+                throw new CatalogImageException("An image selected for removal does not belong to this product.");
+
+            var newUrls = Array.Empty<string>();
+            if (productDto.Images is { Count: > 0 })
+            {
+                existingProduct.ImageOwnerId ??= Guid.NewGuid();
+                newUrls = await _images.UploadAsync(productDto.Images.ToArray(), CatalogImageArea.Products,
+                    existingProduct.ImageOwnerId.Value);
+            }
+            existingProduct.Images = oldImageUrls.Where(url => !removals.Contains(url)).Concat(newUrls).ToArray();
 
             // Map basic properties, including localized fields
             existingProduct.Title = productDto.Title;
@@ -314,67 +316,41 @@ namespace Ecom.Application.Services
                 }
             }
 
-            // Handle image deletions first
-            if (productDto.ImagesToDelete != null && productDto.ImagesToDelete.Count > 0)
-            {
-                var remainingImages = oldImageUrls.Where(url => !productDto.ImagesToDelete.Contains(url)).ToList();
-                existingProduct.Images = remainingImages.ToArray();
-
-                // Delete specified images
-                foreach (var imageUrlToDelete in productDto.ImagesToDelete)
-                {
-                    try
-                    {
-                        await _fileService.DeleteFileAsync(imageUrlToDelete);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log the error but continue with other deletions
-                        Console.WriteLine($"Error deleting image {imageUrlToDelete}: {ex.Message}");
-                    }
-                }
-            }
-
-            // Handle new file uploads if images are provided
-            if (productDto.Images != null && productDto.Images.Count > 0)
-            {
-                var imageUrls = new List<string>();
-                var directory = $"products/{DateTime.UtcNow:yyyy/MM/dd}";
-
-                foreach (var image in productDto.Images)
-                {
-                    try
-                    {
-                        var imageUrl = await _fileService.SaveFileAsync(image, directory);
-                        imageUrls.Add(imageUrl);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log the error but continue with other images
-                        Console.WriteLine($"Error uploading image {image.FileName}: {ex.Message}");
-                    }
-                }
-
-                // Add new images to existing ones (if no deletions were specified)
-                if (productDto.ImagesToDelete == null || productDto.ImagesToDelete.Count == 0)
-                {
-                    var allImages = oldImageUrls.Concat(imageUrls).ToArray();
-                    existingProduct.Images = allImages;
-                }
-                else
-                {
-                    // If deletions were specified, add new images to remaining ones
-                    var remainingImages = oldImageUrls.Where(url => !productDto.ImagesToDelete.Contains(url)).ToList();
-                    remainingImages.AddRange(imageUrls);
-                    existingProduct.Images = remainingImages.ToArray();
-                }
-            }
-
             _unitOfWork.Products.Update(existingProduct);
             await _unitOfWork.SaveChangesAsync();
 
+            if (existingProduct.ImageOwnerId is Guid owner)
+                await DeleteUnreferencedProductImagesAsync(owner, oldImageUrls.Where(removals.Contains).Distinct());
+
             var updatedProduct = await _unitOfWork.Products.GetProductWithDetailsAsync(productDto.Id);
             return _mapper.Map<ProductDto>(updatedProduct);
+        }
+
+        private async Task DeleteUnreferencedProductImagesAsync(Guid owner, IEnumerable<string> removedUrls)
+        {
+            var db = (EcomDbContext)_unitOfWork.Context;
+            foreach (var url in removedUrls)
+            {
+                var key = _images.OwnedProductKey(owner, url);
+                if (key is null)
+                    continue; // Preserve objects with unknown provenance, including all legacy URLs.
+
+                try
+                {
+                    if (await db.Products.IgnoreQueryFilters().AnyAsync(p => p.Images.Contains(url)) ||
+                        await db.Categories.IgnoreQueryFilters().AnyAsync(c => c.Image == url) ||
+                        await db.Carousels.IgnoreQueryFilters().AnyAsync(c => c.Image == url) ||
+                        await db.OrderItems.IgnoreQueryFilters().AnyAsync(i => i.Image == url))
+                        continue;
+
+                    await _images.DeleteProductObjectAsync(key);
+                }
+                catch (Exception ex)
+                {
+                    // The association was already removed; retain the object on any uncertainty.
+                    _logger?.LogWarning("Catalog object cleanup deferred. FailureType={FailureType}", ex.GetType().Name);
+                }
+            }
         }
 
         public async Task<bool> DeleteProductAsync(int id)
@@ -388,25 +364,67 @@ namespace Ecom.Application.Services
             return true;
         }
 
-        public async Task<RatingDto> AddProductRatingAsync(RatingCreateDto ratingDto)
+        public async Task<RatingDto?> AddCustomerProductRatingAsync(string userId, int orderId, RatingCreateDto ratingDto)
         {
-            var rating = _mapper.Map<Rating>(ratingDto);
+            // Storefront rule: one review per account and product, after delivery of
+            // an order owned by that account with that product as a live line item.
+            var eligible = await _unitOfWork.Orders.ExistsAsync(order =>
+                order.Id == orderId && order.AppUserId == userId && order.Status == OrderStatus.Delivered &&
+                order.Items.Any(item => item.ProductId == ratingDto.ProductId && !item.IsDeleted && item.Product.IsActive && !item.Product.IsDeleted));
 
+            return eligible ? await AddProductRatingAsync(userId, ratingDto) : null;
+        }
+
+        public async Task<RatingDto> AddProductRatingAsync(string userId, RatingCreateDto ratingDto)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user is null || !user.IsActive || user.LockoutEnd > DateTimeOffset.UtcNow)
+                throw new InvalidOperationException("An active reviewer account is required.");
+
+            if (!await _unitOfWork.Products.ExistsAsync(p => p.Id == ratingDto.ProductId && p.IsActive))
+                throw new ArgumentException("Product not found.");
+
+            var db = (EcomDbContext)_unitOfWork.Context;
+            // Preserve legacy reviews and count their existing author attribution for eligibility.
+            if (await db.Ratings.IgnoreQueryFilters().AnyAsync(r => r.ProductId == ratingDto.ProductId &&
+                (r.ReviewerUserId == userId || (r.ReviewerUserId == null && r.CreatedBy == userId))))
+                throw new DuplicateRatingException();
+
+            var rating = new Rating
+            {
+                ProductId = ratingDto.ProductId,
+                Content = ratingDto.Content,
+                RatingNumber = ratingDto.RatingNumber,
+                ReviewerUserId = user.Id
+            };
             await _unitOfWork.Ratings.AddAsync(rating);
-            await _unitOfWork.SaveChangesAsync();
+            try
+            {
+                await _unitOfWork.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+                { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "UX_Ratings_Product_Reviewer" })
+            {
+                db.Entry(rating).State = EntityState.Detached;
+                throw new DuplicateRatingException();
+            }
 
             var result = _mapper.Map<RatingDto>(rating);
-            
-            // Populate RatingName from user
-            if (!string.IsNullOrEmpty(rating.CreatedBy))
-            {
-                var user = await _userManager.FindByIdAsync(rating.CreatedBy);
-                if (user != null)
-                {
-                    result.RatingName = user.UserName ?? string.Empty;
-                }
-            }
-            
+            result.RatingName = user.UserName ?? string.Empty;
+            return result;
+        }
+
+        public async Task<RatingDto?> GetOwnProductRatingAsync(int productId, string userId)
+        {
+            var db = (EcomDbContext)_unitOfWork.Context;
+            var rating = await db.Ratings.AsNoTracking().Where(r => r.ProductId == productId &&
+                    (r.ReviewerUserId == userId || (r.ReviewerUserId == null && r.CreatedBy == userId)))
+                .OrderByDescending(r => r.ReviewerUserId != null).ThenByDescending(r => r.Id).FirstOrDefaultAsync();
+            if (rating is null)
+                return null;
+
+            var result = _mapper.Map<RatingDto>(rating);
+            result.RatingName = (await _userManager.FindByIdAsync(userId))?.UserName ?? string.Empty;
             return result;
         }
 
@@ -424,9 +442,9 @@ namespace Ecom.Application.Services
             }
             
             // Get unique user IDs from ratings
-            var userIds = ratingDtos
-                .Where(r => !string.IsNullOrEmpty(r.CreatedBy))
-                .Select(r => r.CreatedBy)
+            var userIds = ratingsList
+                .Select(r => r.ReviewerUserId ?? r.CreatedBy)
+                .Where(id => !string.IsNullOrEmpty(id))
                 .Distinct()
                 .ToList();
             
@@ -446,11 +464,12 @@ namespace Ecom.Application.Services
             }
             
             // Populate RatingName for each rating
-            foreach (var ratingDto in ratingDtos)
+            for (var i = 0; i < ratingDtos.Count; i++)
             {
-                if (!string.IsNullOrEmpty(ratingDto.CreatedBy) && usersDict.TryGetValue(ratingDto.CreatedBy, out var userName))
+                var author = ratingsList[i].ReviewerUserId ?? ratingsList[i].CreatedBy;
+                if (!string.IsNullOrEmpty(author) && usersDict.TryGetValue(author, out var userName))
                 {
-                    ratingDto.RatingName = userName;
+                    ratingDtos[i].RatingName = userName;
                 }
             }
             
