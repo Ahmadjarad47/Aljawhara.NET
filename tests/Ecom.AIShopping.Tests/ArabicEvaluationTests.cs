@@ -18,8 +18,8 @@ namespace Ecom.AIShopping.Tests;
 
 public sealed class ArabicEvaluationTests
 {
-    public static bool PaidLiveEnabled => Environment.GetEnvironmentVariable("ECOM_ALLOW_PAID_AI_TESTS") == "1" &&
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AIShopping__ApiKey"));
+    //public static bool PaidLiveEnabled => Environment.GetEnvironmentVariable("ECOM_ALLOW_PAID_AI_TESTS") == "1" &&
+    //    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AIShopping__ApiKey"));
     private sealed record Scenario(string Id, string[] Messages, int People, decimal? Budget, string? Material, string ExpectedNeed, string[] Checks);
     private static Scenario[] Scenarios() => JsonSerializer.Deserialize<Scenario[]>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "evaluation-scenarios.json")), ShoppingJson.Options)!;
 

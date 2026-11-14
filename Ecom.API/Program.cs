@@ -32,7 +32,7 @@ using Ecom.Application.Telegram;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<ForwardedHeadersOptions>(TrustedReverseProxy.Configure);
-builder.Services.AddAIShopping(builder.Configuration);
+//builder.Services.AddAIShopping(builder.Configuration);
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ShoppingIdentity>();
 builder.Services.AddSingleton<ShoppingRequestGate>();
