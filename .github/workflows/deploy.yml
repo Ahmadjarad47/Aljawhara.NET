@@ -25,7 +25,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-    
+      - name: Publish API
+        run: |
+          dotnet publish Ecom.API/Ecom.API.csproj -c Release -o Ecom.API/publish
+          find Ecom.API/publish -maxdepth 1 -name 'appsettings*.json' -delete
 
       - name: Upload and activate verified release
         env:
@@ -38,6 +41,8 @@ jobs:
           chmod 0600 "$key_file"
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$key_file"
           unset SSH_PRIVATE_KEY
+          test -f Ecom.API/publish/Ecom.API.dll
+          test -f Ecom.API/publish/deploy/activate-release.sh
           ssh_options=(-i "$key_file" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes
             -o "UserKnownHostsFile=$GITHUB_WORKSPACE/deploy/ubuntu/known_hosts"
             -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
